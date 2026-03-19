@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-docker-foundation-capstone-02-PLAN.md
-last_updated: "2026-03-19T12:21:42.588Z"
+stopped_at: Completed 04-docker-foundation-capstone-03-PLAN.md
+last_updated: "2026-03-19T12:27:38.950Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 25
 ---
 
@@ -63,6 +63,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 03-networking-foundations P03 | 4min | 2 tasks | 22 files |
 | Phase 04-docker-foundation-capstone P01 | 7min | 2 tasks | 7 files |
 | Phase 04-docker-foundation-capstone P02 | 9min | 2 tasks | 5 files |
+| Phase 04-docker-foundation-capstone P03 | 12min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -106,6 +107,8 @@ Recent decisions affecting current work:
 - [Phase 04-docker-foundation-capstone]: [Phase 04-docker-foundation-capstone P02]: HEALTHCHECK in Dockerfile.optimized uses wget not curl — Alpine includes wget by default; curl is not pre-installed
 - [Phase 04-docker-foundation-capstone]: [Phase 04-docker-foundation-capstone P02]: DOC-05 networking: Docker embedded DNS 127.0.0.11 explicitly bridged to Phase 3 DNS resolution chain knowledge
 - [Phase 04-docker-foundation-capstone]: [Phase 04-docker-foundation-capstone P02]: Dockerfile.optimized adds chown -R appuser:appgroup /app after COPY --from=builder — files from builder stage are owned by root
+- [Phase 04-docker-foundation-capstone]: 09-foundation-capstone.mdx stub created in plan 04-03 so integration test passes immediately — plan 04-04 overwrites with full capstone content
+- [Phase 04-docker-foundation-capstone]: verify-volumes.sh write/read persistence test uses busybox:latest to avoid dependency on exercise app image being built
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T12:21:42.585Z
-Stopped at: Completed 04-docker-foundation-capstone-02-PLAN.md
+Last session: 2026-03-19T12:27:32.504Z
+Stopped at: Completed 04-docker-foundation-capstone-03-PLAN.md
 Resume file: None
