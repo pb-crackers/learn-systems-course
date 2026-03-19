@@ -1,0 +1,295 @@
+---
+title: "What Are Containers? Namespaces, cgroups, and Overlay FS"
+description: "Containers are not lightweight VMs — they are isolated Linux processes using kernel features you already know: namespaces, cgroups, and overlay filesystems"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "01-what-are-containers"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 22
+prerequisites: ["01-linux-fundamentals/05-processes", "01-linux-fundamentals/03-linux-filesystem"]
+tags: ["containers", "namespaces", "cgroups", "overlay-fs", "docker", "kernel", "linux"]
+---
+
+## Overview
+
+Your team lead says "just Docker it" — but what IS a container? The answer matters more than it seems. Teams that treat containers as magic black boxes hit confusing problems: processes that can't find their files, ports that appear open but aren't reachable, memory limits that kill processes without warning. Teams that understand what containers are debug these problems in minutes.
+
+Here is the key fact: **a container is not a lightweight VM**. There is no guest OS, no hypervisor, no hardware emulation. A container is an isolated Linux process — or group of processes — using three kernel features you already learned about: namespaces (for isolation), cgroups (for resource limits), and overlay filesystems (for the image layer system). This lesson traces each feature to its Linux foundation.
+
+## How It Works
+
+### Linux Namespaces: Process-Level Isolation
+
+A **namespace** wraps a global Linux resource so that processes inside the namespace see their own isolated instance of that resource. When Docker creates a container, it calls the `clone()` system call with namespace flags — the new process starts in fresh namespaces, isolated from everything outside.
+
+Linux provides six namespaces Docker uses for containers:
+
+| Namespace | Flag | What It Isolates |
+|-----------|------|-----------------|
+| PID | `CLONE_NEWPID` | Process IDs — container thinks its first process is PID 1 |
+| NET | `CLONE_NEWNET` | Network interfaces, routing tables, iptables rules |
+| MNT | `CLONE_NEWNS` | Filesystem mount points — container sees its own tree |
+| UTS | `CLONE_NEWUTS` | Hostname and NIS domain name |
+| IPC | `CLONE_NEWIPC` | System V IPC, POSIX message queues |
+| USER | `CLONE_NEWUSER` | User and group IDs — map container root to non-root on host |
+
+<Callout type="deep-dive" title="Remember PID Namespaces from Lesson 5?">
+In Linux Fundamentals Lesson 5 (Processes), you learned that each process has a PID visible in `/proc`. When Docker creates a container, it calls `clone()` with the `CLONE_NEWPID` flag — the container gets its own PID namespace. The first process inside the container is assigned PID 1. From the host's perspective, the same process has a completely different PID (whatever the kernel assigned in the host's PID namespace).
+
+This is why `docker inspect mybox --format "{{.State.Pid}}"` returns something like `12345` — that is the PID you will find in `/proc/12345/ns/` on the HOST. Inside the container, that same process believes it is PID 1.
+</Callout>
+
+You can see namespace links directly in `/proc`. Every namespace is represented as a symbolic link in `/proc/<PID>/ns/`:
+
+<TerminalBlock
+  title="Inspect namespace links for a container process"
+  lines={[
+    { type: 'comment', content: 'Start a container in the background' },
+    { type: 'command', content: 'docker run -d --name mybox ubuntu:22.04 sleep infinity' },
+    { type: 'output', content: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' },
+    { type: 'comment', content: 'Find its PID from the host perspective (your PID will differ)' },
+    { type: 'command', content: 'docker inspect mybox --format "{{.State.Pid}}"' },
+    { type: 'output', content: '12345' },
+    { type: 'comment', content: 'View its namespace links — notice the inode numbers (e.g. 4026532345)' },
+    { type: 'command', content: 'ls -la /proc/12345/ns/' },
+    { type: 'output', content: 'lrwxrwxrwx 1 root root 0 ... cgroup -> cgroup:[4026531835]' },
+    { type: 'output', content: 'lrwxrwxrwx 1 root root 0 ... ipc -> ipc:[4026532345]' },
+    { type: 'output', content: 'lrwxrwxrwx 1 root root 0 ... net -> net:[4026532346]' },
+    { type: 'output', content: 'lrwxrwxrwx 1 root root 0 ... pid -> pid:[4026532347]' },
+    { type: 'output', content: 'lrwxrwxrwx 1 root root 0 ... uts -> uts:[4026532348]' },
+    { type: 'comment', content: 'Compare: your shell process uses the HOST namespaces (different inode numbers)' },
+    { type: 'command', content: 'ls -la /proc/$$/ns/' },
+    { type: 'output', content: 'lrwxrwxrwx 1 user user 0 ... net -> net:[4026531992]' },
+    { type: 'output', content: 'lrwxrwxrwx 1 user user 0 ... pid -> pid:[4026531836]' },
+  ]}
+/>
+
+The different inode numbers (e.g., `net:[4026532346]` vs `net:[4026531992]`) prove the container is using a different namespace instance. The container has its own network — its own interfaces, routing table, and iptables rules — completely separate from the host.
+
+<Callout type="tip" title="Networking Module Bridge to Docker">
+In the Networking module you learned about network interfaces — each device has its own interfaces and routing table. Each container gets its own NET namespace with its own virtual ethernet interface (typically named `eth0` inside the container). Docker creates a `veth` pair — one end inside the container namespace, one end attached to the `docker0` bridge on the host. When you run `ip link show` on the host after starting a container, you will see `docker0` and a `veth...` interface. That IS the container's network plumbing.
+</Callout>
+
+### Control Groups (cgroups): Resource Limits
+
+Namespaces provide isolation — but an isolated process could still consume all available CPU or memory, starving other processes. **Control Groups (cgroups)** are the kernel mechanism that limits, accounts for, and isolates resource usage of process groups.
+
+Docker uses cgroups to enforce resource limits set by `--memory` and `--cpus` flags. Internally, Docker writes values to files in the cgroup filesystem at `/sys/fs/cgroup/`.
+
+**cgroup v2 hierarchy** (modern Linux — the default since kernel 5.x):
+
+```
+/sys/fs/cgroup/
+├── system.slice/                    ← systemd services
+├── user.slice/                      ← user sessions
+└── docker/                          ← all Docker containers
+    └── a1b2c3d4e5f6.../             ← per-container cgroup
+        ├── memory.max               ← max memory in bytes
+        ├── cpu.max                  ← CPU quota and period
+        ├── io.max                   ← I/O limits per device
+        └── pids.max                 ← max number of processes
+```
+
+Each file is a text file you can read (and, as root, write). Docker writes to these files when you use `--memory` or `--cpus` flags. When the container process exceeds `memory.max`, the kernel OOM killer terminates it — that is why containers can be killed without warning when they exceed their memory limit.
+
+<TerminalBlock
+  title="Inspect Docker's cgroup limits on a running container"
+  lines={[
+    { type: 'comment', content: 'Run a container with resource limits' },
+    { type: 'command', content: 'docker run -d --name limited --memory=128m --cpus=0.5 ubuntu:22.04 sleep infinity' },
+    { type: 'output', content: 'b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'Find the cgroup path for this container (cgroup v2)' },
+    { type: 'command', content: 'docker inspect limited --format "{{.Id}}"' },
+    { type: 'output', content: 'b2c3d4e5f6a7b2c3d4e5f6a7b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'Read the memory limit Docker wrote to the cgroup file' },
+    { type: 'command', content: 'cat /sys/fs/cgroup/system.slice/docker-b2c3d4e5f6a7*.scope/memory.max' },
+    { type: 'output', content: '134217728' },
+    { type: 'comment', content: '134217728 bytes = 128 MiB — exactly what --memory=128m set' },
+    { type: 'command', content: 'docker rm -f limited' },
+  ]}
+/>
+
+<Callout type="tip" title="cgroup v1 vs v2">
+Older systems use cgroup v1, which has a different hierarchy (separate directories per subsystem under `/sys/fs/cgroup/memory/`, `/sys/fs/cgroup/cpu/`, etc.). Modern Linux distributions (Ubuntu 22.04+, Fedora 31+) use cgroup v2, which unifies all resource controllers under a single hierarchy. Docker 20.10+ supports both. The concepts are identical — only the file paths differ.
+</Callout>
+
+### Union/Overlay Filesystem: Image Layers
+
+The third kernel feature containers rely on is the **overlay filesystem** (overlayfs). This is what makes Docker image layers possible.
+
+<Callout type="deep-dive" title="Remember Filesystems from Lesson 3?">
+In Linux Fundamentals Lesson 3 (Linux Filesystem), you learned about mount points — how a filesystem is attached at a directory, and how `/proc` and `/sys` are special virtual filesystems. The overlay filesystem is another special filesystem, but its purpose is to merge multiple directory trees into a single unified view.
+</Callout>
+
+The overlay filesystem has three components:
+
+```
+Overlay FS Structure
+─────────────────────────────────────────────────────────────────────
+
+  upper (writable layer)       ← container-specific changes
+  ┌──────────────────────────────────────────────────────────────┐
+  │  /app/new-file.txt   (created inside container)              │
+  │  /etc/hosts          (modified — whiteout of lower layer)    │
+  └──────────────────────────────────────────────────────────────┘
+           ↕  merged view (what the container sees)
+  lower (read-only layers)     ← image layers, stacked
+  ┌──────────────────────────────────────────────────────────────┐
+  │  Layer 3: /app/app.js, /app/package.json (COPY instruction)  │
+  │  Layer 2: /app/node_modules/ (RUN npm install instruction)   │
+  │  Layer 1: /usr, /bin, /etc ... (FROM node:20 base image)     │
+  └──────────────────────────────────────────────────────────────┘
+           ↕  workdir (internal — tracks changes to upper)
+  work directory (internal)    ← kernel bookkeeping
+```
+
+**Copy-on-write**: When a container modifies a file that exists in a lower layer, the overlay filesystem copies that file to the upper layer first, then modifies the copy. The lower layers are never changed. This is why multiple containers can share the same image layers without interfering with each other.
+
+When a container is deleted, its upper (writable) layer is discarded. The lower layers remain — they are the image, and they are shared by every container based on that image.
+
+### Putting It Together: What `docker run` Actually Does
+
+When you run `docker run -d ubuntu:22.04 sleep infinity`, here is the sequence:
+
+```
+docker run sequence
+────────────────────────────────────────────────────────────────────
+
+  1. Docker daemon prepares the overlay filesystem
+     - Stacks image layers as lower (read-only) directories
+     - Creates a new empty upper (writable) directory for this container
+
+  2. Docker daemon calls clone() with namespace flags:
+     CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWNS |
+     CLONE_NEWUTS | CLONE_NEWIPC | CLONE_NEWUSER
+
+  3. Inside the new namespaces, Docker:
+     - Mounts the overlay filesystem as / (the container's root)
+     - Sets up /proc, /sys, /dev virtual filesystems
+     - Configures the network namespace (veth pair, IP address)
+     - Sets hostname in the UTS namespace
+
+  4. Docker writes resource limits to /sys/fs/cgroup/docker/<id>/:
+     - memory.max, cpu.max (if --memory or --cpus were specified)
+
+  5. Docker exec()'s the container command (sleep infinity)
+     - This process becomes PID 1 in the container's PID namespace
+     - From the host's view, it has a normal PID (e.g., 12345)
+```
+
+The container process is a regular Linux process. It has a PID on the host. It is visible in `ps` output from the host. The only difference from a non-containerized process is: it sees isolated namespaces, it is subject to cgroup limits, and its root filesystem is an overlay mount.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Inspect Container Internals from the Host"
+  difficulty="Foundation"
+  scenario="You are a junior DevOps engineer and a senior colleague says containers are 'just processes with extra steps.' You want to verify this claim by looking at a running container from the host perspective — confirming that namespaces, cgroups, and overlay filesystems are real kernel objects you can inspect directly."
+  objective="By the end of this exercise, you will be able to find a container's host PID, inspect its namespace links, compare PIDs inside vs outside the container, and verify cgroup limits — using only standard Linux tools."
+  steps={[
+    {
+      step: 1,
+      description: "Start a container in the background. The --name flag gives it a human-readable name. sleep infinity keeps it running so you have time to inspect it.",
+      command: "docker run -d --name mybox ubuntu:22.04 sleep infinity"
+    },
+    {
+      step: 2,
+      description: "Find the container's PID as seen from the HOST. This is the real PID in the host's PID namespace — the number the kernel assigned when Docker called clone().",
+      command: "docker inspect mybox --format \"{{.State.Pid}}\""
+    },
+    {
+      step: 3,
+      description: "View the namespace links for that PID. Replace <HOST_PID> with the number from step 2. Note the inode numbers in brackets — these identify each namespace instance.",
+      command: "ls -la /proc/<HOST_PID>/ns/"
+    },
+    {
+      step: 4,
+      description: "Compare: what PID does the process see inside the container? exec runs a command in the container's namespaces. The container sees PID 1 — its own PID namespace starts at 1.",
+      command: "docker exec mybox ps aux"
+    },
+    {
+      step: 5,
+      description: "Inspect the overlay filesystem mount for this container. The overlay mount shows the lowerdir (image layers), upperdir (writable layer), and merged mount point.",
+      command: "docker inspect mybox --format \"{{.GraphDriver.Data}}\""
+    },
+    {
+      step: 6,
+      description: "Clean up the container. The --rm flag was not used, so you need to explicitly remove it.",
+      command: "docker rm -f mybox"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "host-pid",
+        label: "You found the container's PID from the host (a number like 12345)",
+        hint: "Run: docker inspect mybox --format '{{.State.Pid}}' — this shows the PID in the HOST's PID namespace. It will be a large number, not 1."
+      },
+      {
+        id: "namespace-links",
+        label: "You can see namespace symbolic links in /proc/<HOST_PID>/ns/",
+        hint: "Run: ls -la /proc/<HOST_PID>/ns/ — you should see links like 'pid -> pid:[4026532347]'. The inode number in brackets identifies the specific namespace instance."
+      },
+      {
+        id: "pid-differs",
+        label: "The process has PID 1 inside the container but a different PID on the host",
+        hint: "Run docker exec mybox ps aux — you should see PID 1 next to 'sleep infinity'. The docker inspect PID from step 2 will be a different, larger number."
+      },
+      {
+        id: "overlay-data",
+        label: "You can see the overlay filesystem paths (LowerDir, UpperDir, MergedDir)",
+        hint: "Run: docker inspect mybox --format '{{.GraphDriver.Data}}' — you should see map[LowerDir:/var/lib/docker/overlay2/... MergedDir:... UpperDir:... WorkDir:...]"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Linux Namespace Types",
+      items: [
+        { command: "PID namespace (CLONE_NEWPID)", description: "Isolates process IDs — container's first process is PID 1, different from host PID" },
+        { command: "NET namespace (CLONE_NEWNET)", description: "Isolates network interfaces, routing tables, and iptables rules" },
+        { command: "MNT namespace (CLONE_NEWNS)", description: "Isolates filesystem mount points — container sees its own root filesystem" },
+        { command: "UTS namespace (CLONE_NEWUTS)", description: "Isolates hostname — container can have its own hostname independent of the host" },
+        { command: "IPC namespace (CLONE_NEWIPC)", description: "Isolates inter-process communication (System V IPC, POSIX message queues)" },
+        { command: "USER namespace (CLONE_NEWUSER)", description: "Isolates user/group IDs — maps root inside container to unprivileged user on host" },
+      ]
+    },
+    {
+      title: "cgroup Resource Controllers",
+      items: [
+        { command: "memory.max", description: "Maximum memory the container can use in bytes. OOM killer fires when exceeded.", example: "cat /sys/fs/cgroup/docker/<id>/memory.max" },
+        { command: "cpu.max", description: "CPU quota and period — e.g., '50000 100000' means 50% of one CPU core", example: "cat /sys/fs/cgroup/docker/<id>/cpu.max" },
+        { command: "pids.max", description: "Maximum number of processes inside the container — prevents fork bombs", example: "cat /sys/fs/cgroup/docker/<id>/pids.max" },
+        { command: "io.max", description: "I/O throttling per block device (bytes per second and operations per second)", example: "cat /sys/fs/cgroup/docker/<id>/io.max" },
+      ]
+    },
+    {
+      title: "Overlay Filesystem Layers",
+      items: [
+        { command: "lower (read-only)", description: "Image layers stacked from bottom (base image) to top (most recent instruction). Never modified." },
+        { command: "upper (writable)", description: "Container-specific changes. Created fresh for each container. Discarded when container is removed." },
+        { command: "merged (unified view)", description: "What the container process sees as its root filesystem — lower layers plus upper layer combined." },
+        { command: "work directory", description: "Internal kernel bookkeeping directory for the overlay filesystem — not visible to the container." },
+        { command: "copy-on-write", description: "When a container modifies a file from a lower layer, the file is copied to upper first. Lower layers are never changed." },
+      ]
+    },
+    {
+      title: "Inspection Commands",
+      items: [
+        { command: "docker inspect <name> --format \"{{.State.Pid}}\"", description: "Get a container's PID in the host's PID namespace" },
+        { command: "ls -la /proc/<PID>/ns/", description: "View all namespace links for a process — inode numbers identify namespace instances" },
+        { command: "docker inspect <name> --format \"{{.GraphDriver.Data}}\"", description: "Show overlay filesystem paths (LowerDir, UpperDir, MergedDir)" },
+        { command: "docker exec <name> ps aux", description: "Run ps inside the container — shows PIDs in the container's PID namespace" },
+        { command: "docker rm -f <name>", description: "Force-remove a container (stop and delete in one step)" },
+      ]
+    }
+  ]}
+/>

@@ -1,0 +1,31 @@
+# Use the full Node.js 20 image (NOT alpine) — intentionally uses the ~1.1GB image
+# so DOC-07 can demonstrate the dramatic size reduction from multi-stage builds
+FROM node:20
+
+# Set the working directory inside the container
+# All subsequent COPY, RUN, and CMD instructions are relative to this path
+WORKDIR /app
+
+# Copy only package.json first (before the rest of the source)
+# This is a layer caching optimization: if package.json hasn't changed,
+# Docker reuses the cached npm install layer — even if app.js changed
+COPY package.json .
+
+# Install Node.js dependencies inside the container
+# node_modules is created here, inside the /app directory
+RUN npm install
+
+# Copy the rest of the application source code
+# This happens AFTER npm install so a code change only invalidates
+# the layers from this point forward, not the npm install layer
+COPY . .
+
+# Document which port the app listens on — informational only
+# EXPOSE does NOT publish the port or make it accessible from the host
+# The -p flag on docker run is what actually publishes ports
+EXPOSE 3000
+
+# Use CMD with exec form (JSON array) rather than shell form
+# This makes node the PID 1 process — it receives SIGTERM directly
+# Avoids npm as PID 1, which can obscure signals and slow graceful shutdown
+CMD ["node", "app.js"]
