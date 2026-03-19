@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
+import { ProgressProvider } from '@/components/progress/ProgressProvider'
 import './globals.css'
 
 const inter = Inter({
@@ -29,7 +30,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
+          <ProgressProvider>
+            {children}
+          </ProgressProvider>
         </ThemeProvider>
       </body>
     </html>
