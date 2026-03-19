@@ -1,0 +1,281 @@
+---
+title: "systemd: The Modern Linux Init System"
+description: "Unit files, service lifecycle, targets, and journald — how Linux starts and manages services"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "02-systemd"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 30
+prerequisites: ["01-linux-fundamentals/05-processes", "04-sysadmin/01-user-management"]
+tags: ["systemd", "systemctl", "journald", "units", "services", "targets", "init"]
+---
+
+## Overview
+
+Your Node.js API is crashing under load. Every time it crashes, someone has to SSH in and manually restart it. The correct fix is not a shell script in a while loop — it is a systemd service unit that automatically restarts the process, logs output to the journal, and starts on boot. Understanding systemd is the difference between a fragile process and a managed service.
+
+systemd is PID 1 — the first process the kernel starts. Everything else on the system is a child or descendant of systemd. It manages service dependencies, parallelizes boot, and provides structured logging. This lesson explains how it works before showing you the commands.
+
+<Callout type="warning" title="Practicing systemd in Docker Containers">
+In this course we practice systemd inside Docker containers using a special systemd-enabled image (`jrei/systemd-ubuntu:22.04`). This image requires the `--privileged` flag and specific `--tmpfs` mounts so systemd can manage cgroups correctly inside the container. In production, you manage systemd on real Linux hosts — the container gives you a safe sandbox to practice the commands without risking a real system.
+
+On Apple Silicon Macs, add `--platform linux/amd64` to the docker run command — the image is amd64-only and runs via Rosetta 2 emulation.
+</Callout>
+
+## How It Works
+
+### What PID 1 Does
+
+When the Linux kernel finishes booting, it needs to hand control to user space. It does this by executing one process: PID 1. That process is responsible for starting everything else — every service, every daemon, every user session. If PID 1 dies, the kernel panics.
+
+Before systemd, this was handled by **SysV init** — a set of shell scripts in `/etc/init.d/` that ran sequentially. Sequential startup was slow: each service waited for the previous one to finish. Dependency management was manual and fragile. A broken init script could hang the entire boot process.
+
+**systemd** replaced this with:
+- **Parallel startup**: services with no dependencies start simultaneously
+- **Declarative dependency management**: you describe what depends on what, systemd calculates the order
+- **Socket activation**: systemd can listen on a port and start a service on demand when the first connection arrives
+- **Unified logging**: all service output goes to journald (structured binary log), accessible via `journalctl`
+- **Automatic restart**: services can be configured to restart on failure with configurable backoff
+
+### Unit File Anatomy
+
+systemd manages resources through **unit files** — declarative configuration files describing what to start, how to start it, and what it depends on. Unit files live in:
+
+- `/lib/systemd/system/` — installed by packages (do not edit)
+- `/etc/systemd/system/` — your custom units and overrides
+
+A service unit file has three sections:
+
+```ini
+# /etc/systemd/system/hello.service
+[Unit]
+Description=Hello World Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hello.sh
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**`[Unit]` section** — metadata and dependencies:
+
+| Directive | Meaning |
+|-----------|---------|
+| `Description=` | Human-readable name shown in `systemctl status` |
+| `After=` | Start this unit AFTER these units are active (ordering only) |
+| `Requires=` | Hard dependency — if the required unit fails, this unit fails too |
+| `Wants=` | Soft dependency — if the wanted unit fails, this unit still starts |
+
+**`[Service]` section** — how to run the service:
+
+| Directive | Meaning |
+|-----------|---------|
+| `Type=simple` | Process stays in foreground (default for most services) |
+| `Type=forking` | Process daemonizes — forks and parent exits |
+| `Type=oneshot` | Process runs once and exits (scripts, setup tasks) |
+| `Type=notify` | Process notifies systemd when it is ready via `sd_notify()` |
+| `ExecStart=` | Command to start the service (must be an absolute path) |
+| `ExecStop=` | Command to stop it gracefully (default: SIGTERM) |
+| `Restart=on-failure` | Restart only if the process exits with non-zero status |
+| `Restart=always` | Restart regardless of exit status |
+| `RestartSec=5s` | Wait this long before restarting |
+| `StandardOutput=journal` | Send stdout to journald |
+| `StandardError=journal` | Send stderr to journald |
+
+**`[Install]` section** — when to start this service:
+
+| Directive | Meaning |
+|-----------|---------|
+| `WantedBy=multi-user.target` | Enable this service as part of normal multi-user boot |
+| `WantedBy=graphical.target` | Enable for graphical desktop boot |
+
+### Targets: Replacing Runlevels
+
+SysV init had numbered runlevels (0=halt, 1=single-user, 3=multi-user, 5=graphical, 6=reboot). systemd replaces these with **targets** — named groups of units that represent a system state:
+
+| Target | SysV Equivalent | Meaning |
+|--------|----------------|---------|
+| `poweroff.target` | runlevel 0 | Shutdown |
+| `rescue.target` | runlevel 1 | Single-user rescue mode |
+| `multi-user.target` | runlevel 3 | Multi-user without GUI |
+| `graphical.target` | runlevel 5 | Multi-user with GUI |
+| `reboot.target` | runlevel 6 | Reboot |
+
+When you "enable" a service with `WantedBy=multi-user.target`, systemd creates a symlink in `/etc/systemd/system/multi-user.target.wants/` pointing to your unit file. When the system reaches `multi-user.target`, it starts all units in that directory.
+
+### Service Lifecycle
+
+A unit moves through states:
+
+```
+loaded
+  └─ inactive (not running)
+       └─ activating (starting up — ExecStartPre, ExecStart running)
+            └─ active (running normally)
+                 └─ deactivating (stopping — ExecStop running)
+                      └─ inactive
+                           └─ failed (exited with error, not configured to restart)
+```
+
+`systemctl status` shows the current state plus recent journal entries for that unit.
+
+### journald: Structured Logging
+
+journald is systemd's logging daemon. Unlike traditional syslog (which wrote text files), journald stores **structured binary logs** with indexed metadata: timestamp, unit name, PID, priority level, hostname, and the message. This enables fast queries by any of those fields.
+
+journald stores logs in `/run/log/journal/` (volatile, cleared on reboot) or `/var/log/journal/` (persistent, if that directory exists). Access logs with `journalctl`:
+
+```bash
+journalctl -u hello.service          # logs for specific unit
+journalctl -u hello.service -f       # follow (like tail -f)
+journalctl -b                        # logs since current boot
+journalctl -b -1                     # logs from the previous boot
+journalctl --since "1 hour ago"      # time-based filter
+journalctl --since "09:00" --until "10:00"
+journalctl -p err                    # only errors and above
+journalctl -p err..crit              # range of priorities
+journalctl -u nginx.service --since "2026-01-01" -p warning
+```
+
+Priority levels (from lowest to highest): `debug`, `info`, `notice`, `warning`, `err`, `crit`, `alert`, `emerg`.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Create a Self-Healing Service with systemd"
+  difficulty="Foundation"
+  scenario="Your team deployed a long-running script that needs to run continuously on a server. After the last system reboot, it didn't start automatically, and when it crashed due to a transient error, nobody noticed for hours. You need to create a proper systemd service that starts on boot and automatically restarts on failure."
+  objective="By the end of this exercise, you will be able to write a unit file, register it with systemd, control it with systemctl, and use journalctl to read its output."
+  steps={[
+    {
+      step: 1,
+      description: "Start the systemd-enabled lab container. The --privileged and --tmpfs flags are required for systemd to function correctly inside a container.",
+      command: "docker run -d --name sysadmin-lab --privileged --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro jrei/systemd-ubuntu:22.04"
+    },
+    {
+      step: 2,
+      description: "Wait a moment for systemd to finish initializing, then open a shell in the running container.",
+      command: "docker exec -it sysadmin-lab bash"
+    },
+    {
+      step: 3,
+      description: "Create the script that the service will run. The -e flag on echo prevents literal backslash-n interpretation issues. This script loops forever, printing a message every 5 seconds.",
+      command: "cat > /usr/local/bin/hello.sh << 'EOF'\n#!/bin/bash\nwhile true; do\n  echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Hello from systemd service\"\n  sleep 5\ndone\nEOF\nchmod +x /usr/local/bin/hello.sh"
+    },
+    {
+      step: 4,
+      description: "Write the systemd unit file. Type=simple means the process stays in the foreground. Restart=on-failure means it restarts only if it exits with a non-zero status.",
+      command: "cat > /etc/systemd/system/hello.service << 'EOF'\n[Unit]\nDescription=Hello World Service\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/local/bin/hello.sh\nRestart=on-failure\nRestartSec=5s\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\nEOF"
+    },
+    {
+      step: 5,
+      description: "Tell systemd to reload its unit file configuration. This must be done every time you create or modify a unit file — otherwise systemd still has the old (or absent) version in memory.",
+      command: "systemctl daemon-reload"
+    },
+    {
+      step: 6,
+      description: "Start the service and check its status immediately. Active: active (running) confirms it started successfully.",
+      command: "systemctl start hello.service && systemctl status hello.service"
+    },
+    {
+      step: 7,
+      description: "Enable the service so it starts automatically on the next boot. This creates a symlink in /etc/systemd/system/multi-user.target.wants/.",
+      command: "systemctl enable hello.service"
+    },
+    {
+      step: 8,
+      description: "Read the service's log output using journalctl. The -f flag follows new entries as they arrive (like tail -f). Press Ctrl+C to stop following.",
+      command: "journalctl -u hello.service -f"
+    },
+    {
+      step: 9,
+      description: "Stop the service and verify it stopped. Active: inactive (dead) is the expected state.",
+      command: "systemctl stop hello.service && systemctl status hello.service"
+    },
+    {
+      step: 10,
+      description: "Clean up the container when done.",
+      command: "exit"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "service-file",
+        label: "Unit file exists at /etc/systemd/system/hello.service",
+        hint: "Run: cat /etc/systemd/system/hello.service — should show the [Unit], [Service], and [Install] sections"
+      },
+      {
+        id: "service-active",
+        label: "systemctl status hello.service shows Active: active (running)",
+        hint: "Run: systemctl is-active hello.service — should print 'active'"
+      },
+      {
+        id: "service-enabled",
+        label: "The service is enabled (will start on boot)",
+        hint: "Run: systemctl is-enabled hello.service — should print 'enabled'"
+      },
+      {
+        id: "journal-output",
+        label: "journalctl shows timestamped output from the service",
+        hint: "Run: journalctl -u hello.service --no-pager | tail -10 — should show lines like '[2026-...] Hello from systemd service'"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "systemctl — Service Control",
+      items: [
+        { command: "systemctl start <unit>", description: "Start a unit immediately", example: "systemctl start nginx" },
+        { command: "systemctl stop <unit>", description: "Stop a unit (sends SIGTERM, then SIGKILL)", example: "systemctl stop nginx" },
+        { command: "systemctl restart <unit>", description: "Stop and start a unit", example: "systemctl restart nginx" },
+        { command: "systemctl reload <unit>", description: "Send SIGHUP to reload config without restart", example: "systemctl reload nginx" },
+        { command: "systemctl status <unit>", description: "Show current state, recent logs, and PID", example: "systemctl status sshd" },
+        { command: "systemctl enable <unit>", description: "Enable unit to start on boot (creates symlink)", example: "systemctl enable myapp" },
+        { command: "systemctl disable <unit>", description: "Disable unit from starting on boot", example: "systemctl disable myapp" },
+        { command: "systemctl daemon-reload", description: "Reload unit file configurations from disk — required after editing unit files", example: "systemctl daemon-reload" },
+        { command: "systemctl is-active <unit>", description: "Returns 'active' or 'inactive' (exit 0 or 1)", example: "systemctl is-active nginx" },
+        { command: "systemctl is-enabled <unit>", description: "Returns 'enabled' or 'disabled'", example: "systemctl is-enabled nginx" },
+        { command: "systemctl list-units --type=service", description: "List all loaded service units and their state", example: "systemctl list-units --type=service --state=running" },
+      ]
+    },
+    {
+      title: "journalctl — Log Queries",
+      items: [
+        { command: "journalctl -u <unit>", description: "Show all logs for a specific unit", example: "journalctl -u nginx.service" },
+        { command: "journalctl -u <unit> -f", description: "Follow logs for a unit in real time", example: "journalctl -u myapp.service -f" },
+        { command: "journalctl -b", description: "Logs from the current boot only", example: "journalctl -b" },
+        { command: "journalctl -p err", description: "Only log entries at error priority or above", example: "journalctl -p err -b" },
+        { command: "journalctl --since '1 hour ago'", description: "Logs from the last hour", example: "journalctl --since '2 hours ago' --until '1 hour ago'" },
+        { command: "journalctl -n 50", description: "Show the last 50 log entries", example: "journalctl -n 50 -u nginx" },
+      ]
+    },
+    {
+      title: "Unit File Directives",
+      items: [
+        { command: "Type=simple", description: "Process stays in foreground — the most common type for modern services" },
+        { command: "Type=oneshot", description: "Run once and exit — for scripts and setup tasks" },
+        { command: "Restart=on-failure", description: "Restart only when process exits with non-zero status" },
+        { command: "Restart=always", description: "Restart regardless of how the process exits" },
+        { command: "After=network.target", description: "Start after network is up — ordering dependency (not hard)" },
+        { command: "WantedBy=multi-user.target", description: "Enable as part of normal boot — soft dependency from target to unit" },
+      ]
+    }
+  ]}
+/>

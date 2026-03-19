@@ -1,0 +1,275 @@
+---
+title: "User and Group Management: How Linux Controls Access"
+description: "How /etc/passwd, /etc/shadow, UIDs, and sudo actually work — before touching useradd"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "01-user-management"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["01-linux-fundamentals/04-file-permissions"]
+tags: ["users", "groups", "useradd", "passwd", "shadow", "sudo", "sudoers"]
+---
+
+## Overview
+
+A developer accidentally runs `sudo rm -rf /` and destroys the server. The post-mortem reveals that every engineer had unrestricted sudo access because "it was easier to set up." Understanding how Linux identity and privilege actually work is not optional for system administration — it is the first thing you configure when a server is provisioned.
+
+Linux does not think in usernames. The kernel thinks in numbers. Every access decision at the kernel level uses UIDs and GIDs. Usernames are a human-readable convenience layer on top of those numbers. This lesson explains the mechanism first, then shows you how to configure it correctly.
+
+## How It Works
+
+### The Identity Database: /etc/passwd, /etc/shadow, /etc/group
+
+**`/etc/passwd`** is the primary user database. Despite the name, it has not stored passwords since the 1980s. It has seven colon-separated fields:
+
+```
+root:x:0:0:root:/root:/bin/bash
+alice:x:1001:1001:Alice Smith:/home/alice:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+```
+
+| Field | Example | Meaning |
+|-------|---------|---------|
+| username | `alice` | Human-readable name (kernel does not use this) |
+| password | `x` | Placeholder — actual hash is in `/etc/shadow` |
+| UID | `1001` | Numeric user identity — what the kernel uses |
+| GID | `1001` | Primary group ID |
+| GECOS | `Alice Smith` | Comment field — full name, contact info |
+| home | `/home/alice` | Home directory created at login |
+| shell | `/bin/bash` | Default shell (use `/usr/sbin/nologin` for service accounts) |
+
+The `x` in the password field means "check `/etc/shadow`." The shadow file is readable only by root (mode 640, owned by root:shadow):
+
+```
+alice:$6$rounds=656000$salt$hash...:19000:0:99999:7:::
+```
+
+Fields: `username : hashed-password : last-change : min-days : max-days : warn-days : inactive : expire : reserved`
+
+The hash prefix `$6$` identifies SHA-512 (the current standard). `$5$` is SHA-256. `$y$` is yescrypt (Ubuntu 22.04+, more resistant to GPU cracking). A `!` prefix means the account is locked.
+
+**`/etc/group`** maps group names to GIDs and member lists:
+
+```
+sudo:x:27:alice,bob
+docker:x:998:alice
+developers:x:1002:alice,carol,dave
+```
+
+Fields: `groupname : password : GID : member-list`
+
+### UID Ranges and Their Meaning
+
+The kernel does not distinguish "user" from "system account" — that is a convention:
+
+| Range | Convention | Examples |
+|-------|------------|---------|
+| 0 | Root | `root` — unrestricted kernel access |
+| 1–99 | Static system accounts | `daemon`, `bin`, `sys` (allocated by distro) |
+| 100–999 | Dynamic system accounts | `www-data`, `mysql`, `docker` (created by packages) |
+| 1000+ | Regular user accounts | `alice`, `bob` — interactive human users |
+| 65534 | Nobody | `nobody` — processes that should have no access |
+
+When `ls -l` shows `alice` as owner, it is looking up UID 1001 in `/etc/passwd` and printing the username. If the file was created on a different system where UID 1001 belonged to someone else, you will see that different username — the UID is what the kernel stored, not the name.
+
+<Callout type="deep-dive" title="UIDs, GIDs, and File Permissions">
+In the Linux Fundamentals lesson on file permissions, you learned that permission checks compare UIDs and GIDs — not names. That same principle applies here: when the kernel evaluates whether process UID 1001 can read a file owned by UID 1001, it sees a match and grants access. The mapping from UID 1001 to username `alice` is only used by tools like `ls -l` to display human-readable output.
+
+This has a practical consequence: if you copy files between systems with different `/etc/passwd` configurations, ownership can appear to change — because the same UID now maps to a different username. Always verify ownership by UID number when migrating systems.
+</Callout>
+
+### The sudo Mechanism
+
+`sudo` allows a user to run a command with elevated privileges (typically as root). The mechanism:
+
+1. You run `sudo systemctl restart nginx`
+2. `sudo` reads `/etc/sudoers` to check if your user is allowed to run that command
+3. PAM authenticates you (typically by checking your password against `/etc/shadow`)
+4. If both checks pass, `sudo` forks a child process with UID 0 (root) and executes the command
+5. The parent (`sudo`) logs the action to syslog
+
+The `/etc/sudoers` file controls exactly who can do what:
+
+```
+# Format: who  host=(as-user:as-group) commands
+
+# Root can do anything
+root    ALL=(ALL:ALL) ALL
+
+# Members of sudo group can run anything with password
+%sudo   ALL=(ALL:ALL) ALL
+
+# alice can restart nginx without a password
+alice   ALL=(root) NOPASSWD: /bin/systemctl restart nginx
+
+# Include drop-in files from this directory
+#includedir /etc/sudoers.d
+```
+
+<Callout type="warning" title="Never Edit /etc/sudoers Directly">
+Always use `visudo` to edit `/etc/sudoers`. `visudo` opens the file in your editor and validates syntax before saving. A syntax error in `/etc/sudoers` causes `sudo` to refuse ALL commands — including attempts to fix the file. Without `sudo`, you cannot become root unless you have direct root access or can boot into recovery mode. The `visudo` validation step is what prevents this lockout scenario.
+</Callout>
+
+The preferred pattern for managing sudo grants is drop-in files in `/etc/sudoers.d/`. Each file in that directory is included automatically. This avoids touching the main sudoers file:
+
+```bash
+# Create a drop-in file for the deploy user
+echo "deploy ALL=(root) NOPASSWD: /bin/systemctl restart myapp" > /etc/sudoers.d/deploy
+chmod 440 /etc/sudoers.d/deploy
+```
+
+### useradd vs adduser
+
+**`useradd`** is the low-level system call wrapper — available on all Linux distributions, configurable, but requires explicit flags:
+
+```bash
+useradd -m -s /bin/bash -c "Alice Smith" alice
+# -m: create home directory
+# -s: set login shell
+# -c: GECOS comment field
+```
+
+**`adduser`** is a Perl/Python wrapper available on Debian/Ubuntu that provides interactive prompts and sane defaults:
+
+```bash
+adduser alice   # prompts for password, GECOS, creates home dir automatically
+```
+
+For automation and scripts, use `useradd` with explicit flags. For interactive admin tasks on Debian/Ubuntu, `adduser` is faster.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Provision a Developer Account with Sudo Access"
+  difficulty="Foundation"
+  scenario="Your team is onboarding a new backend developer. You need to create their account, set a temporary password, create a shared project group, add them to it, and grant sudo access through a drop-in file — following the principle of least privilege."
+  objective="By the end of this exercise, you will be able to create users and groups, manage group membership, and configure granular sudo access using sudoers.d drop-in files."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container. The sysadmin lab image has sudo, passwd, and all user management tools pre-installed.",
+      command: "docker run --rm -it ubuntu:22.04 bash"
+    },
+    {
+      step: 2,
+      description: "Create the new user account with a home directory and bash shell. The -m flag creates /home/devuser. Without -m, no home directory is created.",
+      command: "useradd -m -s /bin/bash -c 'Backend Developer' devuser"
+    },
+    {
+      step: 3,
+      description: "Verify the user was created. You should see devuser's entry in /etc/passwd with UID >= 1000 and the bash shell.",
+      command: "grep devuser /etc/passwd"
+    },
+    {
+      step: 4,
+      description: "Set a temporary password. In production, use a strong random password and require the user to change it on first login (passwd -e devuser).",
+      command: "echo 'devuser:TempPass123!' | chpasswd"
+    },
+    {
+      step: 5,
+      description: "Create the shared project group. GID will be assigned automatically.",
+      command: "groupadd backend-team"
+    },
+    {
+      step: 6,
+      description: "Add devuser to the backend-team group. The -a flag appends (preserves existing groups). The -G flag specifies the supplementary group. Without -a, existing supplementary groups are replaced.",
+      command: "usermod -aG backend-team devuser"
+    },
+    {
+      step: 7,
+      description: "Verify group membership. The id command shows both primary and supplementary groups.",
+      command: "id devuser"
+    },
+    {
+      step: 8,
+      description: "Create a sudoers drop-in file to grant devuser the ability to restart the application service without a password. The 440 permission is required — sudo refuses world-readable sudoers files.",
+      command: "echo 'devuser ALL=(root) NOPASSWD: /bin/systemctl restart myapp' > /etc/sudoers.d/devuser && chmod 440 /etc/sudoers.d/devuser"
+    },
+    {
+      step: 9,
+      description: "Verify the sudoers drop-in file syntax. visudo -c checks all sudoers files including the /etc/sudoers.d/ directory.",
+      command: "visudo -c"
+    },
+    {
+      step: 10,
+      description: "Examine what was created in /etc/passwd and /etc/shadow for devuser.",
+      command: "grep devuser /etc/passwd && grep devuser /etc/shadow | cut -d: -f1-3"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "user-exists",
+        label: "devuser exists in /etc/passwd with UID >= 1000 and /bin/bash shell",
+        hint: "Run: grep devuser /etc/passwd — should show devuser:x:1000:1000:Backend Developer:/home/devuser:/bin/bash"
+      },
+      {
+        id: "home-created",
+        label: "Home directory /home/devuser was created",
+        hint: "Run: ls -la /home/ — you should see drwxr-x--- or similar for /home/devuser"
+      },
+      {
+        id: "group-membership",
+        label: "devuser belongs to the backend-team supplementary group",
+        hint: "Run: id devuser — output should include 'groups=1000(devuser),...,NNNN(backend-team)'"
+      },
+      {
+        id: "sudoers-file",
+        label: "Drop-in file /etc/sudoers.d/devuser exists with mode 440",
+        hint: "Run: ls -la /etc/sudoers.d/devuser — should show -r--r----- (440)"
+      },
+      {
+        id: "sudoers-valid",
+        label: "visudo -c reports no syntax errors",
+        hint: "Run: visudo -c — should output '/etc/sudoers: parsed OK' with no errors"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "User Management",
+      items: [
+        { command: "useradd -m -s /bin/bash <user>", description: "Create user with home directory and bash shell", example: "useradd -m -s /bin/bash alice" },
+        { command: "passwd <user>", description: "Set or change a user's password interactively", example: "passwd alice" },
+        { command: "echo '<user>:<pass>' | chpasswd", description: "Set password non-interactively (for scripts)", example: "echo 'alice:secret' | chpasswd" },
+        { command: "usermod -aG <group> <user>", description: "Add user to supplementary group (-a preserves existing groups)", example: "usermod -aG sudo alice" },
+        { command: "userdel -r <user>", description: "Delete user and their home directory (-r removes home)", example: "userdel -r alice" },
+        { command: "id <user>", description: "Show UID, GID, and all supplementary groups", example: "id alice" },
+      ]
+    },
+    {
+      title: "Group Management",
+      items: [
+        { command: "groupadd <group>", description: "Create a new group", example: "groupadd developers" },
+        { command: "groupdel <group>", description: "Delete a group", example: "groupdel old-team" },
+        { command: "groups <user>", description: "List all groups a user belongs to", example: "groups alice" },
+        { command: "grep <group> /etc/group", description: "Show group entry including all members", example: "grep sudo /etc/group" },
+      ]
+    },
+    {
+      title: "Identity Files",
+      items: [
+        { command: "grep <user> /etc/passwd", description: "Show user's account entry (7 fields)", example: "grep alice /etc/passwd" },
+        { command: "grep <user> /etc/shadow", description: "Show user's password entry (requires root)", example: "grep alice /etc/shadow" },
+        { command: "cat /etc/group | grep <user>", description: "Find all groups a user is a member of", example: "cat /etc/group | grep alice" },
+      ]
+    },
+    {
+      title: "sudo Configuration",
+      items: [
+        { command: "visudo", description: "Safely edit /etc/sudoers with syntax validation before saving", example: "visudo" },
+        { command: "visudo -c", description: "Check syntax of all sudoers files without editing", example: "visudo -c" },
+        { command: "ls /etc/sudoers.d/", description: "List drop-in sudo grant files", example: "ls /etc/sudoers.d/" },
+        { command: "sudo -l -U <user>", description: "Show what commands a specific user can run with sudo", example: "sudo -l -U alice" },
+      ]
+    }
+  ]}
+/>

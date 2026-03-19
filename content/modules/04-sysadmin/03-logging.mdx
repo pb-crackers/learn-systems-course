@@ -1,0 +1,303 @@
+---
+title: "Linux Logging: journald, syslog, and Log Rotation"
+description: "How journald, rsyslog, /var/log, and logrotate work together — and why centralized logging matters at scale"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "03-logging"
+order: 3
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["04-sysadmin/02-systemd"]
+tags: ["logging", "journald", "syslog", "logrotate", "journalctl", "rsyslog"]
+---
+
+## Overview
+
+An application has been failing silently for three hours. No alerts fired. When you finally check the server, the process is down and the disk is 98% full — rotated over by uncontrolled log growth. Understanding the Linux logging stack is not just about reading logs — it is about knowing where logs go, how they are stored, and how to prevent them from becoming an operational hazard.
+
+Modern Linux uses a layered logging architecture: journald captures structured logs from systemd services, rsyslog optionally forwards those logs to `/var/log/` text files, and logrotate manages retention. This lesson traces each layer.
+
+## How It Works
+
+### The Logging Pipeline
+
+When a service writes to stdout or stderr, and its unit file has `StandardOutput=journal`, the logging pipeline looks like this:
+
+```
+Application stdout/stderr
+         ↓
+    journald (PID 1 subsystem)
+    /run/log/journal/ or /var/log/journal/
+    Binary structured storage, indexed
+         ↓
+    rsyslog (optional consumer)
+    reads from journald, writes to /var/log/
+    Plain text files: auth.log, kern.log, syslog
+         ↓
+    logrotate (scheduled by cron or systemd timer)
+    Rotates, compresses, and purges old log files
+```
+
+Applications can also write directly to the **syslog socket** (`/dev/log`) — this is how older applications log without being started by systemd. When an application opens `/dev/log` and writes a syslog-format message, journald (or rsyslog, depending on configuration) picks it up.
+
+### The syslog Protocol (RFC 5424)
+
+The syslog protocol defines a **facility** (what kind of thing is logging) and a **severity** (how serious) for every log message. These two values encode context without requiring you to parse the message text.
+
+**Facilities** (source type):
+| Value | Keyword | Meaning |
+|-------|---------|---------|
+| 0 | kern | Kernel messages |
+| 1 | user | User-level messages |
+| 4 | auth | Authentication and authorization |
+| 6 | lpr | Printer subsystem |
+| 16–23 | local0–local7 | Local use (applications use these) |
+
+**Severities** (priority levels, lower = more severe):
+| Value | Keyword | Meaning |
+|-------|---------|---------|
+| 0 | emerg | System is unusable |
+| 1 | alert | Action must be taken immediately |
+| 2 | crit | Critical conditions |
+| 3 | err | Error conditions |
+| 4 | warning | Warning conditions |
+| 5 | notice | Normal but significant event |
+| 6 | info | Informational messages |
+| 7 | debug | Debug-level messages |
+
+journalctl's `-p` flag filters by severity: `journalctl -p err` shows errors and above (err, crit, alert, emerg).
+
+### journald: The Primary Log Store
+
+journald is the systemd logging daemon. It captures log output from:
+- Services with `StandardOutput=journal` in their unit file
+- The kernel (via `/proc/kmsg`)
+- Applications writing to the syslog socket (`/dev/log` and `/run/systemd/journal/syslog`)
+- Applications writing to the journal API directly
+
+journald stores logs as **structured binary data** — not text files. Each log entry is a set of key=value fields: timestamp, hostname, unit name (`_SYSTEMD_UNIT`), PID (`_PID`), the message text (`MESSAGE`), and many more. Because these fields are indexed, filtering is fast — no grep required.
+
+**Log persistence**: By default, journald stores logs in `/run/log/journal/` which is a tmpfs (volatile — cleared on reboot). To enable persistent logging across reboots, create the persistent directory:
+
+```bash
+mkdir -p /var/log/journal
+systemd-tmpfiles --create --prefix /var/log/journal
+systemctl restart systemd-journald
+```
+
+After this, logs accumulate in `/var/log/journal/<machine-id>/`. journald auto-rotates this directory when it reaches 10% of the filesystem or exceeds configured `SystemMaxUse`.
+
+<Callout type="deep-dive" title="journald and /var/log/syslog">
+On modern Ubuntu, `/var/log/syslog` is populated by rsyslog reading FROM journald — journald is the primary store. rsyslog connects to journald's socket and re-logs entries to the traditional text files in `/var/log/`. This is why `journalctl` gives you richer filtering than `grep` on `/var/log/syslog` — journalctl queries the structured binary data directly, while syslog is a plain-text re-export that has lost the structured fields.
+
+You can verify this by checking rsyslog's configuration: `grep -r 'imjournal\|journal' /etc/rsyslog.conf /etc/rsyslog.d/` — on Ubuntu 22.04 you will find the `imjournal` module loading journald entries.
+</Callout>
+
+### /var/log/ Directory Structure
+
+Even with journald as the primary store, `/var/log/` contains important text logs:
+
+| File | Content |
+|------|---------|
+| `/var/log/syslog` | General system messages (Ubuntu) or `/var/log/messages` (RHEL/CentOS) |
+| `/var/log/auth.log` | Authentication events: SSH logins, sudo usage, PAM |
+| `/var/log/kern.log` | Kernel messages only |
+| `/var/log/dpkg.log` | Package manager activity (apt installs, removals) |
+| `/var/log/apt/` | Detailed apt-get/apt transaction history |
+| `/var/log/nginx/` | Nginx access and error logs (created by nginx package) |
+| `/var/log/mysql/` | MySQL error log (created by mysql package) |
+
+### logrotate: Preventing Disk Exhaustion
+
+logrotate is a utility that rotates, compresses, and purges log files on a schedule. Without it, `/var/log/nginx/access.log` on a busy server would grow indefinitely until the disk fills.
+
+logrotate configuration files live in:
+- `/etc/logrotate.conf` — global defaults
+- `/etc/logrotate.d/` — per-application overrides (e.g., `/etc/logrotate.d/nginx`)
+
+A typical logrotate configuration:
+
+```
+/var/log/myapp/*.log {
+    daily           # rotate every day
+    rotate 14       # keep 14 rotated files (2 weeks of history)
+    compress        # gzip old log files
+    delaycompress   # do not compress the most recent rotated file (still being written to)
+    missingok       # do not error if log file is missing
+    notifempty      # do not rotate if file is empty
+    create 0640 www-data adm   # create new empty log with these permissions and ownership
+    postrotate
+        nginx -s reopen         # tell nginx to open the new log file
+    endscript
+}
+```
+
+**Key directives:**
+
+| Directive | Meaning |
+|-----------|---------|
+| `daily` / `weekly` / `monthly` | Rotation frequency |
+| `rotate N` | Keep N old log files before deleting |
+| `compress` | gzip rotated files |
+| `delaycompress` | Skip compressing the most recent rotation (may still be open) |
+| `missingok` | Do not fail if the log file is absent |
+| `notifempty` | Skip rotation if the current log is empty |
+| `postrotate ... endscript` | Script to run after rotation (typically signal the app to reopen logs) |
+| `copytruncate` | Copy the log file then truncate it (for apps that cannot reopen files) |
+
+logrotate runs daily via a cron job at `/etc/cron.daily/logrotate`. You can force rotation manually:
+
+```bash
+logrotate --force /etc/logrotate.d/nginx   # force-rotate one config
+logrotate --debug /etc/logrotate.conf      # dry-run to see what would happen
+```
+
+### Centralized Logging: Why Single-Machine Logs Break at Scale
+
+When you operate a single server, SSH and `journalctl` work fine. When you have a fleet of 50 servers, multiple problems emerge:
+
+1. **No correlation**: An error on server A triggers a cascade on server B — but you have to SSH into each server separately and manually correlate timestamps.
+2. **Lost logs**: If a server dies, its logs may die with it (unless stored persistently off-machine).
+3. **No aggregation**: "How many 500 errors per minute across all API servers?" requires log data from all servers in one place.
+
+The solution is **log shipping** — forwarding logs from each host to a central store:
+
+```
+Server A → [Filebeat/Fluentd agent] → Central Store ← Server B
+                                       (ELK, Loki)    [Filebeat/Fluentd agent]
+                                           ↑
+                                       Server C
+                                       [agent]
+```
+
+**Common patterns:**
+- **rsyslog forwarding**: Configure rsyslog to forward to a central syslog server over TCP/UDP. Simple but limited filtering.
+- **Log agents (Filebeat, Fluentd)**: Lightweight agents that tail log files or read from journald and ship to Elasticsearch (ELK stack) or Loki (Grafana stack). More flexible — can parse, filter, and enrich log data before shipping.
+- **Centralized stores**: Elasticsearch stores logs as JSON documents for full-text search. Loki stores log streams indexed by labels (more efficient for large volumes). Both expose query APIs consumed by Grafana dashboards.
+
+This architecture is the foundation for Phase 7's monitoring and observability module — where you will build a Prometheus + Grafana + Loki stack to collect metrics and logs from a multi-service application.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Configure Log Rotation and Master journalctl Filtering"
+  difficulty="Foundation"
+  scenario="Your web server's /var/log/myapp/ directory is growing without bound — unbounded log files are approaching disk capacity. You need to set up log rotation for the application logs. You also need to practice journalctl filtering to efficiently find specific error patterns in the system journal."
+  objective="By the end of this exercise, you will be able to write logrotate configurations, force rotation, and use journalctl to filter logs by unit, time range, and severity."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container. For this exercise, a standard Ubuntu container is sufficient.",
+      command: "docker run --rm -it ubuntu:22.04 bash"
+    },
+    {
+      step: 2,
+      description: "Install logrotate and verify it is available.",
+      command: "apt-get update -qq && apt-get install -y logrotate && logrotate --version"
+    },
+    {
+      step: 3,
+      description: "Create the application log directory and generate some initial log data to rotate.",
+      command: "mkdir -p /var/log/myapp && for i in $(seq 1 50); do echo \"[$(date)] INFO Request processed successfully\" >> /var/log/myapp/access.log; done && wc -l /var/log/myapp/access.log"
+    },
+    {
+      step: 4,
+      description: "Write a logrotate configuration for the application logs. Keep 7 rotations (one week), compress old files, and do not fail if the log is missing.",
+      command: "cat > /etc/logrotate.d/myapp << 'EOF'\n/var/log/myapp/*.log {\n    daily\n    rotate 7\n    compress\n    delaycompress\n    missingok\n    notifempty\n    create 0640 root adm\n}\nEOF"
+    },
+    {
+      step: 5,
+      description: "Verify the logrotate configuration parses without errors. --debug mode shows what logrotate would do without actually doing it.",
+      command: "logrotate --debug /etc/logrotate.d/myapp"
+    },
+    {
+      step: 6,
+      description: "Force rotation immediately. Without --force, logrotate skips files that were recently rotated. Check that the rotated file appears.",
+      command: "logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/"
+    },
+    {
+      step: 7,
+      description: "Write a few more log entries and force a second rotation to see the compressed previous rotation.",
+      command: "for i in $(seq 1 20); do echo \"[$(date)] WARN Slow response detected\" >> /var/log/myapp/access.log; done && logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/"
+    },
+    {
+      step: 8,
+      description: "Now practice journalctl. On this minimal container journald may not be running, but you can still explore the syntax. Check if journald is available.",
+      command: "which journalctl && journalctl --no-pager -n 5 2>/dev/null || echo 'journald not running in this container — see systemd lesson for journalctl practice'"
+    },
+    {
+      step: 9,
+      description: "Review the logrotate status file to see when each log was last rotated.",
+      command: "cat /var/lib/logrotate/status 2>/dev/null || cat /var/lib/logrotate.status 2>/dev/null || echo 'Status file location may differ by distribution'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "logrotate-config",
+        label: "Logrotate config exists at /etc/logrotate.d/myapp",
+        hint: "Run: cat /etc/logrotate.d/myapp — should show the daily rotation config with rotate 7, compress, and missingok"
+      },
+      {
+        id: "rotation-works",
+        label: "After forcing rotation, a rotated file appears (access.log.1 or access.log.1.gz)",
+        hint: "Run: ls -la /var/log/myapp/ — after two forced rotations you should see access.log (current), access.log.1 (most recent rotation), access.log.2.gz (compressed older rotation)"
+      },
+      {
+        id: "current-log-fresh",
+        label: "The current /var/log/myapp/access.log is smaller than before rotation",
+        hint: "Run: wc -l /var/log/myapp/access.log — should be smaller than 50 (the entries you wrote before rotation were moved to the rotated file)"
+      },
+      {
+        id: "journalctl-syntax",
+        label: "You can recite the journalctl flags for unit filter, time range, and priority filter",
+        hint: "-u for unit, --since/--until for time range, -p for priority (e.g., -p err). Full syntax: journalctl -u nginx.service --since '1 hour ago' -p err"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "journalctl Filtering",
+      items: [
+        { command: "journalctl -u <unit>", description: "Show logs for a specific systemd unit", example: "journalctl -u nginx.service" },
+        { command: "journalctl -u <unit> -f", description: "Follow logs for a unit in real time", example: "journalctl -u myapp -f" },
+        { command: "journalctl -b", description: "Logs from the current boot only", example: "journalctl -b" },
+        { command: "journalctl -b -1", description: "Logs from the previous boot", example: "journalctl -b -1" },
+        { command: "journalctl -p err", description: "Only error priority and above (err, crit, alert, emerg)", example: "journalctl -p err -b" },
+        { command: "journalctl --since '1 hour ago'", description: "Logs from the last hour", example: "journalctl --since '2026-01-01 09:00' --until '2026-01-01 10:00'" },
+        { command: "journalctl -n 100", description: "Show last 100 log entries", example: "journalctl -n 50 -u nginx" },
+        { command: "journalctl --disk-usage", description: "Show how much disk journald logs are using", example: "journalctl --disk-usage" },
+        { command: "journalctl --vacuum-size=500M", description: "Remove old journal files to stay under 500MB", example: "journalctl --vacuum-size=200M" },
+      ]
+    },
+    {
+      title: "logrotate Configuration",
+      items: [
+        { command: "logrotate --debug <config>", description: "Dry-run: show what would happen without rotating", example: "logrotate --debug /etc/logrotate.d/nginx" },
+        { command: "logrotate --force <config>", description: "Force rotation even if rotation criteria not yet met", example: "logrotate --force /etc/logrotate.d/myapp" },
+        { command: "rotate N", description: "Keep N old log files before deleting (in config file)", example: "rotate 14  # 2 weeks of daily logs" },
+        { command: "compress + delaycompress", description: "Gzip old files but delay compressing the newest rotation", example: "compress\\ndelaycompress" },
+        { command: "postrotate / endscript", description: "Run a command after rotation (signal app to reopen log file)", example: "postrotate\\n  nginx -s reopen\\nendscript" },
+      ]
+    },
+    {
+      title: "syslog Priority Levels",
+      items: [
+        { command: "emerg (0)", description: "System is unusable — requires immediate attention" },
+        { command: "alert (1)", description: "Action must be taken immediately" },
+        { command: "crit (2)", description: "Critical conditions" },
+        { command: "err (3)", description: "Error conditions — most common filter for production monitoring" },
+        { command: "warning (4)", description: "Warning conditions — degraded but not broken" },
+        { command: "info (6)", description: "Informational messages — normal operation" },
+        { command: "debug (7)", description: "Verbose debug output — never enable in production" },
+      ]
+    }
+  ]}
+/>
