@@ -1,0 +1,330 @@
+---
+title: "SSH: Secure Remote Access"
+description: "Key-based authentication, tunneling, config files, and agent forwarding — how to securely connect to and manage remote machines"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "05-ssh"
+order: 5
+difficulty: "Intermediate"
+estimatedMinutes: 22
+prerequisites: ["02-networking/03-dns", "02-networking/04-http-https"]
+tags: ["ssh", "ssh-keygen", "authorized-keys", "tunneling", "ssh-config", "agent-forwarding", "ProxyJump"]
+---
+
+## Overview
+
+You need to access a database server that's behind a firewall and only reachable from a bastion host. SSH tunneling lets you create a secure path through the bastion without exposing the database to the internet. SSH (Secure Shell) is the protocol that replaced telnet, rsh, and rlogin — every one of those sent credentials in plaintext. SSH encrypts the entire session, authenticates the server so you can't be redirected to an impostor, and provides multiple mechanisms to authenticate the client.
+
+This lesson covers the full SSH model: how the protocol works, why key-based authentication is more secure than passwords, how to configure `~/.ssh/config` for convenience, the three flavors of SSH tunneling, and when agent forwarding is useful (and dangerous).
+
+## How It Works
+
+### How SSH Works
+
+SSH operates on port 22 by default. When you run `ssh user@server`, here is what happens in order:
+
+1. **TCP connection**: Your client opens a TCP connection to port 22 on the server.
+2. **Protocol negotiation**: Client and server agree on the SSH protocol version (2 is current) and algorithm preferences.
+3. **Server authentication**: The server presents its **host key** (a long-lived key pair unique to this server). If you've connected before, your `~/.ssh/known_hosts` file has the expected public key fingerprint — if it matches, you proceed. If it doesn't match, SSH warns you about a potential MITM attack.
+4. **Key exchange**: Client and server use Diffie-Hellman (or ECDH) to derive a shared session key without either side transmitting the key over the wire. All subsequent communication is encrypted with this key.
+5. **Client authentication**: With the encrypted channel established, the client proves its identity. This is either password authentication (the password is sent over the already-encrypted channel) or public key authentication (preferred).
+
+### Key-Based Authentication
+
+Password authentication has two problems: passwords can be guessed, and servers get hammered by brute-force attempts. Key-based authentication uses asymmetric cryptography: you hold a private key; the server has your public key. Only the holder of the private key can authenticate, and the private key never leaves your machine.
+
+**Generating a key pair:**
+```bash
+# Generate an Ed25519 key pair (current best practice)
+ssh-keygen -t ed25519 -C "your@email.com"
+
+# Generates two files:
+# ~/.ssh/id_ed25519      — private key (NEVER share this)
+# ~/.ssh/id_ed25519.pub  — public key (safe to share; goes on servers)
+```
+
+**Copying the public key to a server:**
+```bash
+# ssh-copy-id appends your public key to ~/.ssh/authorized_keys on the remote
+ssh-copy-id user@server
+
+# Or manually — paste the public key content into ~/.ssh/authorized_keys on the server
+cat ~/.ssh/id_ed25519.pub
+# Copy the output, then on the server:
+echo "ssh-ed25519 AAAAC3Nza..." >> ~/.ssh/authorized_keys
+```
+
+**How the authentication exchange works:**
+
+```
+Client                                     Server
+  │                                           │
+  │──── "I have key: ed25519-sha2 AAAA..." ► │
+  │     (sends public key fingerprint)        │
+  │                                           │
+  │     (server checks ~/.ssh/authorized_keys)│
+  │     (finds matching public key)           │
+  │                                           │
+  │  ◄── Challenge (random bytes encrypted ── │
+  │       with your public key)               │
+  │                                           │
+  │──── Response (challenge decrypted with ► │
+  │      your private key, re-signed)         │
+  │                                           │
+  │  ◄── Authentication successful ─────────  │
+  │                                           │
+  │  ════ Encrypted shell session ═══════════ │
+```
+
+Only the holder of the private key can decrypt the server's challenge and produce the correct response. This proves identity without the private key ever leaving the client.
+
+### SSH Config File
+
+Repeatedly typing `ssh -i ~/.ssh/my_key -p 2222 deploy@long.hostname.example.com` is error-prone. `~/.ssh/config` lets you define named hosts with their settings:
+
+```
+# ~/.ssh/config
+
+# Production bastion host
+Host bastion
+    HostName bastion.example.com
+    User ec2-user
+    IdentityFile ~/.ssh/prod_key
+    Port 22
+
+# Internal app server — only reachable via bastion
+Host app-server
+    HostName 10.0.1.50
+    User deploy
+    IdentityFile ~/.ssh/prod_key
+    ProxyJump bastion
+
+# Dev server with non-standard port
+Host dev
+    HostName dev.example.com
+    User developer
+    Port 2222
+    IdentityFile ~/.ssh/dev_key
+```
+
+With this config, `ssh app-server` automatically connects through the bastion with the correct key — no flags needed. The `ProxyJump` directive tells SSH to first connect to `bastion`, then from there SSH to the internal address.
+
+### SSH Tunneling
+
+SSH tunneling creates an encrypted TCP forwarding path between your machine and a remote network. There are three kinds:
+
+**Local port forwarding (`-L`)**: A port on your local machine is forwarded to a port on (or reachable from) the remote server. Use case: access a remote database that's not publicly exposed.
+
+```bash
+# Forward localhost:5432 to the database server behind the firewall
+ssh -L 5432:db.internal:5432 user@bastion
+
+# Now in another terminal — connect as if the DB is local
+psql -h localhost -p 5432 -U dbuser mydb
+```
+
+```
+You           Bastion          DB Server
+localhost:5432 ──SSH tunnel──► :22   ──TCP──► db.internal:5432
+```
+
+**Remote port forwarding (`-R`)**: A port on the remote server is forwarded back to a port on your local machine. Use case: expose a local dev server to a remote tester.
+
+```bash
+# Anyone connecting to port 8080 on the remote server gets forwarded to your local :3000
+ssh -R 8080:localhost:3000 user@server
+
+# Now someone at the remote server can test your local app:
+# curl http://localhost:8080/ (run on the remote server) → your localhost:3000
+```
+
+```
+You           Remote Server
+localhost:3000 ◄──SSH tunnel── :22
+                                ▲
+                         :8080 ─┘
+```
+
+<Callout type="deep-dive" title="Dynamic Port Forwarding: SSH as a SOCKS Proxy">
+`ssh -D 1080 user@server` creates a SOCKS proxy on localhost port 1080. Your applications can send TCP traffic of any kind through this proxy, and it exits at the remote server. This is useful for routing browser traffic through a remote machine (essentially a VPN-lite). Configure your browser's proxy settings to use SOCKS5 at `127.0.0.1:1080` and your browsing traffic exits from the SSH server's IP address.
+</Callout>
+
+### Agent Forwarding
+
+When you're on a bastion host and need to SSH further to an internal server, you have two options: copy your private key to the bastion (bad — exposes your key on a shared machine), or use agent forwarding.
+
+SSH agent forwarding (`-A`) makes your local SSH agent available on the remote machine. When the bastion needs to authenticate to an internal server, it asks your local machine's SSH agent to handle the authentication — your private key never leaves your laptop.
+
+```bash
+# Connect to bastion with agent forwarding enabled
+ssh -A user@bastion
+
+# Now from the bastion, SSH to an internal server
+# The bastion's SSH client asks your local agent for the key
+ssh user@internal-server    # Works! Your local key authenticates.
+```
+
+<Callout type="warning" title="Agent Forwarding Security Risk">
+Never use agent forwarding (`-A`) to servers you don't fully trust. When agent forwarding is enabled, the remote machine's root user can use your forwarded agent to authenticate as you to any server that has your public key. An attacker who compromises root on the bastion can SSH anywhere your key has access, without ever seeing your private key. Use `ProxyJump` instead of agent forwarding — it proxies the connection through the bastion without exposing your agent to it.
+</Callout>
+
+### Host Key Verification
+
+The first time you connect to a new server, SSH asks you to verify the host key fingerprint:
+
+```
+The authenticity of host 'server.example.com (10.0.0.5)' can't be established.
+ED25519 key fingerprint is SHA256:AAAA...
+Are you sure you want to continue connecting (yes/no/[fingerprint])?
+```
+
+After you accept, the fingerprint is stored in `~/.ssh/known_hosts`. On all future connections, SSH checks the server presents the same key. If it doesn't:
+
+```
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+```
+
+This is a security warning — it means either:
+1. The server was rebuilt and has new host keys (legitimate)
+2. Someone is performing a man-in-the-middle attack (malicious)
+
+For containers that get recreated frequently, this is a nuisance. You can remove the old entry: `ssh-keygen -R server.example.com`. In production, treat this warning seriously and verify through a separate channel before proceeding.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Set Up Key-Based SSH Authentication"
+  difficulty="Intermediate"
+  scenario="You're onboarding to a new project and need to set up secure access to the team's development server. The lab has an SSH server container you need to configure for key-based login. The server currently allows password auth — your goal is to configure key-based auth and set up your SSH config for convenient access."
+  objective="By the end of this exercise, you will be able to generate an SSH key pair, configure key-based authentication, and use ~/.ssh/config to simplify connections."
+  steps={[
+    {
+      step: 1,
+      description: "Start the lab environment. Two containers start: sshd-server and client.",
+      command: "docker compose -f docker/networking/05-ssh/compose.yml up -d"
+    },
+    {
+      step: 2,
+      description: "Open a shell in the client container.",
+      command: "docker compose -f docker/networking/05-ssh/compose.yml exec client bash"
+    },
+    {
+      step: 3,
+      description: "Generate an Ed25519 SSH key pair. Accept the default location (~/.ssh/id_ed25519). Set an empty passphrase for the lab.",
+      command: "ssh-keygen -t ed25519 -C 'lab@learn-systems' -f ~/.ssh/id_ed25519 -N ''"
+    },
+    {
+      step: 4,
+      description: "Inspect the files that were created. Understand which is the public key (safe to share) and which is the private key (never share).",
+      command: "ls -la ~/.ssh/ && echo '--- Public key:' && cat ~/.ssh/id_ed25519.pub"
+    },
+    {
+      step: 5,
+      description: "Copy the public key to the server's authorized_keys. The lab server runs sshd on port 22 with hostname 'sshd-server'. Initial password is 'labpass'.",
+      command: "ssh-copy-id -i ~/.ssh/id_ed25519.pub student@sshd-server"
+    },
+    {
+      step: 6,
+      description: "Test key-based login. You should connect without being asked for a password.",
+      command: "ssh student@sshd-server 'whoami && hostname'"
+    },
+    {
+      step: 7,
+      description: "Create an SSH config entry for the server so you can connect with just 'ssh lab-server'.",
+      command: "mkdir -p ~/.ssh && cat > ~/.ssh/config << 'EOF'\nHost lab-server\n    HostName sshd-server\n    User student\n    IdentityFile ~/.ssh/id_ed25519\nEOF"
+    },
+    {
+      step: 8,
+      description: "Test the connection using the config name. Should connect immediately.",
+      command: "ssh lab-server 'echo connected successfully'"
+    },
+    {
+      step: 9,
+      description: "Run the verification script to confirm all checks pass.",
+      command: "bash /verify/05-ssh.sh"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "keypair-generated",
+        label: "SSH key pair generated (~/.ssh/id_ed25519 and ~/.ssh/id_ed25519.pub both exist)",
+        hint: "Run: ls -la ~/.ssh/ — you should see both id_ed25519 (private, permissions 600) and id_ed25519.pub (public)"
+      },
+      {
+        id: "key-auth-works",
+        label: "Key-based login works — ssh student@sshd-server connects without a password prompt",
+        hint: "Run: ssh student@sshd-server 'whoami' — if it asks for a password, authorized_keys may not have been set up correctly"
+      },
+      {
+        id: "config-created",
+        label: "~/.ssh/config has a 'lab-server' Host entry",
+        hint: "Run: cat ~/.ssh/config — should show Host lab-server with HostName, User, and IdentityFile"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<TerminalBlock
+  title="Tear down the lab when done"
+  lines={[
+    { type: 'comment', content: 'Exit the container shell first' },
+    { type: 'command', content: 'exit' },
+    { type: 'command', content: 'docker compose -f docker/networking/05-ssh/compose.yml down' },
+    { type: 'output', content: '[+] Running 3/3' },
+    { type: 'output', content: ' ✔ Container 05-ssh-client-1      Removed' },
+    { type: 'output', content: ' ✔ Container 05-ssh-sshd-server-1 Removed' },
+    { type: 'output', content: ' ✔ Network 05-ssh_lab-net         Removed' },
+  ]}
+/>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "ssh-keygen — Key Generation",
+      items: [
+        { command: "ssh-keygen -t ed25519 -C '<comment>'", description: "Generate an Ed25519 key pair (current best practice)", example: "ssh-keygen -t ed25519 -C 'deploy@prod'" },
+        { command: "ssh-keygen -t rsa -b 4096", description: "Generate RSA key (older, for legacy systems requiring RSA)", example: "ssh-keygen -t rsa -b 4096 -C 'ci@example.com'" },
+        { command: "ssh-keygen -R <hostname>", description: "Remove a host from known_hosts (after server rebuild)", example: "ssh-keygen -R myserver.example.com" },
+        { command: "ssh-copy-id -i <pubkey> user@host", description: "Append public key to remote authorized_keys", example: "ssh-copy-id -i ~/.ssh/id_ed25519.pub user@server" },
+        { command: "cat ~/.ssh/id_ed25519.pub", description: "Print public key to copy to a server manually" },
+      ]
+    },
+    {
+      title: "SSH Config File Format (~/.ssh/config)",
+      items: [
+        { command: "Host <alias>", description: "Define a named connection. Use the alias with ssh/scp/sftp." },
+        { command: "HostName <hostname>", description: "Actual hostname or IP to connect to" },
+        { command: "User <username>", description: "Username for the remote connection" },
+        { command: "IdentityFile <path>", description: "Private key file to use for authentication" },
+        { command: "Port <number>", description: "Port number if not 22", example: "Port 2222" },
+        { command: "ProxyJump <alias>", description: "Connect through a bastion host (replaces -J flag)", example: "ProxyJump bastion" },
+      ]
+    },
+    {
+      title: "SSH Tunneling",
+      items: [
+        { command: "ssh -L <local-port>:<remote-host>:<remote-port> user@server", description: "Local forwarding: access remote service via local port", example: "ssh -L 5432:db.internal:5432 user@bastion" },
+        { command: "ssh -R <remote-port>:localhost:<local-port> user@server", description: "Remote forwarding: expose local service on remote port", example: "ssh -R 8080:localhost:3000 user@server" },
+        { command: "ssh -D <local-port> user@server", description: "Dynamic forwarding: SOCKS5 proxy via SSH server", example: "ssh -D 1080 user@proxy-server" },
+        { command: "ssh -N -f <tunnel-args>", description: "-N: no shell (tunnel only). -f: run in background.", example: "ssh -N -f -L 5432:db:5432 user@bastion" },
+      ]
+    },
+    {
+      title: "Common SSH Flags",
+      items: [
+        { command: "ssh -A", description: "Enable agent forwarding (caution: trust the remote server)", example: "ssh -A user@bastion" },
+        { command: "ssh -v / -vv / -vvv", description: "Verbose output — diagnose connection issues (-vvv is most detailed)", example: "ssh -vv user@server" },
+        { command: "ssh -i <identity-file>", description: "Specify which private key to use", example: "ssh -i ~/.ssh/prod_key user@server" },
+        { command: "ssh -p <port>", description: "Connect to non-standard port", example: "ssh -p 2222 user@server" },
+        { command: "ssh -o StrictHostKeyChecking=no", description: "Skip host key verification (lab use only — insecure)", example: "ssh -o StrictHostKeyChecking=no user@new-server" },
+      ]
+    }
+  ]}
+/>

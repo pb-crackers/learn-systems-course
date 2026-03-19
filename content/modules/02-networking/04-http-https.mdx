@@ -1,0 +1,362 @@
+---
+title: "HTTP and HTTPS: How the Web Communicates"
+description: "The request/response cycle that powers every web application — methods, headers, status codes, and how TLS encrypts it all"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "04-http-https"
+order: 4
+difficulty: "Foundation"
+estimatedMinutes: 23
+prerequisites: ["02-networking/02-tcp-ip-stack"]
+tags: ["http", "https", "tls", "curl", "headers", "status-codes", "request-response"]
+---
+
+## Overview
+
+Your deployment succeeded but users are getting 502 Bad Gateway errors. Understanding HTTP tells you the request reached the load balancer but the backend didn't respond correctly — the status code is the first clue. HTTP (Hypertext Transfer Protocol) is the application-layer protocol that defines exactly how clients and servers exchange messages. HTTPS adds TLS encryption on top, so those messages can't be read or tampered with in transit.
+
+This lesson explains the complete request/response cycle, what each status code category means, how TLS protects your traffic, and how `curl` gives you full visibility into every layer of an HTTP exchange.
+
+## How It Works
+
+### HTTP Request/Response Cycle
+
+HTTP is a request/response protocol. The client sends a request; the server returns a response. Both are text-based messages with a structured format: a start line, headers, a blank line, and an optional body.
+
+```
+HTTP Request                         HTTP Response
+────────────────────────────────     ────────────────────────────────
+GET /api/users HTTP/1.1              HTTP/1.1 200 OK
+Host: api.example.com                Content-Type: application/json
+Authorization: Bearer abc123         Content-Length: 47
+Accept: application/json             Cache-Control: no-store
+                                     Date: Thu, 19 Mar 2026 10:00:00 GMT
+(no body — GET has no body)
+                                     {"users": [{"id": 1, "name": "Alice"}]}
+────────────────────────────────     ────────────────────────────────
+start-line: method + path + version  start-line: version + status-code + reason
+headers: key: value pairs            headers: key: value pairs
+blank line (separator)               blank line (separator)
+body (optional)                      body (the actual response content)
+```
+
+Each HTTP exchange happens over a TCP connection. The client opens a TCP connection to the server's IP on port 80 (HTTP) or 443 (HTTPS), sends the request as text, and reads the response. HTTP/1.1 can reuse the same TCP connection for multiple requests (persistent connections). HTTP/2 goes further by multiplexing multiple requests over a single connection.
+
+### HTTP Methods
+
+Methods define the intended action on the resource. The method is the first word of the request start-line.
+
+| Method | Meaning | Has Body? | Idempotent? |
+|--------|---------|-----------|-------------|
+| **GET** | Read a resource | No | Yes — repeating returns same result |
+| **POST** | Create a new resource | Yes | No — each call creates a new item |
+| **PUT** | Replace a resource entirely | Yes | Yes — replacing with same data has same result |
+| **PATCH** | Update a resource partially | Yes | No — partial updates can compound |
+| **DELETE** | Remove a resource | No | Yes — deleting what's already gone is a no-op |
+
+**Idempotency** matters for reliability: if a network timeout causes you to retry a request, idempotent methods are safe to retry. POST is not — retrying "create order" creates two orders.
+
+### HTTP Headers
+
+Headers are key-value pairs that carry metadata about the request or response. They are separate from the body.
+
+**Common request headers:**
+
+| Header | Purpose | Example |
+|--------|---------|---------|
+| `Host` | Which virtual host to route to (required in HTTP/1.1) | `Host: api.example.com` |
+| `Content-Type` | Format of the request body | `Content-Type: application/json` |
+| `Authorization` | Authentication credentials | `Authorization: Bearer eyJhb...` |
+| `User-Agent` | Client identifier | `User-Agent: curl/8.5.0` |
+| `Accept` | Response formats the client can handle | `Accept: application/json` |
+
+**Common response headers:**
+
+| Header | Purpose | Example |
+|--------|---------|---------|
+| `Content-Type` | Format of the response body | `Content-Type: text/html; charset=utf-8` |
+| `Content-Length` | Size of the body in bytes | `Content-Length: 1024` |
+| `Cache-Control` | Caching directives | `Cache-Control: max-age=3600` |
+| `Location` | Redirect destination (with 3xx) | `Location: https://example.com/new-path` |
+| `Set-Cookie` | Set a cookie on the client | `Set-Cookie: session=abc; HttpOnly` |
+
+`curl -v` shows every header exchanged. The `>` lines are your request headers; the `<` lines are the server's response headers:
+
+<TerminalBlock
+  title="curl -v showing full header exchange"
+  lines={[
+    { type: 'command', content: 'curl -v http://httpbin.org/get 2>&1 | head -30' },
+    { type: 'output', content: '* Trying 54.208.105.16:80...' },
+    { type: 'output', content: '* Connected to httpbin.org (54.208.105.16) port 80' },
+    { type: 'output', content: '> GET /get HTTP/1.1' },
+    { type: 'output', content: '> Host: httpbin.org' },
+    { type: 'output', content: '> User-Agent: curl/8.5.0' },
+    { type: 'output', content: '> Accept: */*' },
+    { type: 'output', content: '>' },
+    { type: 'output', content: '< HTTP/1.1 200 OK' },
+    { type: 'output', content: '< Content-Type: application/json' },
+    { type: 'output', content: '< Content-Length: 268' },
+    { type: 'output', content: '< Access-Control-Allow-Origin: *' },
+    { type: 'output', content: '<' },
+    { type: 'output', content: '{ ... JSON body ... }' },
+  ]}
+/>
+
+### Status Codes
+
+The three-digit status code in every response tells you what happened. The first digit is the category:
+
+| Category | Range | Meaning |
+|----------|-------|---------|
+| **2xx** | 200–299 | Success — the request was received, understood, and accepted |
+| **3xx** | 300–399 | Redirection — further action needed to complete the request |
+| **4xx** | 400–499 | Client error — the request was malformed or unauthorized |
+| **5xx** | 500–599 | Server error — the server failed to fulfill a valid request |
+
+**The codes you'll see most:**
+
+| Code | Name | What It Means |
+|------|------|--------------|
+| 200 | OK | Standard success response |
+| 201 | Created | A new resource was created (POST success) |
+| 204 | No Content | Success, but no body to return (DELETE success) |
+| 301 | Moved Permanently | Resource has a new permanent URL; update your links |
+| 302 | Found | Temporary redirect; keep using the original URL |
+| 304 | Not Modified | Cache is still valid; no body sent |
+| 400 | Bad Request | The request is malformed — usually a client bug |
+| 401 | Unauthorized | Not authenticated — provide credentials |
+| 403 | Forbidden | Authenticated but not authorized for this resource |
+| 404 | Not Found | The resource doesn't exist at this URL |
+| 500 | Internal Server Error | Generic server crash — check server logs |
+| 502 | Bad Gateway | Proxy reached the backend but got a bad response |
+| 503 | Service Unavailable | Server is down or overloaded |
+| 504 | Gateway Timeout | Proxy reached the backend but it didn't respond in time |
+
+<Callout type="tip" title="502 vs 504: Different Problems">
+Most debugging starts with the status code. A **502** means the proxy reached the server but got a bad response — the backend is up but crashing. A **504** means the proxy couldn't get a response at all within the timeout — the backend may be down, overloaded, or the network between them is broken. Same symptom (users can't load the page), different causes, different fixes.
+</Callout>
+
+### HTTPS and TLS
+
+HTTP sends everything as plaintext — headers, cookies, request bodies, passwords. Anyone between the client and server (a coffee shop router, an ISP, a compromised CDN node) can read or modify the traffic. HTTPS adds TLS (Transport Layer Security) to encrypt and authenticate the connection.
+
+**The TLS handshake** happens before any HTTP data is exchanged. It establishes encrypted communication and verifies the server's identity:
+
+```
+Client                                        Server
+  │                                              │
+  │──── ClientHello ─────────────────────────►  │
+  │     (TLS version, cipher suites,             │
+  │      random bytes)                           │
+  │                                              │
+  │  ◄─── ServerHello ───────────────────────── │
+  │        (chosen cipher suite,                 │
+  │         random bytes, session ID)            │
+  │                                              │
+  │  ◄─── Certificate ───────────────────────── │
+  │        (server's public key +                │
+  │         identity signed by a CA)             │
+  │                                              │
+  │  ◄─── ServerHelloDone ───────────────────── │
+  │                                              │
+  │──── ClientKeyExchange ──────────────────►  │
+  │     (pre-master secret encrypted            │
+  │      with server's public key)              │
+  │                                              │
+  │──── ChangeCipherSpec ───────────────────►  │
+  │──── Finished (encrypted) ───────────────►  │
+  │                                              │
+  │  ◄─── ChangeCipherSpec ──────────────────── │
+  │  ◄─── Finished (encrypted) ─────────────── │
+  │                                              │
+  │  ═══════ Encrypted HTTP traffic ═══════════ │
+```
+
+After the handshake, all data is encrypted using a **symmetric key** that both sides derived from the exchange. The server's certificate (signed by a Certificate Authority) proves it is who it claims to be — your browser has a built-in list of trusted CAs.
+
+<Callout type="deep-dive" title="Why Two Types of Encryption?">
+The TLS handshake uses **asymmetric encryption** (public/private key pairs) to securely exchange a shared secret. Asymmetric encryption is mathematically expensive — encrypting large amounts of data with RSA or ECDH is slow. Once both sides have the shared secret, they switch to **symmetric encryption** (AES-GCM) for the actual data. Symmetric encryption is orders of magnitude faster. The handshake is the expensive part; the data transfer is fast. This hybrid approach is why TLS overhead is measured in milliseconds, not seconds.
+</Callout>
+
+**Certificates and Certificate Authorities (CAs):** A certificate binds a public key to a domain name and is signed by a CA that your browser trusts. If the certificate isn't signed by a trusted CA (a self-signed certificate), browsers and curl warn you because there's no third-party verification that you're talking to who you think you are.
+
+### curl: The DevOps Swiss Army Knife
+
+`curl` is the primary tool for testing and debugging HTTP. It speaks every HTTP variant, shows you exactly what was sent and received, and works from any shell.
+
+```bash
+# Just get the response body
+curl http://api.example.com/health
+
+# Verbose — see headers on both sides
+curl -v http://api.example.com/health
+
+# Headers only (HEAD request)
+curl -I http://api.example.com/
+
+# POST with JSON body
+curl -X POST \
+     -H 'Content-Type: application/json' \
+     -d '{"name": "alice"}' \
+     http://api.example.com/users
+
+# Follow redirects automatically
+curl -L http://example.com/
+
+# Skip TLS certificate verification (for self-signed certs)
+curl -k https://self-signed.example.com/
+
+# Print just the HTTP status code
+curl -s -o /dev/null -w '%{http_code}\n' http://api.example.com/health
+
+# Save response to a file
+curl -o response.json http://api.example.com/data
+
+# Set a custom header
+curl -H 'Authorization: Bearer mytoken' http://api.example.com/secure
+```
+
+<Callout type="warning" title="curl -k Skips Authentication">
+The `-k` flag tells curl to ignore TLS certificate errors, including invalid or self-signed certificates. This is necessary for lab environments using self-signed certs, but it disables a critical security check — if you use `-k` against a real server, you cannot verify you're talking to the intended server. An attacker doing a MITM attack could present any certificate and you'd never know. Use `-k` only in trusted lab environments, never in scripts that run against production.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Debug an HTTP/HTTPS Deployment"
+  difficulty="Foundation"
+  scenario="You're debugging a web application deployment and need to verify the server is responding correctly, inspect response headers, and confirm HTTPS is working. The lab has an nginx server with both HTTP (port 80) and HTTPS (port 443) using a self-signed certificate."
+  objective="By the end of this exercise, you will be able to use curl to inspect HTTP headers, diagnose status codes, and verify TLS negotiation with a self-signed certificate."
+  steps={[
+    {
+      step: 1,
+      description: "Start the lab environment. Two containers will start: webserver (nginx) and client (your shell).",
+      command: "docker compose -f docker/networking/04-http/compose.yml up -d"
+    },
+    {
+      step: 2,
+      description: "Open a shell in the client container.",
+      command: "docker compose -f docker/networking/04-http/compose.yml exec client bash"
+    },
+    {
+      step: 3,
+      description: "Make a basic HTTP request and check the status code.",
+      command: "curl -s -o /dev/null -w '%{http_code}\\n' http://webserver/"
+    },
+    {
+      step: 4,
+      description: "Get the response headers only (HEAD request) and save them to a file for inspection. Create the directory first.",
+      command: "mkdir -p /tmp/exercise && curl -I http://webserver/ | tee /tmp/exercise/headers.txt"
+    },
+    {
+      step: 5,
+      description: "Use verbose mode to see the full TLS negotiation for the HTTPS endpoint. The -k flag is needed for the self-signed certificate.",
+      command: "curl -vk https://webserver/ 2>&1 | head -40"
+    },
+    {
+      step: 6,
+      description: "Send a POST request with a JSON body to the API endpoint. Observe the Content-Type header requirement.",
+      command: "curl -X POST -H 'Content-Type: application/json' -d '{\"test\":\"data\"}' http://webserver/api"
+    },
+    {
+      step: 7,
+      description: "Use curl to print just the HTTP status code from the HTTPS endpoint (skipping cert verification).",
+      command: "curl -sk -o /dev/null -w '%{http_code}\\n' https://webserver/"
+    },
+    {
+      step: 8,
+      description: "Run the verification script to confirm your work.",
+      command: "bash /verify/04-http.sh"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "http-200",
+        label: "HTTP server on port 80 returns 200 OK",
+        hint: "Run: curl -s -o /dev/null -w '%{http_code}' http://webserver/ — should print 200"
+      },
+      {
+        id: "headers-captured",
+        label: "Response headers captured to /tmp/exercise/headers.txt",
+        hint: "Run: curl -I http://webserver/ > /tmp/exercise/headers.txt — then cat the file to verify"
+      },
+      {
+        id: "https-works",
+        label: "HTTPS endpoint on port 443 returns 200 (TLS handshake completed)",
+        hint: "Run: curl -sk -o /dev/null -w '%{http_code}' https://webserver/ — should print 200"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<TerminalBlock
+  title="Tear down the lab when done"
+  lines={[
+    { type: 'comment', content: 'Exit the container shell first' },
+    { type: 'command', content: 'exit' },
+    { type: 'command', content: 'docker compose -f docker/networking/04-http/compose.yml down' },
+    { type: 'output', content: '[+] Running 3/3' },
+    { type: 'output', content: ' ✔ Container 04-http-client-1    Removed' },
+    { type: 'output', content: ' ✔ Container 04-http-webserver-1 Removed' },
+    { type: 'output', content: ' ✔ Network 04-http_lab-net       Removed' },
+  ]}
+/>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "HTTP Methods",
+      items: [
+        { command: "GET", description: "Read a resource. Safe and idempotent. No request body.", example: "GET /api/users HTTP/1.1" },
+        { command: "POST", description: "Create a new resource. Not idempotent — each call creates a new item.", example: "POST /api/users HTTP/1.1" },
+        { command: "PUT", description: "Replace a resource entirely. Idempotent.", example: "PUT /api/users/42 HTTP/1.1" },
+        { command: "PATCH", description: "Partially update a resource.", example: "PATCH /api/users/42 HTTP/1.1" },
+        { command: "DELETE", description: "Remove a resource. Idempotent.", example: "DELETE /api/users/42 HTTP/1.1" },
+      ]
+    },
+    {
+      title: "Common Status Codes",
+      items: [
+        { command: "200 OK", description: "Standard success. Body contains the resource." },
+        { command: "201 Created", description: "Resource created (POST success). Location header has new URL." },
+        { command: "301 Moved Permanently", description: "Permanent redirect. Update your bookmarks/links." },
+        { command: "400 Bad Request", description: "Malformed request — fix the client." },
+        { command: "401 Unauthorized", description: "No credentials provided — authenticate first." },
+        { command: "403 Forbidden", description: "Authenticated but not allowed — check permissions." },
+        { command: "404 Not Found", description: "Resource does not exist at this URL." },
+        { command: "502 Bad Gateway", description: "Proxy reached backend but got invalid response — backend is up but failing." },
+        { command: "503 Service Unavailable", description: "Server down or overloaded." },
+        { command: "504 Gateway Timeout", description: "Proxy timed out waiting for backend — backend may be down or slow." },
+      ]
+    },
+    {
+      title: "curl Command Reference",
+      items: [
+        { command: "curl -v <url>", description: "Verbose — show request and response headers", example: "curl -v http://api.example.com/" },
+        { command: "curl -I <url>", description: "HEAD request — response headers only, no body", example: "curl -I https://example.com/" },
+        { command: "curl -s -o /dev/null -w '%{http_code}'", description: "Print just the HTTP status code", example: "curl -s -o /dev/null -w '%{http_code}' http://example.com/" },
+        { command: "curl -X POST -d '<data>'", description: "Send POST request with body data", example: "curl -X POST -d '{\"key\":\"val\"}' http://api.example.com/" },
+        { command: "curl -H '<header>'", description: "Add a custom request header", example: "curl -H 'Content-Type: application/json' ..." },
+        { command: "curl -k <url>", description: "Skip TLS certificate verification (for self-signed certs, lab only)", example: "curl -k https://localhost:8443/" },
+        { command: "curl -L <url>", description: "Follow redirects automatically", example: "curl -L http://example.com/" },
+        { command: "curl -o <file>", description: "Save response body to a file", example: "curl -o output.json http://api.example.com/data" },
+      ]
+    },
+    {
+      title: "TLS Handshake Summary",
+      items: [
+        { command: "ClientHello", description: "Client announces TLS version and supported cipher suites" },
+        { command: "ServerHello + Certificate", description: "Server picks cipher suite, sends its certificate (public key + CA signature)" },
+        { command: "Key Exchange", description: "Client uses server's public key to share a secret; both sides derive a symmetric key" },
+        { command: "Finished", description: "Both sides confirm the handshake; encrypted data transfer begins" },
+        { command: "Symmetric encryption", description: "All HTTP data is encrypted with AES-GCM after handshake (fast)" },
+        { command: "Certificate Authority", description: "Trusted third party that signs certificates; browser has a built-in list of trusted CAs" },
+      ]
+    }
+  ]}
+/>
