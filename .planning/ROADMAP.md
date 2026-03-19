@@ -32,13 +32,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Learner can toggle dark mode and the preference persists; the layout is fully usable on desktop and tablet
   4. Learner can search across all course content and navigate to matching lessons from the results
   5. Every lesson template enforces "How It Works" explanation sections, explicit prerequisites, difficulty-labeled exercises with real-world scenarios, and a quick reference section per module
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 01-01: Next.js project scaffold with TypeScript, Tailwind CSS, shadcn/ui, and 21st.dev components
-- [ ] 01-02: Course navigation, sidebar, and localStorage progress tracking
-- [ ] 01-03: MDX content pipeline with syntax highlighting, interactive components, and search
-- [ ] 01-04: Content framework — lesson template, exercise template, difficulty labels, module cheat sheet structure
+- [ ] 01-01-PLAN.md — Next.js 16 scaffold, Tailwind v4 dark-first theming, type system, useLocalStorage hook, Vitest setup (Wave 1)
+- [ ] 01-02-PLAN.md — 8-module collapsible sidebar, mobile drawer, ProgressProvider, localStorage progress tracking (Wave 2, parallel with 01-03)
+- [ ] 01-03-PLAN.md — MDX pipeline, lesson/module routes, MiniSearch index API, Cmd+K search modal (Wave 2, parallel with 01-02)
+- [ ] 01-04-PLAN.md — Content components (CodeBlock, TerminalBlock, ExerciseCard, Callout, etc.), LessonLayout, lesson template (Wave 3)
 
 ### Phase 2: Linux Fundamentals
 **Goal**: Learners can complete all Linux Fundamentals lessons with Docker-based lab environments, verifiable exercises, and the "explain the mechanism before the command" pattern established for all subsequent modules
@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. App Foundation | 0/4 | Not started | - |
+| 1. App Foundation | 0/4 | Ready to execute | - |
 | 2. Linux Fundamentals | 0/4 | Not started | - |
 | 3. Networking Foundations | 0/4 | Not started | - |
 | 4. Docker & Foundation Capstone | 0/4 | Not started | - |
@@ -165,3 +165,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 ---
 *Roadmap created: 2026-03-18*
 *Requirements coverage: 80/80 v1 requirements mapped*
+*Phase 1 planned: 2026-03-18 — 4 plans, 3 waves*
