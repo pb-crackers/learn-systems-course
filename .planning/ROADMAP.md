@@ -13,7 +13,7 @@ This roadmap builds a modern Next.js web application delivering a comprehensive,
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: App Foundation** - Next.js application shell with navigation, progress tracking, content framework, and modern UI (completed 2026-03-19)
-- [ ] **Phase 2: Linux Fundamentals** - Complete Linux module with mechanism-first lessons, Docker-based labs, and verified exercises
+- [x] **Phase 2: Linux Fundamentals** - Complete Linux module with mechanism-first lessons, Docker-based labs, and verified exercises (completed 2026-03-19)
 - [ ] **Phase 3: Networking Foundations** - Complete networking module with TCP/IP through SSH and firewall lessons with multi-container labs
 - [ ] **Phase 4: Docker & Foundation Capstone** - Complete Docker/containerization module plus cross-module foundation capstone project
 - [ ] **Phase 5: System Administration & CI/CD** - Sysadmin module (systemd, logging, disk) combined with CI/CD pipelines module
@@ -155,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. App Foundation | 4/4 | Complete    | 2026-03-19 |
-| 2. Linux Fundamentals | 2/4 | In Progress|  |
+| 2. Linux Fundamentals | 4/4 | Complete   | 2026-03-19 |
 | 3. Networking Foundations | 0/4 | Not started | - |
 | 4. Docker & Foundation Capstone | 0/4 | Not started | - |
 | 5. System Administration & CI/CD | 0/4 | Not started | - |

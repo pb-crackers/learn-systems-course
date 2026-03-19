@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-linux-fundamentals-04-PLAN.md
-last_updated: "2026-03-19T10:53:32.497Z"
+stopped_at: Completed 02-linux-fundamentals-03-PLAN.md
+last_updated: "2026-03-19T10:58:09.932Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 8
-  completed_plans: 7
+  completed_plans: 8
   percent: 25
 ---
 
@@ -56,6 +56,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 02-linux-fundamentals P02 | 12min | 2 tasks | 7 files |
 | Phase 02-linux-fundamentals P01 | 11min | 2 tasks | 8 files |
 | Phase 02-linux-fundamentals P04 | 5min | 1 tasks | 1 files |
+| Phase 02-linux-fundamentals P03 | 5min | 2 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,8 @@ Recent decisions affecting current work:
 - [Phase 02-linux-fundamentals]: Lesson discovery: filesystem scan of content/modules/<slug>/*.mdx via readdirSync; filter out 00- templates; sort alphabetically — adding MDX files requires no code changes
 - [Phase 02-linux-fundamentals]: Search body cleaning: JSX tags stripped with /<[^>]+>/g before indexing — sufficient for full-text search without installing additional remark plugins
 - [Phase 02-linux-fundamentals]: One QuickReference component per lesson topic (9 components) in cheat sheet — not a single mega-component — matches per-lesson pattern and keeps sections independently scannable
+- [Phase 02-linux-fundamentals]: sysstat added to Dockerfile for iostat (referenced in lesson 1 content but omitted from plan tool list)
+- [Phase 02-linux-fundamentals]: 08-text-processing generates 500-line access log at container startup using pure bash — no external Python/Node dependency needed
 
 ### Pending Todos
 
@@ -98,6 +101,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T10:53:32.494Z
-Stopped at: Completed 02-linux-fundamentals-04-PLAN.md
+Last session: 2026-03-19T10:58:09.930Z
+Stopped at: Completed 02-linux-fundamentals-03-PLAN.md
 Resume file: None
