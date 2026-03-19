@@ -1,0 +1,326 @@
+---
+title: "Disk Management: Block Devices, Filesystems, and Mounts"
+description: "How block devices, partitions, filesystems, and mount points work — before fdisk or mount commands"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "04-disk-management"
+order: 4
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["01-linux-fundamentals/03-linux-filesystem", "04-sysadmin/01-user-management"]
+tags: ["disk", "fdisk", "mount", "fstab", "lvm", "df", "du", "block-devices", "filesystems"]
+---
+
+## Overview
+
+A production database is running slow. `df -h` shows the data volume at 97% capacity. You need to add storage, partition it, format it, and mount it without taking down the database. Do this wrong — a bad `/etc/fstab` entry — and the server will not boot. Understanding block devices, filesystems, and mount points from first principles is the difference between a clean maintenance window and an emergency recovery.
+
+## How It Works
+
+### Block Devices: The Kernel's Disk Abstraction
+
+The Linux kernel presents every storage device — hard drive, SSD, USB drive, cloud volume — as a **block device** file in `/dev/`. A block device is a file that you can read from and write to in fixed-size blocks (typically 512 bytes or 4KB).
+
+```
+/dev/sda        # first SCSI/SATA disk
+/dev/sdb        # second disk
+/dev/vda        # first virtio disk (cloud VMs, KVM)
+/dev/nvme0n1    # first NVMe SSD
+/dev/sda1       # first partition on /dev/sda
+/dev/sda2       # second partition on /dev/sda
+```
+
+<Callout type="deep-dive" title="Everything Is a File — Including Disks">
+In the Linux Fundamentals lesson on the filesystem, you learned that everything in Linux is a file — including devices. `/dev/sda` is a file that represents a disk. When you run `fdisk /dev/sda`, you are reading and writing that file's contents — which happen to be the partition table. When you run `dd if=/dev/zero of=/dev/sda`, you are overwriting the raw disk data byte-by-byte. The file abstraction makes every disk operation composable with standard Unix tools.
+</Callout>
+
+Use `lsblk` to see the block device tree without modifying anything:
+
+```bash
+$ lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda      8:0    0   20G  0 disk
+├─sda1   8:1    0   19G  0 part /
+└─sda2   8:2    0    1G  0 part [SWAP]
+sdb      8:16   0  100G  0 disk    ← unpartitioned second disk
+```
+
+### Partitions: Dividing a Disk
+
+A **partition** is a logically isolated region of a disk, defined by a start sector and end sector in the partition table. The partition table lives in the first sector(s) of the disk.
+
+Two partition table formats exist:
+
+| Format | Max disk size | Max partitions | Notes |
+|--------|--------------|----------------|-------|
+| MBR (Master Boot Record) | 2TB | 4 primary (or 3 primary + extended) | Legacy, 1980s design |
+| GPT (GUID Partition Table) | 9.4ZB | 128 by default | Modern, required for disks > 2TB and UEFI boot |
+
+For new systems, always use GPT unless there is a specific reason to use MBR.
+
+`fdisk` is the classic partition editor (interactive or scriptable). `parted` and `gdisk` are alternatives that handle GPT better. Basic `fdisk` workflow:
+
+```bash
+fdisk /dev/sdb       # open interactive partition editor
+# Inside fdisk:
+# g  — create new GPT partition table (destroys all data)
+# n  — add new partition
+# p  — print current partition table
+# w  — write changes to disk and exit
+# q  — quit WITHOUT writing
+```
+
+### Filesystems: Structure on a Partition
+
+A raw partition is just a sequence of blocks — no directories, no files, no names. A **filesystem** provides the structure: a way to organize blocks into files and directories, track free space, store metadata (permissions, timestamps, ownership).
+
+Creating a filesystem writes its metadata structures to the partition:
+
+```bash
+mkfs.ext4 /dev/sdb1        # create ext4 filesystem on first partition of sdb
+mkfs.xfs /dev/sdb1         # create XFS filesystem
+mkfs.vfat /dev/sdb1        # create FAT32 (for USB drives, cross-platform)
+```
+
+**ext4** is the standard Linux filesystem (Ubuntu default). **XFS** is used for large-scale deployments (databases, large files). Once created, the filesystem type is recorded in the partition and can be detected automatically.
+
+### The Mount Operation
+
+A filesystem becomes accessible by **mounting** it — attaching it at a directory in the existing filesystem tree. The directory it attaches to is called the **mount point**:
+
+```bash
+mkdir /mnt/data              # create the mount point directory
+mount /dev/sdb1 /mnt/data    # attach the filesystem there
+```
+
+After mounting, everything in `/mnt/data/` reads from and writes to `/dev/sdb1`. The mount point directory acts as the entry point. Files written to `/mnt/data/` are stored on the `sdb1` partition.
+
+```bash
+umount /mnt/data     # detach the filesystem (must not be in use)
+mount | grep data    # list currently mounted filesystems (shows all mounts)
+```
+
+### /etc/fstab: Persistent Mount Configuration
+
+`mount` mounts a filesystem for the current boot session only. To make it persistent across reboots, add it to `/etc/fstab`. The kernel reads this file at boot and mounts every entry.
+
+`/etc/fstab` has six whitespace-separated fields:
+
+```
+# Device          Mount point   FS type   Options         Dump  Pass
+UUID=a1b2c3d4...  /mnt/data     ext4      defaults,nofail  0     2
+/dev/sdb1         /mnt/backup   xfs       defaults         0     0
+tmpfs             /tmp          tmpfs     defaults,noatime 0     0
+```
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| Device | UUID=... or /dev/sdX | What to mount. Prefer UUID — device names change. |
+| Mount point | /mnt/data | Where to attach it in the directory tree |
+| FS type | ext4, xfs, tmpfs, nfs | Filesystem type |
+| Options | defaults, ro, noatime, nofail | Mount options (comma-separated) |
+| Dump | 0 or 1 | Whether `dump` backup tool includes this filesystem (0 = skip) |
+| Pass | 0, 1, or 2 | `fsck` check order at boot (0=skip, 1=root first, 2=others) |
+
+**Important options:**
+- `defaults` — standard options (rw, suid, dev, exec, auto, nouser, async)
+- `nofail` — do not fail boot if this device is absent (use for non-critical mounts)
+- `noatime` — do not update access timestamps on reads (performance optimization)
+- `ro` — mount read-only
+
+**Why UUIDs instead of device names:** Device names (`/dev/sda`, `/dev/sdb`) are assigned by the kernel in the order devices are detected at boot. If you add or remove a disk, the order can change — `/dev/sdb` might become `/dev/sda` on next boot. UUIDs are stable identifiers written into the filesystem at `mkfs` time. Get the UUID with `blkid /dev/sdb1`.
+
+<Callout type="warning" title="Test fstab Before Rebooting">
+Never add a new `/etc/fstab` entry without testing it first. A bad fstab entry causes the system to drop into emergency mode on the next boot — and recovering from emergency mode requires console access or a rescue disk.
+
+Test procedure:
+1. Add the fstab entry
+2. Run `mount -a` — this mounts all unmounted fstab entries and will fail immediately if there is a syntax error or bad device
+3. Only reboot after `mount -a` succeeds
+
+Also use the `nofail` option for non-critical mounts (external drives, secondary data volumes). With `nofail`, if the device is absent at boot (disconnected drive, unattached cloud volume), the system boots normally instead of entering emergency mode.
+</Callout>
+
+### df vs du: Two Views of Storage Usage
+
+These tools answer fundamentally different questions:
+
+**`df` (disk free)** — reports at the **filesystem level**: how much space is allocated to the filesystem vs available:
+
+```bash
+$ df -h
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        19G   12G  6.5G  65% /
+/dev/sdb1        99G   45G   49G  48% /mnt/data
+tmpfs           2.0G     0  2.0G   0% /dev/shm
+```
+
+**`du` (disk usage)** — reports at the **directory level**: how much space the files in a directory tree are actually using:
+
+```bash
+$ du -sh /var/log/*
+4.0K    /var/log/apt
+48M     /var/log/journal
+2.4M    /var/log/syslog
+512K    /var/log/nginx
+```
+
+Use `df -h` to identify which filesystem is full. Use `du -sh /some/directory/*` to find what is consuming the space within that filesystem.
+
+### LVM Basics (Concept Overview)
+
+**LVM (Logical Volume Manager)** adds a virtualization layer between physical disks and filesystems:
+
+```
+Physical disks (PV) → Volume Group (VG) → Logical Volumes (LV) → Filesystems
+   /dev/sdb           vg-data               lv-app    lv-db
+   /dev/sdc                                  100G       200G
+```
+
+LVM allows:
+- **Online resize**: grow a logical volume and filesystem without unmounting
+- **Snapshots**: point-in-time copy of a volume for backups
+- **Spanning**: one logical volume can span multiple physical disks
+
+Full LVM administration (vgcreate, lvcreate, lvextend, pvmove) is a topic for advanced system administration. The key concept to understand now: when you see `/dev/mapper/ubuntu--vg-ubuntu--lv` as a root device, you are on an LVM system — the `vg-data` volume group contains `lv-ubuntu` which is the actual logical volume your filesystem lives on.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Investigate Disk Usage and Set Up a Data Partition"
+  difficulty="Intermediate"
+  scenario="Your server's root filesystem is at 80% capacity. Your application logs are growing rapidly. You need to identify what is consuming the space, then create and mount a dedicated partition for application data using a loopback device to simulate a real disk."
+  objective="By the end of this exercise, you will be able to use df and du to diagnose storage issues, create a filesystem on a loopback device, mount it, and write a correct fstab entry."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container with privileged mode (required for losetup to create loopback devices).",
+      command: "docker run --rm -it --privileged ubuntu:22.04 bash"
+    },
+    {
+      step: 2,
+      description: "Install the tools needed for this exercise: util-linux (losetup, fdisk), e2fsprogs (mkfs.ext4), and procps (for reference).",
+      command: "apt-get update -qq && apt-get install -y util-linux e2fsprogs fdisk 2>/dev/null; echo 'Tools ready'"
+    },
+    {
+      step: 3,
+      description: "Check the current disk layout and filesystem usage. df -h shows human-readable sizes.",
+      command: "df -h && echo '---' && lsblk"
+    },
+    {
+      step: 4,
+      description: "Identify the top disk consumers in /var. du -sh shows the size of each item, sorted by size with sort -rh.",
+      command: "du -sh /var/* 2>/dev/null | sort -rh | head -10"
+    },
+    {
+      step: 5,
+      description: "Create a 512MB file to simulate a new disk. truncate creates a sparse file — it appears to be 512MB but does not actually consume that much space until written.",
+      command: "truncate -s 512M /tmp/disk.img && ls -lh /tmp/disk.img"
+    },
+    {
+      step: 6,
+      description: "Associate the file with a loopback block device. This makes /dev/loop0 behave exactly like a real disk — you can partition it and create filesystems on it.",
+      command: "losetup /dev/loop0 /tmp/disk.img && losetup -l"
+    },
+    {
+      step: 7,
+      description: "Create an ext4 filesystem directly on the loopback device. In a real scenario you would partition first with fdisk, but for a single-use data volume, creating a filesystem on the whole device is acceptable.",
+      command: "mkfs.ext4 /dev/loop0 && echo 'Filesystem created'"
+    },
+    {
+      step: 8,
+      description: "Create the mount point directory and mount the new filesystem.",
+      command: "mkdir -p /mnt/appdata && mount /dev/loop0 /mnt/appdata && df -h /mnt/appdata"
+    },
+    {
+      step: 9,
+      description: "Verify the mount by writing a test file and checking it persists.",
+      command: "echo 'Application data here' > /mnt/appdata/test.txt && cat /mnt/appdata/test.txt && ls -la /mnt/appdata/"
+    },
+    {
+      step: 10,
+      description: "Get the UUID of the new filesystem. In production you would use this UUID in /etc/fstab instead of the device name.",
+      command: "blkid /dev/loop0"
+    },
+    {
+      step: 11,
+      description: "Write the fstab entry. Using nofail ensures the system boots even if this device is absent (important for non-root volumes).",
+      command: "echo '/dev/loop0  /mnt/appdata  ext4  defaults,nofail  0  2' >> /etc/fstab && tail -3 /etc/fstab"
+    },
+    {
+      step: 12,
+      description: "Test the fstab entry by unmounting and remounting with mount -a (simulating what happens at boot).",
+      command: "umount /mnt/appdata && mount -a && df -h /mnt/appdata && cat /mnt/appdata/test.txt"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "df-shows-mount",
+        label: "df -h shows /mnt/appdata as a mounted 512MB filesystem",
+        hint: "Run: df -h /mnt/appdata — should show /dev/loop0 with ~476M size (512MB - filesystem overhead)"
+      },
+      {
+        id: "fstab-entry",
+        label: "/etc/fstab contains the /mnt/appdata entry with nofail option",
+        hint: "Run: grep appdata /etc/fstab — should show the /dev/loop0 entry with defaults,nofail options"
+      },
+      {
+        id: "mount-a-works",
+        label: "mount -a succeeds after umount (simulates boot behavior)",
+        hint: "Run: umount /mnt/appdata && mount -a — should complete without errors. If mount -a fails, there is an error in your fstab entry."
+      },
+      {
+        id: "data-persists",
+        label: "Data written to /mnt/appdata persists after umount and remount",
+        hint: "Run: cat /mnt/appdata/test.txt — should show your test content after remounting"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Disk Investigation",
+      items: [
+        { command: "lsblk", description: "List block devices in a tree — shows disks, partitions, and mount points", example: "lsblk" },
+        { command: "blkid /dev/sdb1", description: "Show UUID, filesystem type, and label of a partition", example: "blkid /dev/sda1" },
+        { command: "df -h", description: "Filesystem-level disk usage (human-readable sizes)", example: "df -h" },
+        { command: "du -sh /path/*", description: "Directory-level disk usage — find what is consuming space", example: "du -sh /var/log/* | sort -rh | head -20" },
+        { command: "mount | grep <device>", description: "Show all active mounts or mounts for a specific device", example: "mount | grep sdb" },
+      ]
+    },
+    {
+      title: "Partition and Format",
+      items: [
+        { command: "fdisk /dev/sdb", description: "Interactive partition editor — g creates GPT table, n adds partition, w writes and exits", example: "fdisk /dev/sdb" },
+        { command: "mkfs.ext4 /dev/sdb1", description: "Create ext4 filesystem on a partition", example: "mkfs.ext4 -L data /dev/sdb1" },
+        { command: "mkfs.xfs /dev/sdb1", description: "Create XFS filesystem (preferred for large data volumes)", example: "mkfs.xfs /dev/sdb1" },
+        { command: "e2label /dev/sdb1 data", description: "Set a label on an ext4 filesystem (use in fstab as LABEL=data)", example: "e2label /dev/sdb1 appdata" },
+      ]
+    },
+    {
+      title: "Mount Operations",
+      items: [
+        { command: "mount /dev/sdb1 /mnt/data", description: "Mount a filesystem at a directory", example: "mount /dev/sdb1 /mnt/data" },
+        { command: "mount -a", description: "Mount all entries in /etc/fstab that are not yet mounted — test fstab entries with this before rebooting", example: "mount -a" },
+        { command: "umount /mnt/data", description: "Unmount a filesystem (fails if any process has files open there)", example: "umount /mnt/data" },
+        { command: "fuser /mnt/data", description: "Find processes with files open on a mount (useful when umount says 'device is busy')", example: "fuser -vm /mnt/data" },
+      ]
+    },
+    {
+      title: "Loopback Devices (Lab Use)",
+      items: [
+        { command: "truncate -s 512M /tmp/disk.img", description: "Create a sparse 512MB file to use as a virtual disk", example: "truncate -s 1G /tmp/bigdisk.img" },
+        { command: "losetup /dev/loop0 /tmp/disk.img", description: "Associate a file with a loopback block device", example: "losetup /dev/loop0 /tmp/disk.img" },
+        { command: "losetup -d /dev/loop0", description: "Detach (release) a loopback device", example: "losetup -d /dev/loop0" },
+        { command: "losetup -l", description: "List all active loopback devices and their associated files", example: "losetup -l" },
+      ]
+    }
+  ]}
+/>

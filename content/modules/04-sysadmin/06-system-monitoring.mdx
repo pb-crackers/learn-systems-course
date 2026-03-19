@@ -1,0 +1,340 @@
+---
+title: "System Monitoring: Identifying Resource Bottlenecks"
+description: "Load average, top, vmstat, and iostat — diagnosing CPU, memory, and I/O bottlenecks from the command line"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "06-system-monitoring"
+order: 6
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["04-sysadmin/02-systemd", "01-linux-fundamentals/05-processes"]
+tags: ["monitoring", "top", "htop", "vmstat", "iostat", "load-average", "bottlenecks", "resources"]
+---
+
+## Overview
+
+Users are reporting timeouts. The service is running — systemctl shows it active — but responses are taking 30 seconds instead of 300 milliseconds. You have 10 minutes before the incident escalates. Knowing exactly which monitoring command to run, and what each number means, is the difference between finding the problem and staring at a wall of output.
+
+There are four resources to monitor: CPU, memory, disk I/O, and network. Each has different tools and different signatures when saturated. This lesson teaches the interpretation pattern first, then the commands.
+
+## How It Works
+
+### The Four Resources
+
+Every performance problem on a Linux server falls into one of four categories:
+
+| Resource | Saturated when... | Primary tools |
+|----------|------------------|---------------|
+| CPU | Processes are waiting for CPU time | `top`, `vmstat`, `mpstat` |
+| Memory | System is using swap | `free`, `top`, `vmstat` |
+| Disk I/O | Processes are waiting for disk reads/writes | `iostat`, `vmstat`, `iotop` |
+| Network | Bandwidth exhausted or high packet loss | `iftop`, `netstat`, `ss`, `ping` |
+
+The key diagnostic pattern: **load average tells you something is wrong; the other tools tell you what**.
+
+### Load Average: The Starting Point
+
+Load average is the most prominent indicator in system monitoring. It appears in `top`, `uptime`, and `cat /proc/loadavg`. It reports three numbers:
+
+```
+load average: 2.45, 1.83, 1.21
+              ↑      ↑      ↑
+           1-min  5-min  15-min
+```
+
+**What load average measures:** the average number of processes that are either:
+1. Running (currently using a CPU), or
+2. In the "uninterruptible sleep" state (waiting for I/O — cannot be interrupted by a signal)
+
+**The key reference point is the number of CPU cores.** A load of 1.00 on a single-core system means the CPU is exactly fully utilized. A load of 1.00 on a 4-core system means it is 25% utilized.
+
+```
+Single-core system:
+  load 0.5  = 50% utilized (CPU is idle half the time)
+  load 1.0  = 100% utilized (CPU is always busy, no queue)
+  load 2.0  = 200% load (1 running + 1 waiting — there is a queue)
+
+4-core system:
+  load 4.0  = 100% utilized across all 4 cores
+  load 8.0  = 200% load (4 running + 4 waiting — there is a queue)
+```
+
+**Reading the three values:**
+- 1-min > 5-min > 15-min: load is **increasing** — problem is getting worse
+- 1-min < 5-min < 15-min: load is **decreasing** — problem is resolving
+- 1-min >> 15-min: sudden spike — something just happened
+
+**Critical distinction:** High load with high `%wa` (I/O wait) is an I/O bottleneck. High load with high `%us` (user CPU) is a CPU bottleneck. The load average alone cannot tell you which — you need vmstat or top.
+
+### top: The Overview Dashboard
+
+`top` is the Swiss Army knife — it shows all four resource categories simultaneously.
+
+```
+top - 14:23:05 up 2 days,  3:14,  2 users,  load average: 2.45, 1.83, 1.21
+Tasks: 187 total,   2 running, 185 sleeping,   0 stopped,   0 zombie
+%Cpu(s): 45.2 us, 12.3 sy,  0.0 ni, 38.5 id,  3.8 wa,  0.0 hi,  0.2 si
+MiB Mem :  7823.5 total,   456.2 free,  5234.1 used,  2133.2 buff/cache
+MiB Swap:  2048.0 total,  1024.0 free,  1024.0 used.  2134.2 avail Mem
+
+  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+12345 www-data  20   0  678944 456782  12344 R  87.3   5.7   4:32.12 node
+ 9876 mysql     20   0 1234567 890123  23456 S   8.1  11.1  12:45.67 mysqld
+```
+
+**CPU line interpretation:**
+| Field | Meaning |
+|-------|---------|
+| `us` | User space CPU — your application code |
+| `sy` | System (kernel) CPU — system calls, I/O scheduling |
+| `ni` | Nice — CPU used by niced (low-priority) processes |
+| `id` | Idle — unused CPU capacity |
+| `wa` | I/O wait — CPU is idle but waiting for disk/network I/O |
+| `hi` | Hardware interrupts |
+| `si` | Software interrupts |
+
+**Memory line:** `used` = actively used memory. `buff/cache` = disk cache (the kernel uses free RAM for caching — this is normal and healthy). `avail Mem` is how much memory is actually available without touching swap — this is the number to watch.
+
+**Process column interpretation:**
+
+| Column | Meaning |
+|--------|---------|
+| `PID` | Process ID |
+| `PR` | Priority as seen by the kernel scheduler |
+| `NI` | Nice value (-20 to 19) |
+| `VIRT` | Virtual memory — all mapped address space (includes memory not yet loaded) |
+| `RES` | Resident set size — RAM actually used right now |
+| `SHR` | Shared memory — portions shared with other processes (libraries) |
+| `S` | State: R=running, S=sleeping, D=uninterruptible sleep (I/O wait), Z=zombie |
+| `%CPU` | CPU usage percentage |
+| `%MEM` | Percentage of total RAM |
+
+**Useful top interactive commands:** `M` sort by memory, `P` sort by CPU, `k` kill a process, `q` quit.
+
+### vmstat: Sampling System-Wide Activity
+
+`vmstat` shows aggregate resource utilization per sample interval. Unlike `top` (which shows a point-in-time snapshot), running `vmstat 1 5` takes 5 samples one second apart, showing trends:
+
+```bash
+$ vmstat 1 5
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa
+ 2  0      0 456000  12000 2100000    0    0     0    45  320  890 45 12 38  4
+ 3  1      0 450000  12000 2100000    0    0   200  1245  450 1200 52 15 25  8
+ 1  0      0 455000  12000 2100000    0    0     0    30  300  780 43 11 42  4
+```
+
+**Column interpretation:**
+
+| Section | Column | Meaning |
+|---------|--------|---------|
+| procs | `r` | Run queue — processes waiting for CPU (> number of CPUs = CPU saturated) |
+| procs | `b` | Blocked processes in uninterruptible sleep (> 0 usually = I/O bottleneck) |
+| memory | `swpd` | Amount of swap in use (> 0 = memory pressure) |
+| memory | `free` | Free memory |
+| memory | `buff/cache` | Kernel buffer/cache (NOT wasted — it speeds up disk access) |
+| swap | `si` | Swap in — pages read from swap disk to RAM (> 0 = serious memory pressure) |
+| swap | `so` | Swap out — pages written from RAM to swap (> 0 = serious memory pressure) |
+| io | `bi` | Blocks read from disk per second |
+| io | `bo` | Blocks written to disk per second |
+| cpu | `us/sy/id/wa` | Same as top's CPU line (user/system/idle/iowait) |
+
+**Diagnosis signals:**
+- `r` consistently > number of CPU cores: **CPU bottleneck**
+- `b` > 0, `wa` > 10%: **I/O bottleneck**
+- `si` or `so` > 0: **memory pressure** (thrashing)
+
+### iostat: Disk I/O Detail
+
+`iostat` (from the `sysstat` package) shows per-device disk I/O statistics:
+
+```bash
+$ iostat -x 1 3
+Device    r/s    w/s  rMB/s  wMB/s  r_await  w_await  %util
+sda      45.2   12.3    2.4    1.1      2.3     12.4   23.5
+sdb       0.1  234.5    0.0   58.6      0.8     85.3   98.7  ← SATURATED
+```
+
+**Key columns:**
+
+| Column | Meaning |
+|--------|---------|
+| `r/s`, `w/s` | Read/write operations per second |
+| `rMB/s`, `wMB/s` | Read/write throughput in MB/s |
+| `r_await`, `w_await` | Average time (ms) for read/write requests to complete |
+| `%util` | Percentage of time the device was busy — > 80% indicates saturation |
+
+`%util` near 100% means the disk cannot keep up with the I/O requests. `await` values above 10-20ms for SSD or 100ms for spinning disk indicate queue buildup.
+
+### The Bottleneck Identification Pattern
+
+When a system is slow, run this sequence:
+
+```
+Step 1: uptime or top header
+  → Check load average vs number of CPUs
+
+Step 2: vmstat 1 5
+  → r > CPU count?  → CPU bottleneck
+  → b > 0, wa > 10? → I/O bottleneck
+  → si or so > 0?   → Memory pressure
+
+Step 3 (if I/O): iostat -x 1 3
+  → Which device has %util near 100%?
+  → What is the await time?
+
+Step 4 (if CPU): top (sort by CPU with P)
+  → Which process is consuming the CPU?
+  → Is it expected behavior or a runaway process?
+
+Step 5 (if memory): free -h
+  → How much swap is in use?
+  → What is the avail Mem number?
+  → top (sort by MEM with M) — which process is the largest?
+```
+
+Common bottleneck signatures:
+
+| Observation | Diagnosis |
+|-------------|-----------|
+| High load + high `%us` + high CPU process | CPU-bound: one process consuming all CPU |
+| High load + high `%wa` + `b > 0` | I/O-bound: processes waiting for disk |
+| High load + `si`/`so` > 0 + low `free` | Memory exhaustion: system is swapping |
+| Low load + slow responses | Not resource-bound: check network, application, external dependencies |
+
+<Callout type="info" title="What's Next: Prometheus and Grafana">
+These command-line tools show you a snapshot of one machine at one moment. `vmstat 1 5` tells you what the system was doing in the last 5 seconds. But production questions sound like: "Was the disk I/O high before the deployment at 2:30 PM, or did it start after?" That requires storing metrics over time.
+
+In Phase 7 (Monitoring and Observability), you will learn **Prometheus** for collecting and storing metrics continuously, and **Grafana** for visualizing trends over time — turning these point-in-time snapshots into a monitoring system that can show you load average graphs, alert on `%util` thresholds, and correlate deployments with performance changes.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Diagnose a Resource Bottleneck"
+  difficulty="Intermediate"
+  scenario="Your production server is responding slowly. Users report timeouts. Your first job is to determine whether this is a CPU bottleneck, memory pressure, disk I/O saturation, or something else entirely. You need to run the right monitoring commands in the right order to reach a conclusion quickly."
+  objective="By the end of this exercise, you will be able to interpret load average, read vmstat output, use iostat for disk detail, and apply the bottleneck identification pattern to reach a diagnosis."
+  steps={[
+    {
+      step: 1,
+      description: "Launch a container with monitoring tools installed. sysstat provides iostat and vmstat; procps provides top and free.",
+      command: "docker run --rm -it ubuntu:22.04 bash -c 'apt-get update -qq && apt-get install -y sysstat procps -qq && bash'"
+    },
+    {
+      step: 2,
+      description: "Check the current load average. The three numbers are 1-minute, 5-minute, and 15-minute averages. On this container, the load should be low.",
+      command: "uptime"
+    },
+    {
+      step: 3,
+      description: "Run top in batch mode to see the current state without needing an interactive terminal. -b = batch mode, -n 1 = one iteration, -d 1 = 1 second delay.",
+      command: "top -b -n 1 | head -20"
+    },
+    {
+      step: 4,
+      description: "Identify: from the top output, what is the %id (idle) value? A healthy system shows %id > 70%. What is the %wa (iowait) value? > 5% suggests I/O pressure.",
+      command: "top -b -n 1 | grep -E '^%Cpu'"
+    },
+    {
+      step: 5,
+      description: "Run vmstat with 1-second samples. The first line is an average since boot. Lines 2 onwards are per-second samples. Watch the r, b, wa, si, so columns.",
+      command: "vmstat 1 5"
+    },
+    {
+      step: 6,
+      description: "Interpret the vmstat output. In this container: r should be 0-1 (no CPU queue), b should be 0 (no blocked processes), wa should be near 0 (no I/O wait), si/so should be 0 (no swap).",
+      command: "vmstat 1 3 | awk 'NR==1{print} NR>1{print; if($1>2) print \"  WARNING: CPU queue \" $1 \"> 2\"; if($9>10) print \"  WARNING: High iowait \" $9\"%\"}'"
+    },
+    {
+      step: 7,
+      description: "Check memory usage with free. The 'available' column shows how much memory can be used by applications without touching swap.",
+      command: "free -h"
+    },
+    {
+      step: 8,
+      description: "Run iostat to see disk I/O statistics. -x shows extended statistics including %util and await times.",
+      command: "iostat -x 1 3"
+    },
+    {
+      step: 9,
+      description: "Practice the diagnosis: if you saw load=8.0 on a 4-core system, r=6 in vmstat, and %wa=2%, what would you conclude?",
+      command: "echo 'Diagnosis: load 8.0 on 4-core = 200% saturation. r=6 means 6 processes waiting for CPU (only 4 cores available). %wa=2% means NOT disk I/O. Conclusion: CPU-bound. Next step: top (sort by CPU with P) to find the consuming process.'"
+    },
+    {
+      step: 10,
+      description: "Practice the diagnosis: if you saw load=4.0, r=1, b=3, and %wa=45%, what would you conclude?",
+      command: "echo 'Diagnosis: b=3 means 3 processes in uninterruptible sleep. %wa=45% means CPU is idle nearly half the time waiting for I/O. Conclusion: I/O-bound. Next step: iostat -x to find the saturated disk device.'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "load-average",
+        label: "You can identify load average and compare it to CPU core count",
+        hint: "Run: nproc to see core count. Run: uptime to see load average. If load / nproc > 1.0, the system is CPU-saturated."
+      },
+      {
+        id: "vmstat-interpretation",
+        label: "You can identify the r, b, and wa columns in vmstat output and know what each signals",
+        hint: "r = run queue (CPU queue), b = blocked processes (I/O wait), wa = iowait percentage. High r + low wa = CPU bottleneck. High b + high wa = I/O bottleneck."
+      },
+      {
+        id: "iostat-util",
+        label: "You can identify the %util column in iostat and know the saturation threshold",
+        hint: "iostat -x 1 3 — look for the %util column. Values above 80-90% indicate a saturated disk device."
+      },
+      {
+        id: "bottleneck-pattern",
+        label: "You can describe the 3-step bottleneck diagnosis pattern (load → vmstat → iostat/top)",
+        hint: "Step 1: load average tells you something is wrong. Step 2: vmstat r/b/wa tells you if it is CPU or I/O. Step 3: iostat (if I/O) or top (if CPU) identifies the specific device or process."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Load Average and uptime",
+      items: [
+        { command: "uptime", description: "Show current time, uptime, user count, and 1/5/15 minute load averages", example: "uptime" },
+        { command: "cat /proc/loadavg", description: "Raw load average file — useful in scripts", example: "cat /proc/loadavg" },
+        { command: "nproc", description: "Number of available CPU cores — your load average baseline", example: "nproc" },
+        { command: "lscpu | grep '^CPU(s)'", description: "Detailed CPU topology (physical vs logical cores)", example: "lscpu | grep '^CPU(s)'" },
+      ]
+    },
+    {
+      title: "top — Process-Level Overview",
+      items: [
+        { command: "top", description: "Interactive real-time process monitor — P sorts by CPU, M sorts by memory, q quits", example: "top" },
+        { command: "top -b -n 1", description: "Batch mode (non-interactive) — useful in scripts and pipes", example: "top -b -n 3 -d 1 > /tmp/top-snapshot.txt" },
+        { command: "htop", description: "Improved top with color, mouse support, and easier process management", example: "htop" },
+        { command: "%wa in top CPU line", description: "I/O wait percentage — CPU is idle waiting for disk/network. > 5% suggests I/O pressure.", example: "" },
+      ]
+    },
+    {
+      title: "vmstat — System-Wide Sampling",
+      items: [
+        { command: "vmstat 1 5", description: "5 samples at 1-second intervals — shows trends", example: "vmstat 1 10" },
+        { command: "r column", description: "Run queue depth — processes waiting for CPU. Should be <= number of CPU cores.", example: "" },
+        { command: "b column", description: "Blocked processes (uninterruptible sleep) — > 0 usually means I/O bottleneck", example: "" },
+        { command: "si / so columns", description: "Swap in/out per second — any value > 0 indicates memory pressure", example: "" },
+        { command: "wa column (cpu)", description: "CPU I/O wait percentage — same as top's %wa. Consistently > 10% = disk bottleneck.", example: "" },
+      ]
+    },
+    {
+      title: "iostat — Disk I/O Detail",
+      items: [
+        { command: "iostat -x 1 3", description: "Extended disk stats, 3 samples at 1-second intervals", example: "iostat -x 1 5" },
+        { command: "%util column", description: "Disk utilization percentage — > 80-90% = disk is saturated", example: "" },
+        { command: "r_await / w_await", description: "Average I/O request completion time in ms — high values mean disk queue backlog", example: "" },
+        { command: "r/s and w/s", description: "Read and write operations per second — compare to disk spec for capacity planning", example: "" },
+      ]
+    }
+  ]}
+/>

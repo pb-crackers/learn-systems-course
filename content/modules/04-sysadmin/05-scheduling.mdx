@@ -1,0 +1,347 @@
+---
+title: "Process Scheduling: cron, systemd Timers, and Job Priority"
+description: "How cron, systemd timers, at, and nice/renice work — and when to use each one"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "05-scheduling"
+order: 5
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["04-sysadmin/02-systemd"]
+tags: ["cron", "crontab", "systemd-timers", "at", "nice", "renice", "scheduling"]
+---
+
+## Overview
+
+Your nightly backup script has been running at 2:30 AM — except on the three nights it silently failed and nobody noticed for a week. Your monitoring system later revealed that systemd could have logged the failure and retried the job automatically. Scheduled tasks are deceptively tricky: they run unattended, they fail silently if not configured properly, and they compete with production workloads for CPU time. Understanding the scheduling mechanisms before writing a crontab is what separates a reliable system from a fragile one.
+
+## How It Works
+
+### cron: The Classic Daemon
+
+The **cron daemon** (`crond` on RHEL/CentOS, `cron` on Ubuntu) runs continuously in the background. Every minute, it wakes up, scans the schedule tables, and executes any jobs whose schedule matches the current time.
+
+cron reads job schedules from multiple locations:
+
+| Location | Who controls it | Purpose |
+|----------|----------------|---------|
+| `/var/spool/cron/crontabs/<username>` | Each user (via `crontab -e`) | Per-user jobs |
+| `/etc/cron.d/` | System (packages and admins) | System-level jobs in crontab format |
+| `/etc/cron.daily/` | System | Shell scripts run once per day |
+| `/etc/cron.weekly/` | System | Shell scripts run once per week |
+| `/etc/cron.monthly/` | System | Shell scripts run once per month |
+| `/etc/crontab` | Root only | System crontab with an extra username field |
+
+### crontab Schedule Syntax
+
+A crontab line has five time fields followed by the command:
+
+```
+# ┌───────────── minute        (0-59)
+# │ ┌─────────── hour          (0-23)
+# │ │ ┌───────── day of month  (1-31)
+# │ │ │ ┌─────── month         (1-12 or JAN-DEC)
+# │ │ │ │ ┌───── day of week   (0-7, both 0 and 7 = Sunday, or SUN-SAT)
+# │ │ │ │ │
+  * * * * *  command to execute
+```
+
+Common patterns:
+
+```bash
+30 2 * * *         # 2:30 AM every day
+0 9 * * 1-5        # 9:00 AM on weekdays (Monday=1 through Friday=5)
+*/15 * * * *       # every 15 minutes
+0 0 1 * *          # midnight on the first of every month
+0 */6 * * *        # every 6 hours (midnight, 6am, noon, 6pm)
+30 2 * * 0         # 2:30 AM every Sunday
+```
+
+**Special strings** (shortcuts for common schedules):
+- `@reboot` — once at system startup
+- `@daily` — equivalent to `0 0 * * *`
+- `@weekly` — equivalent to `0 0 * * 0`
+- `@monthly` — equivalent to `0 0 1 * *`
+
+**Editing crontabs:**
+
+```bash
+crontab -e         # edit your crontab in $EDITOR
+crontab -l         # list your current crontab
+crontab -r         # remove your crontab entirely (destructive — no confirmation)
+crontab -l -u alice  # list another user's crontab (requires root)
+```
+
+**Critical cron pitfall:** cron runs jobs in a minimal environment. The `$PATH` is typically `/usr/bin:/bin` — not your full login shell `$PATH`. Scripts that work in your terminal may fail silently in cron because a command is not in cron's `$PATH`. Always use absolute paths in crontab entries or set `PATH` at the top of the crontab.
+
+### systemd Timers: The Modern Alternative
+
+A **systemd timer** is a unit file with a `.timer` extension that activates a corresponding `.service` unit at a scheduled time. Unlike cron:
+
+- Output goes to journald — failures are logged and visible with `journalctl`
+- `systemctl status backup.timer` shows when it last ran and whether it succeeded
+- `Persistent=true` catches up missed runs after the system was off
+- Resource limits and dependencies work exactly as with regular services
+
+A systemd timer requires **two unit files**:
+
+**The timer unit** (`/etc/systemd/system/backup.timer`):
+
+```ini
+[Unit]
+Description=Daily Backup Timer
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+**The service unit** (`/etc/systemd/system/backup.service`):
+
+```ini
+[Unit]
+Description=Daily Backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup.sh
+StandardOutput=journal
+StandardError=journal
+```
+
+The timer activates the service. The service does the actual work. Note that `Type=oneshot` is used for tasks that run once and exit (unlike `simple` which expects a long-running process).
+
+**`OnCalendar=` syntax** — human-readable calendar expressions:
+
+```bash
+OnCalendar=*-*-* 02:30:00      # every day at 2:30 AM (year-month-day hour:min:sec)
+OnCalendar=weekly               # every week (Monday 00:00:00)
+OnCalendar=Mon *-*-* 09:00:00  # every Monday at 9 AM
+OnCalendar=*-*-01 00:00:00     # first of every month at midnight
+OnCalendar=hourly               # every hour at :00
+```
+
+Validate calendar expressions before deploying:
+
+```bash
+systemd-analyze calendar "*-*-* 02:30:00"
+# Output shows next fire times:
+#   Next elapse: Thu 2026-03-19 02:30:00 UTC
+#   (in 13h 29min)
+```
+
+**Timer activation workflow:**
+
+```bash
+systemctl daemon-reload
+systemctl enable --now backup.timer    # enable and start the timer immediately
+systemctl list-timers                  # show all active timers and next fire time
+systemctl status backup.timer          # when last triggered, next trigger
+journalctl -u backup.service           # view output from previous runs
+```
+
+### cron vs systemd Timers: When to Use Each
+
+| Feature | cron | systemd timer |
+|---------|------|--------------|
+| Logging | Silent by default (errors go to email if configured) | Always logs to journald |
+| Failure visibility | `crontab -l` shows schedule, no run history | `systemctl status` shows last run time and result |
+| Missed run recovery | No catch-up | `Persistent=true` runs once on next boot |
+| Resource limits | Not supported | Full systemd resource controls |
+| Dependencies | Not supported | Can depend on other units (network, mounts) |
+| Simplicity | One line per job | Two unit files per job |
+| Portability | Works on any Unix | systemd only (most modern Linux) |
+
+**Use cron when:** the job is simple, you need one-liner syntax, or you are on a non-systemd system.
+
+**Use systemd timers when:** you need reliable failure detection, catch-up after downtime, resource limits, or dependencies on other system state.
+
+### at: One-Time Scheduled Tasks
+
+`at` schedules a command to run once at a specific future time — not recurring. Useful for maintenance tasks at a specific time without setting up a cron entry:
+
+```bash
+at 03:00 tomorrow          # opens interactive prompt, Ctrl+D to submit
+echo "/usr/local/bin/maintenance.sh" | at 03:00 tomorrow
+at now + 2 hours           # 2 hours from now
+at 23:00 2026-12-31        # specific date and time
+
+atq                        # list pending at jobs
+atrm 3                     # remove at job number 3
+```
+
+### nice and renice: Process Priority
+
+All processes compete for CPU time. The kernel scheduler uses **priority values** (nice values) to determine how much CPU time each process gets.
+
+Nice values range from **-20 (highest priority) to 19 (lowest priority)**. The default is 0.
+
+```
+-20  ──────────────────────────────────  19
+High Priority                      Low Priority
+(gets more CPU)                  (gets less CPU)
+(requires root to set below 0)
+```
+
+**`nice`** starts a new command with a specific priority:
+
+```bash
+nice -n 10 /usr/local/bin/heavy-job.sh    # start with priority 10 (lower priority)
+nice -n -5 /usr/local/bin/critical.sh     # start with priority -5 (higher — requires root)
+```
+
+**`renice`** changes the priority of a running process:
+
+```bash
+renice 15 -p 12345         # set PID 12345 to priority 15 (lower — be nice to others)
+renice -5 -p 12345         # set to -5 (higher — requires root)
+renice 10 -u nobody        # change all processes owned by user 'nobody'
+```
+
+**Practical use:** Background batch jobs (backups, log processing, report generation) should run at positive nice values (10-19). This ensures they yield CPU time to interactive processes and production services when load increases. A backup running at nice 0 can compete with database queries; at nice 15, the database always wins.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Set Up Recurring Jobs with cron and systemd Timers"
+  difficulty="Intermediate"
+  scenario="Your application generates daily reports and weekly backups. You need to set up both using cron and systemd timers so you can compare the approaches and understand the tradeoffs. You also need to understand how to run jobs at low priority so they do not impact production services."
+  objective="By the end of this exercise, you will have configured a cron job and a systemd timer for the same task, validated the timer expression, and verified both are scheduled correctly."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the systemd-enabled container for the systemd timer portion of this exercise.",
+      command: "docker run -d --name scheduler-lab --privileged --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro jrei/systemd-ubuntu:22.04 && sleep 3"
+    },
+    {
+      step: 2,
+      description: "Open a shell in the container.",
+      command: "docker exec -it scheduler-lab bash"
+    },
+    {
+      step: 3,
+      description: "Create the backup script that both cron and systemd will run.",
+      command: "cat > /usr/local/bin/backup.sh << 'EOF'\n#!/bin/bash\nTIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')\necho \"[$TIMESTAMP] Backup started\"\ntar czf /tmp/backup-$(date +%Y%m%d-%H%M%S).tar.gz /etc/hostname 2>/dev/null\necho \"[$TIMESTAMP] Backup complete\"\nEOF\nchmod +x /usr/local/bin/backup.sh"
+    },
+    {
+      step: 4,
+      description: "Set up the cron job. crontab -e opens an editor — instead, we pipe directly to crontab for scripting. This schedules the backup at 2:30 AM daily.",
+      command: "(crontab -l 2>/dev/null; echo '30 2 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1') | crontab - && crontab -l"
+    },
+    {
+      step: 5,
+      description: "Create the systemd service unit for the backup.",
+      command: "cat > /etc/systemd/system/backup.service << 'EOF'\n[Unit]\nDescription=Daily Backup\n\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/backup.sh\nStandardOutput=journal\nStandardError=journal\nEOF"
+    },
+    {
+      step: 6,
+      description: "Create the systemd timer unit. Persistent=true means if the system was off at 2:30 AM, the backup runs on next boot.",
+      command: "cat > /etc/systemd/system/backup.timer << 'EOF'\n[Unit]\nDescription=Daily Backup Timer\n\n[Timer]\nOnCalendar=*-*-* 02:30:00\nPersistent=true\n\n[Install]\nWantedBy=timers.target\nEOF"
+    },
+    {
+      step: 7,
+      description: "Validate the calendar expression before enabling the timer. systemd-analyze calendar shows when it will next fire.",
+      command: "systemd-analyze calendar '*-*-* 02:30:00'"
+    },
+    {
+      step: 8,
+      description: "Reload systemd to pick up the new unit files, then enable and start the timer.",
+      command: "systemctl daemon-reload && systemctl enable --now backup.timer"
+    },
+    {
+      step: 9,
+      description: "List all active timers. You should see backup.timer with its next trigger time.",
+      command: "systemctl list-timers --all | grep backup"
+    },
+    {
+      step: 10,
+      description: "Manually trigger the service to verify it works, then check the journal for output.",
+      command: "systemctl start backup.service && journalctl -u backup.service --no-pager | tail -10"
+    },
+    {
+      step: 11,
+      description: "Compare: for the cron job, how would you check if it ran? Show the difference in observability.",
+      command: "crontab -l && echo '---' && echo 'No run history available from crontab — only the schedule. Compare to: systemctl status backup.timer'"
+    },
+    {
+      step: 12,
+      description: "Exit the container when done.",
+      command: "exit"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "crontab-entry",
+        label: "crontab -l shows the daily backup entry at 2:30 AM",
+        hint: "Run: crontab -l — should show '30 2 * * * /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1'"
+      },
+      {
+        id: "timer-active",
+        label: "systemctl list-timers shows backup.timer as active with a next trigger time",
+        hint: "Run: systemctl list-timers | grep backup — should show the timer, last trigger (or n/a), and next trigger time"
+      },
+      {
+        id: "calendar-validates",
+        label: "systemd-analyze calendar parses the OnCalendar expression and shows next fire times",
+        hint: "Run: systemd-analyze calendar '*-*-* 02:30:00' — should show 'Next elapse:' with a future date"
+      },
+      {
+        id: "service-ran",
+        label: "journalctl -u backup.service shows successful output from a manual run",
+        hint: "Run: journalctl -u backup.service --no-pager | tail -5 — should show '[timestamp] Backup started' and '[timestamp] Backup complete'"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "crontab — Recurring Schedules",
+      items: [
+        { command: "crontab -e", description: "Edit your crontab in $EDITOR", example: "crontab -e" },
+        { command: "crontab -l", description: "List current crontab entries", example: "crontab -l" },
+        { command: "30 2 * * *  /cmd", description: "Run at 2:30 AM every day", example: "30 2 * * * /usr/local/bin/backup.sh" },
+        { command: "0 9 * * 1-5  /cmd", description: "Run at 9:00 AM on weekdays", example: "0 9 * * 1-5 /usr/local/bin/report.sh" },
+        { command: "*/15 * * * *  /cmd", description: "Run every 15 minutes", example: "*/15 * * * * /usr/local/bin/healthcheck.sh" },
+        { command: "@reboot  /cmd", description: "Run once at system startup", example: "@reboot /usr/local/bin/init.sh" },
+      ]
+    },
+    {
+      title: "systemd Timers",
+      items: [
+        { command: "systemctl enable --now <name>.timer", description: "Enable and immediately start a timer", example: "systemctl enable --now backup.timer" },
+        { command: "systemctl list-timers", description: "Show all active timers with last/next trigger times", example: "systemctl list-timers --all" },
+        { command: "systemd-analyze calendar '<expr>'", description: "Validate an OnCalendar expression and show next fire times", example: "systemd-analyze calendar 'Mon *-*-* 09:00:00'" },
+        { command: "OnCalendar=*-*-* 02:30:00", description: "Daily at 2:30 AM (year-month-day hour:min:sec)", example: "OnCalendar=*-*-* 02:30:00" },
+        { command: "Persistent=true", description: "Run once on next boot if a scheduled run was missed", example: "Persistent=true" },
+      ]
+    },
+    {
+      title: "at — One-Time Tasks",
+      items: [
+        { command: "echo '/cmd' | at 03:00 tomorrow", description: "Schedule a command to run once at 3 AM tomorrow", example: "echo '/usr/local/bin/migrate.sh' | at 03:00 tomorrow" },
+        { command: "at now + 2 hours", description: "Run a command 2 hours from now (interactive input)", example: "at now + 30 minutes" },
+        { command: "atq", description: "List pending at jobs with their IDs and times", example: "atq" },
+        { command: "atrm <id>", description: "Remove a pending at job by ID", example: "atrm 3" },
+      ]
+    },
+    {
+      title: "nice / renice — CPU Priority",
+      items: [
+        { command: "nice -n 10 /cmd", description: "Start command with lower priority (10 = less CPU)", example: "nice -n 15 /usr/local/bin/backup.sh" },
+        { command: "renice 10 -p <pid>", description: "Lower the priority of a running process", example: "renice 15 -p 12345" },
+        { command: "renice -5 -p <pid>", description: "Raise priority (requires root — negative nice values)", example: "renice -10 -p 999" },
+        { command: "renice 10 -u <user>", description: "Lower priority of all processes for a user", example: "renice 19 -u backup-user" },
+      ]
+    }
+  ]}
+/>
