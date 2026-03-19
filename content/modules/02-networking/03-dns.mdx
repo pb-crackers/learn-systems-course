@@ -1,0 +1,299 @@
+---
+title: "DNS: The Internet's Phone Book"
+description: "How domain names resolve to IP addresses — the full resolution chain, record types, caching layers, and debugging with dig"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "03-dns"
+order: 3
+difficulty: "Foundation"
+estimatedMinutes: 22
+prerequisites: ["02-networking/02-tcp-ip-stack"]
+tags: ["dns", "dig", "nslookup", "records", "resolution", "caching", "nameservers"]
+---
+
+## Overview
+
+Your application can't connect to the database at `db.internal.company.com` — is the server down, or is DNS failing to resolve the hostname? Understanding DNS tells you where the name lookup is breaking. Before any TCP connection can be established to a hostname, the OS must resolve that name to an IP address. If DNS is broken, nothing that uses hostnames works — even if the target server is perfectly healthy.
+
+This lesson explains how domain names map to IP addresses: the resolution chain from your machine to authoritative nameservers, the record types that carry different kinds of information, how caching layers affect propagation, and how to debug the entire process with `dig`.
+
+## How It Works
+
+### What DNS Does
+
+**DNS (Domain Name System)** is a distributed, hierarchical database that maps human-readable names (`example.com`) to machine-readable IP addresses (`93.184.216.34`). Every network request that uses a hostname starts with a DNS lookup — unless the destination is already an IP address.
+
+Without DNS, you would need to memorize IP addresses for every service you connect to, and every address change would break every client. DNS decouples names from addresses, allowing IPs to change without updating clients.
+
+### The Resolution Chain
+
+DNS resolution is not a single lookup — it is a chain of queries that traverses the DNS hierarchy from root to authoritative nameserver:
+
+```
+DNS Resolution for "app.example.com"
+
+  Your machine                             Internet DNS hierarchy
+  ┌──────────┐  1. Is "app.example.com"    ┌────────────────────┐
+  │          │     in browser cache?       │                    │
+  │ Browser  │     No → ask OS resolver    │   Root Nameserver  │
+  │          │                             │   (13 clusters,    │
+  └────┬─────┘                             │    worldwide)      │
+       │  2. Is it in OS cache?            │                    │
+       ▼     No → ask recursive resolver   └──────────┬─────────┘
+  ┌──────────┐                                        │
+  │    OS    │                                        │ 3. Knows who runs .com
+  │ Resolver │                                        │    → points to TLD
+  │(/etc/    │                                        ▼
+  │resolv.   │  ◄─────────────────── ┌────────────────────┐
+  │conf)     │                       │   .com TLD Server  │
+  └────┬─────┘                       │   (Verisign)       │
+       │                             └──────────┬─────────┘
+       ▼                                        │
+  ┌────────────────┐                            │ 4. Knows example.com's NS
+  │   Recursive    │ ◄──────────────────────────┘    → points to authoritative
+  │   Resolver     │                             ┌────────────────────┐
+  │ (your ISP,     │ ─────────────────────────► │  example.com NS    │
+  │  8.8.8.8, etc) │                             │  (authoritative)   │
+  └────────────────┘ ◄──────────────────────────│  Has A record for  │
+       │               5. Returns answer         │  app.example.com   │
+       │               "app.example.com =        └────────────────────┘
+       ▼               93.184.216.34, TTL 300s"
+  ┌──────────┐
+  │    OS    │  Caches answer for TTL seconds
+  │ Resolver │  Returns IP to your application
+  └──────────┘
+```
+
+**Step-by-step:**
+1. **Browser cache:** Chrome, Firefox maintain their own DNS cache. `chrome://net-internals/#dns` to inspect it.
+2. **OS resolver cache:** The OS checks its local DNS cache (`/etc/hosts` first, then cached responses from previous queries).
+3. **Recursive resolver:** Your configured DNS server (from `/etc/resolv.conf`). This server does the actual recursive lookup on your behalf — it queries the root, TLD, and authoritative nameservers.
+4. **Root nameserver:** 13 logical nameserver clusters (operated by different organizations) that know where each TLD's servers live. They don't know `app.example.com` — they just know who's authoritative for `.com`.
+5. **TLD nameserver:** Knows which nameservers are authoritative for each second-level domain (`example.com`). Returns NS records pointing to `example.com`'s nameservers.
+6. **Authoritative nameserver:** The server that actually holds the DNS records for `example.com`. It answers definitively: "app.example.com is at 93.184.216.34, and you can cache that for 300 seconds."
+
+The answer travels back through the recursive resolver to your OS, which caches it for the TTL duration. Your application never sees this chain — it just gets the IP address back from the OS `getaddrinfo()` syscall.
+
+### DNS Record Types
+
+DNS zones contain different record types for different purposes:
+
+| Type  | Purpose                          | Example Value                        |
+|-------|----------------------------------|--------------------------------------|
+| A     | IPv4 address mapping             | `app.example.com → 93.184.216.34`  |
+| AAAA  | IPv6 address mapping             | `app.example.com → 2606:2800::34`  |
+| CNAME | Canonical name (alias)           | `www.example.com → app.example.com` |
+| MX    | Mail exchange server             | `example.com → mail.example.com` (priority 10) |
+| NS    | Nameserver for a zone            | `example.com → ns1.registrar.com`  |
+| PTR   | Reverse DNS (IP → name)          | `34.216.184.93.in-addr.arpa → app.example.com` |
+| TXT   | Arbitrary text data              | SPF records, domain verification, DKIM keys |
+| SOA   | Start of authority for a zone    | Defines serial number, TTL, responsible email |
+
+**Important CNAME behavior:** A CNAME points to another name (not an IP). The resolver must then look up that name too. `www.example.com → app.example.com → 93.184.216.34` requires two lookups. You **cannot** put a CNAME on a zone apex (the root domain `example.com` itself) because it conflicts with required SOA and NS records — this is why CDNs offer "ALIAS" or "ANAME" records as a workaround.
+
+**MX records** have a priority number. Lower numbers mean higher priority. If `mail.example.com` is down, mail is retried at the next-highest priority MX.
+
+**PTR records** (reverse DNS) live in the special `in-addr.arpa` zone. The IP address is written backwards: `93.184.216.34` becomes `34.216.184.93.in-addr.arpa`. PTR records are used by mail servers to verify that a sending IP maps back to the expected hostname.
+
+### DNS Caching
+
+Every response includes a **TTL (Time to Live)** in seconds. Resolvers cache the answer for that duration before querying again.
+
+```
+DNS Caching Layers
+
+┌─────────────────────┐
+│   Browser cache     │  ~60s typical, varies by browser
+├─────────────────────┤
+│   OS resolver cache │  Respects TTL from authoritative response
+│   (nscd, systemd-   │  On macOS: managed by mDNSResponder
+│    resolved)        │  On Linux: systemd-resolved or dnsmasq
+├─────────────────────┤
+│ Recursive resolver  │  ISP or 8.8.8.8 — caches for full TTL
+│ cache               │  Shared across all users of that resolver
+└─────────────────────┘
+```
+
+**TTL strategy:**
+- **Low TTL (60-300s):** Use before migrations — lets you change the record and have clients pick up the new IP quickly. Downside: more DNS queries, more load on authoritative servers.
+- **High TTL (3600-86400s):** Use for stable records — reduces DNS query volume and improves response time for end users (more cache hits). Downside: changes take hours to propagate.
+
+**DNS propagation** is not instant because each resolver caches based on the old TTL. When you change a DNS record, resolvers that already have the old record cached won't re-query until that cache expires. A record with TTL=86400 can take up to 24 hours to "propagate" everywhere. This is why you lower the TTL *before* a migration, not during.
+
+<Callout type="warning" title="DNS Propagation Is Not Instant">
+When you change a DNS record, some resolvers may cache the old record for up to the previous TTL duration. If your A record had a TTL of 86400 seconds (24 hours), the change can take a full day to reach all resolvers. Best practice: lower the TTL to 300 seconds **several hours before** you make the change, wait for the old TTL to expire, make the change, then raise the TTL back after the migration is complete.
+</Callout>
+
+<Callout type="tip" title="Container DNS: Docker's Embedded Resolver">
+In Docker, every container on a bridge network has a built-in DNS resolver at `127.0.0.11`. When a container does a DNS lookup for another container's service name (e.g., `db` or `api`), Docker's embedded resolver intercepts the query and returns the target container's IP address on the shared network.
+
+This is the same DNS mechanism you are learning here — just running inside Docker's network stack. When you reach Phase 4, you will run `dig db @127.0.0.11` from inside a container and see exactly this resolver responding. The mental model is identical to production DNS.
+</Callout>
+
+<Callout type="deep-dive" title="DNSSEC: Authenticating DNS Responses">
+Standard DNS has no authentication — a resolver cannot verify that a response actually came from the legitimate authoritative nameserver. This enables **DNS spoofing (cache poisoning)**: an attacker tricks a resolver into caching a false IP for a domain, redirecting all users to an attacker-controlled server.
+
+**DNSSEC (DNS Security Extensions)** adds cryptographic signatures to DNS records. The authoritative server signs its records with a private key. Resolvers validate the signature using the public key, which is anchored at the root zone. A validating resolver rejects any response it cannot verify.
+
+DNSSEC is not universally deployed — many domains do not sign their zones, and many resolvers do not validate signatures. It also does not encrypt DNS traffic (that is what DNS over HTTPS/DNS over TLS does). DNSSEC is beyond the scope of these exercises but understanding the threat model (unauthenticated DNS responses) explains why it exists.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Trace DNS Resolution with dig"
+  difficulty="Foundation"
+  scenario="You are migrating a service to a new server and need to verify that DNS records are correct before switching traffic. You need to query DNS directly — bypassing any caches — and trace the full resolution path from root nameservers to the authoritative response. This is standard procedure before any DNS cutover."
+  objective="By the end of this exercise, you will be able to use dig to query DNS records, trace the full resolution chain with dig +trace, perform reverse DNS lookups, and run a local CoreDNS lab that demonstrates how container DNS resolution works."
+  steps={[
+    {
+      step: 1,
+      description: "Start the DNS lab. This brings up a CoreDNS server pre-configured with lab records and an Ubuntu client container with dig installed.",
+      command: "docker compose -f docker/networking/03-dns/compose.yml up -d"
+    },
+    {
+      step: 2,
+      description: "Open a shell in the client container.",
+      command: "docker compose -f docker/networking/03-dns/compose.yml exec client bash"
+    },
+    {
+      step: 3,
+      description: "Query the lab DNS server for app.learn.local. The @dns syntax tells dig which resolver to ask. The ANSWER SECTION shows the A record.",
+      command: "dig app.learn.local @dns"
+    },
+    {
+      step: 4,
+      description: "Use +short to get just the IP address — useful in scripts.",
+      command: "dig +short app.learn.local @dns"
+    },
+    {
+      step: 5,
+      description: "Perform a reverse DNS lookup (PTR record). The -x flag takes an IP and automatically constructs the in-addr.arpa query.",
+      command: "dig -x 10.0.0.10 @dns"
+    },
+    {
+      step: 6,
+      description: "Trace the full resolution chain for a public domain. dig +trace shows every step from root nameservers to the authoritative answer. This is the best way to debug slow or broken DNS.",
+      command: "dig +trace example.com"
+    },
+    {
+      step: 7,
+      description: "Save the trace to the exercise output directory for verification.",
+      command: "mkdir -p /tmp/exercise && dig +trace app.learn.local @dns > /tmp/exercise/dns-trace.txt && cat /tmp/exercise/dns-trace.txt"
+    },
+    {
+      step: 8,
+      description: "Query for MX records on a public domain to see mail routing.",
+      command: "dig mx gmail.com"
+    },
+    {
+      step: 9,
+      description: "Check DNS propagation by querying multiple resolvers for the same name. Different resolvers may return different TTL values based on their cache age.",
+      command: "dig +short example.com @8.8.8.8 && dig +short example.com @1.1.1.1"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "forward-lookup",
+        label: "You resolved app.learn.local to an IP using dig @dns",
+        hint: "Run: dig +short app.learn.local @dns — you should see 10.0.0.10. The ANSWER SECTION in the full output shows the A record with its TTL."
+      },
+      {
+        id: "reverse-lookup",
+        label: "You performed a reverse DNS lookup with dig -x",
+        hint: "Run: dig -x 10.0.0.10 @dns — the ANSWER SECTION should show a PTR record pointing back to app.learn.local."
+      },
+      {
+        id: "dns-trace",
+        label: "You saved a dig +trace output to /tmp/exercise/dns-trace.txt",
+        hint: "Run: dig +trace app.learn.local @dns > /tmp/exercise/dns-trace.txt — the trace shows the resolution chain. Run bash /verify/03-dns.sh to verify."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<TerminalBlock
+  title="Launch the DNS lab"
+  lines={[
+    { type: 'comment', content: 'Start the CoreDNS server and client container' },
+    { type: 'command', content: 'docker compose -f docker/networking/03-dns/compose.yml up -d' },
+    { type: 'output', content: '[+] Running 2/2' },
+    { type: 'output', content: ' \u2714 Container dns-lab-dns-1     Started' },
+    { type: 'output', content: ' \u2714 Container dns-lab-client-1  Started' },
+    { type: 'comment', content: 'Open a shell in the client container' },
+    { type: 'command', content: 'docker compose -f docker/networking/03-dns/compose.yml exec client bash' },
+    { type: 'output', content: 'root@a1b2c3d4e5f6:/# ' },
+  ]}
+/>
+
+<TerminalBlock
+  title="Run verification inside the client container"
+  lines={[
+    { type: 'command', content: 'bash /verify/03-dns.sh' },
+    { type: 'output', content: '=== Verifying: DNS Resolution Exercise ===' },
+    { type: 'output', content: '' },
+    { type: 'output', content: '  PASS: dig resolves app.learn.local to expected IP' },
+    { type: 'output', content: '  PASS: Reverse DNS lookup returns app.learn.local' },
+    { type: 'output', content: '  PASS: DNS trace saved to /tmp/exercise/dns-trace.txt' },
+    { type: 'output', content: '' },
+    { type: 'output', content: 'RESULT: PASS \u2014 All 3 checks passed.' },
+  ]}
+/>
+
+<TerminalBlock
+  title="Tear down the lab when done"
+  lines={[
+    { type: 'comment', content: 'Exit the container shell first' },
+    { type: 'command', content: 'exit' },
+    { type: 'command', content: 'docker compose -f docker/networking/03-dns/compose.yml down' },
+    { type: 'output', content: '[+] Running 3/3' },
+    { type: 'output', content: ' \u2714 Container dns-lab-client-1  Removed' },
+    { type: 'output', content: ' \u2714 Container dns-lab-dns-1     Removed' },
+    { type: 'output', content: ' \u2714 Network dns-lab_lab-net     Removed' },
+  ]}
+/>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "dig Command Cheat Sheet",
+      items: [
+        { command: "dig <domain>", description: "Full DNS lookup for a domain — shows question, answer, authority, additional sections", example: "dig example.com" },
+        { command: "dig +short <domain>", description: "Return just the answer (IP address) — useful in scripts", example: "dig +short example.com" },
+        { command: "dig +trace <domain>", description: "Trace the full resolution chain from root to authoritative — the best DNS debugging tool", example: "dig +trace example.com" },
+        { command: "dig -x <ip>", description: "Reverse DNS lookup — queries the PTR record for an IP address", example: "dig -x 93.184.216.34" },
+        { command: "dig @<server> <domain>", description: "Query a specific DNS server (bypass /etc/resolv.conf)", example: "dig @8.8.8.8 example.com" },
+        { command: "dig <domain> MX", description: "Query for a specific record type instead of the default A", example: "dig gmail.com MX" },
+        { command: "dig <domain> +noall +answer", description: "Show only the ANSWER section — cleaner than +short for multi-record responses", example: "dig gmail.com MX +noall +answer" },
+      ]
+    },
+    {
+      title: "DNS Record Types",
+      items: [
+        { command: "A", description: "Maps hostname to IPv4 address — most common record", example: "app.example.com → 93.184.216.34" },
+        { command: "AAAA", description: "Maps hostname to IPv6 address", example: "app.example.com → 2606:2800::34" },
+        { command: "CNAME", description: "Alias — points one name to another name (resolver follows the chain)", example: "www.example.com → app.example.com" },
+        { command: "MX", description: "Mail exchange — where to deliver email for the domain (with priority)", example: "example.com → 10 mail.example.com" },
+        { command: "NS", description: "Nameserver — which servers are authoritative for this zone", example: "example.com → ns1.registrar.com" },
+        { command: "PTR", description: "Pointer — reverse DNS, maps IP to hostname", example: "34.216.184.93.in-addr.arpa → app.example.com" },
+        { command: "TXT", description: "Text record — SPF, DKIM, domain ownership verification", example: "example.com → v=spf1 include:_spf.google.com ~all" },
+      ]
+    },
+    {
+      title: "Resolution Chain",
+      items: [
+        { command: "Browser cache", description: "First checked — browser maintains its own DNS cache (~60s)" },
+        { command: "OS cache", description: "Checked next — systemd-resolved or nscd on Linux, mDNSResponder on macOS" },
+        { command: "Recursive resolver", description: "Your configured DNS server — does the actual recursion (ISP, 8.8.8.8, 1.1.1.1)" },
+        { command: "Root nameservers", description: "13 clusters worldwide — know who runs each TLD (.com, .net, .io)" },
+        { command: "TLD nameserver", description: "Knows which NS servers are authoritative for each second-level domain" },
+        { command: "Authoritative NS", description: "The final answer — holds A, CNAME, MX, TXT records for the domain" },
+      ]
+    }
+  ]}
+/>
