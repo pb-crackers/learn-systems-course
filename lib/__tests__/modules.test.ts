@@ -54,4 +54,10 @@ describe('getAllLessonPaths', () => {
     const dockerPaths = paths.filter(p => p.moduleSlug === '03-docker')
     expect(dockerPaths).toHaveLength(9)
   })
+
+  it('cicd module has 5 lessons', () => {
+    const paths = getAllLessonPaths()
+    const cicdPaths = paths.filter(p => p.moduleSlug === '05-cicd')
+    expect(cicdPaths).toHaveLength(5)
+  })
 })
