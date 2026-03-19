@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-infrastructure-as-code-cloud-04-PLAN.md
-last_updated: "2026-03-19T14:20:13.175Z"
+stopped_at: Completed 07-monitoring-advanced-capstone-02-PLAN.md
+last_updated: "2026-03-19T15:51:44.119Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 24
-  completed_plans: 24
+  total_plans: 27
+  completed_plans: 25
   percent: 25
 ---
 
@@ -73,6 +73,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 06-infrastructure-as-code-cloud P03 | 7min | 2 tasks | 5 files |
 | Phase 06-infrastructure-as-code-cloud P04 | 5min | 2 tasks | 5 files |
 | Phase 06-infrastructure-as-code-cloud P02 | 6min | 2 tasks | 14 files |
+| Phase 07-monitoring-advanced-capstone P02 | 5min | 2 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,9 @@ Recent decisions affecting current work:
 - [Phase 06-infrastructure-as-code-cloud]: compose.yml uses 4-service pattern (loadbalancer + app1 + app2 + persistent volume) for richer cloud mapping
 - [Phase 06-infrastructure-as-code-cloud]: kreuzwerker/docker v3.9.0 pinned (not ~> 3.0) because v4.0.0-beta2 exists in registry with breaking changes
 - [Phase 06-infrastructure-as-code-cloud]: registry.opentofu.org/kreuzwerker/docker source used to avoid GPG key issues with registry.terraform.io
+- [Phase 07-monitoring-advanced-capstone]: Loki/Promtail use compose profiles so they are not started by default docker compose up — reduces RAM overhead for learners not doing the log aggregation lesson
+- [Phase 07-monitoring-advanced-capstone]: Alertmanager webhook receiver points to http://app:3000/alert-webhook — creates visible notification path without requiring Slack/PagerDuty credentials for lab exercises
+- [Phase 07-monitoring-advanced-capstone]: Lesson stubs 03-05 created in plan 07-02 to unblock module count test — plan 07-01 only produced lessons 01 and 02
 
 ### Pending Todos
 
@@ -150,6 +154,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T14:11:13.097Z
-Stopped at: Completed 06-infrastructure-as-code-cloud-04-PLAN.md
+Last session: 2026-03-19T15:51:44.116Z
+Stopped at: Completed 07-monitoring-advanced-capstone-02-PLAN.md
 Resume file: None

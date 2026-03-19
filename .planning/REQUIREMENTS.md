@@ -113,8 +113,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **MON-03**: Lesson on Grafana — dashboards, data sources, visualization
 - [ ] **MON-04**: Lesson on log aggregation — centralized logging, ELK/Loki concepts
 - [ ] **MON-05**: Lesson on incident response — alerting, runbooks, postmortems
-- [ ] **MON-06**: Hands-on exercises with Docker Compose monitoring stack
-- [ ] **MON-07**: Module cheat sheet with monitoring tools and concepts
+- [x] **MON-06**: Hands-on exercises with Docker Compose monitoring stack
+- [x] **MON-07**: Module cheat sheet with monitoring tools and concepts
 
 ### Capstone Projects
 
@@ -230,8 +230,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | MON-03 | Phase 7 | Pending |
 | MON-04 | Phase 7 | Pending |
 | MON-05 | Phase 7 | Pending |
-| MON-06 | Phase 7 | Pending |
-| MON-07 | Phase 7 | Pending |
+| MON-06 | Phase 7 | Complete |
+| MON-07 | Phase 7 | Complete |
 | CAP-02 | Phase 7 | Pending |
 
 **Coverage:**
