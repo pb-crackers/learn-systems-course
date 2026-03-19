@@ -31,11 +31,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 1: Linux Fundamentals
 
-- [ ] **LNX-01**: Lesson on how computers work — CPU, memory, storage, I/O (prerequisite context)
-- [ ] **LNX-02**: Lesson on what an operating system does — kernel, userspace, system calls
-- [ ] **LNX-03**: Lesson on the Linux filesystem — hierarchy, mount points, inodes, everything is a file
-- [ ] **LNX-04**: Lesson on file permissions and ownership — users, groups, chmod, chown, sticky bits
-- [ ] **LNX-05**: Lesson on processes — PID, fork/exec, process states, signals, ps, top, kill
+- [x] **LNX-01**: Lesson on how computers work — CPU, memory, storage, I/O (prerequisite context)
+- [x] **LNX-02**: Lesson on what an operating system does — kernel, userspace, system calls
+- [x] **LNX-03**: Lesson on the Linux filesystem — hierarchy, mount points, inodes, everything is a file
+- [x] **LNX-04**: Lesson on file permissions and ownership — users, groups, chmod, chown, sticky bits
+- [x] **LNX-05**: Lesson on processes — PID, fork/exec, process states, signals, ps, top, kill
 - [x] **LNX-06**: Lesson on shell fundamentals — bash, environment variables, PATH, pipes, redirects
 - [x] **LNX-07**: Lesson on shell scripting — variables, conditionals, loops, functions, error handling
 - [x] **LNX-08**: Lesson on text processing — grep, sed, awk, sort, uniq, cut, xargs
@@ -168,11 +168,11 @@ Requirements for initial release. Each maps to roadmap phases.
 | CONT-06 | Phase 1 | Complete |
 | CONT-07 | Phase 1 | Complete |
 | CONT-08 | Phase 1 | Complete |
-| LNX-01 | Phase 2 | Pending |
-| LNX-02 | Phase 2 | Pending |
-| LNX-03 | Phase 2 | Pending |
-| LNX-04 | Phase 2 | Pending |
-| LNX-05 | Phase 2 | Pending |
+| LNX-01 | Phase 2 | Complete |
+| LNX-02 | Phase 2 | Complete |
+| LNX-03 | Phase 2 | Complete |
+| LNX-04 | Phase 2 | Complete |
+| LNX-05 | Phase 2 | Complete |
 | LNX-06 | Phase 2 | Complete |
 | LNX-07 | Phase 2 | Complete |
 | LNX-08 | Phase 2 | Complete |
