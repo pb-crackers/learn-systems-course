@@ -1,0 +1,13 @@
+{
+  "name": "capstone-api",
+  "version": "1.0.0",
+  "description": "Foundation Capstone API — Dockerize this",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "pg": "^8.13.0"
+  }
+}

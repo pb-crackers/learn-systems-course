@@ -11,6 +11,167 @@ prerequisites: ["03-docker/06-docker-compose", "03-docker/07-dockerfile-best-pra
 tags: ["capstone", "project", "docker-compose", "dockerfile", "shell-scripting", "integration"]
 ---
 
-## Coming Soon
+## Overview
 
-This capstone project is being prepared. Check back after completing all Docker module lessons.
+This is your first real project. No step-by-step guide. No hand-holding.
+
+The previous seven lessons gave you everything you need: container internals, images, containers,
+volumes, networking, Docker Compose, and Dockerfile best practices. This capstone is where those
+pieces come together into a working system you design and deploy yourself.
+
+<Callout type="tip" title="You Have Everything You Need">
+Everything required to complete this capstone was covered in Modules 1 through 3. If you get
+stuck on a specific step, the cheat sheet at lesson 8 has all the command syntax. The hints
+in the verification checklist below will point you toward the right concept without giving
+away the implementation. The source code for the API and web frontend is already written for
+you — your job is the DevOps side: Dockerfiles, orchestration, and automation.
+</Callout>
+
+## The Challenge
+
+You are a new DevOps engineer. Your first task: take a three-tier application — web frontend,
+API backend, and PostgreSQL database — and make it runnable anywhere with a single command.
+
+The application source code lives in `docker/capstone/`. Read `docker/capstone/README.md` for the
+full project brief including the API contract, architecture, and success criteria.
+
+## Architecture
+
+The stack has three services. Each communicates with the next tier; none of the backend services
+are directly accessible from outside the Compose network.
+
+```
+Browser
+   │
+   │ HTTP :8080
+   ▼
+┌────────────────────────────────┐
+│  web  (nginx)                  │  Serves index.html, reverse-proxies /api/* to api
+│  host port 8080 → container 80 │
+└──────────────┬─────────────────┘
+               │ HTTP :3000  (internal network only)
+               ▼
+┌────────────────────────────────┐
+│  api  (Node.js Express)        │  GET /health, GET /api/items, POST /api/items
+│  port 3000 (not published)     │
+└──────────────┬─────────────────┘
+               │ TCP :5432   (internal network only)
+               ▼
+┌────────────────────────────────┐
+│  db  (PostgreSQL 16)           │  Items table; data in a named volume
+│  port 5432 (not published)     │
+└────────────────────────────────┘
+```
+
+The web service is the only one reachable from the host. It serves the static frontend and
+acts as a reverse proxy for API requests. The API talks to the database using PostgreSQL's
+default port. The database stores data in a named volume so it persists across restarts.
+
+## Project Requirements
+
+<ExerciseCard
+  title="Foundation Capstone: Dockerized Multi-Service App"
+  difficulty="Challenge"
+  scenario="You're a new DevOps engineer. Your first task: take a three-tier application (web frontend, API backend, PostgreSQL database) and make it runnable anywhere with a single command. You'll write the Dockerfiles, configure the networking, persist the database, automate deployment with a shell script, and verify the stack is healthy."
+  objective="Deploy a production-style multi-service Docker Compose application with custom Dockerfiles, inter-service networking, data persistence, and an automated deployment script with health checks."
+  steps={[
+    {
+      step: 1,
+      description: "Write docker/capstone/api/Dockerfile. The API must run as a non-root user and listen on port 3000."
+    },
+    {
+      step: 2,
+      description: "Write docker/capstone/web/Dockerfile. Use a multi-stage build to keep the final image under 100MB."
+    },
+    {
+      step: 3,
+      description: "Create docker/capstone/compose.yml that brings up all three services on a custom bridge network. The API must not be accessible from outside the Compose network — only reachable through the web service."
+    },
+    {
+      step: 4,
+      description: "Configure the PostgreSQL service with a named volume so data survives container restarts and recreation."
+    },
+    {
+      step: 5,
+      description: "Write docker/capstone/deploy.sh — a shell script that builds all images, starts the stack, and prints a health status summary. The script must exit non-zero if any service fails to start."
+    },
+    {
+      step: 6,
+      description: "Run the provided verify.sh to validate your deployment: bash docker/capstone/verify.sh"
+    },
+  ]}
+>
+  <VerificationChecklist
+    title="Success Criteria"
+    items={[
+      {
+        id: "cap-01",
+        label: "All three services are running (docker compose ps shows all three as 'running')",
+        hint: "Run: docker compose -f docker/capstone/compose.yml ps — all three services (web, api, db) should show Status: running. If a service is missing, check docker compose logs for that service to see why it failed to start."
+      },
+      {
+        id: "cap-02",
+        label: "Web service is accessible on host port 8080",
+        hint: "Run: curl http://localhost:8080/ — you should get HTTP 200 and see the HTML page. If you get 'connection refused', check that your compose.yml has ports: ['8080:80'] on the web service."
+      },
+      {
+        id: "cap-03",
+        label: "API responds to web service requests (inter-service networking works)",
+        hint: "Run: docker compose -f docker/capstone/compose.yml exec web curl http://api:3000/health — the web container should be able to reach the api container by its Compose service name. If it fails, check that both services are on the same custom bridge network in compose.yml."
+      },
+      {
+        id: "cap-04",
+        label: "Database data persists across container restarts",
+        hint: "Run: docker compose -f docker/capstone/compose.yml restart db — then verify your items are still there via curl http://localhost:8080/api/items. Named volumes survive container recreation; bind mounts can too but depend on the host path being preserved."
+      },
+      {
+        id: "cap-05",
+        label: "API container runs as non-root user (uid is not 0)",
+        hint: "Run: docker compose -f docker/capstone/compose.yml exec api id — the output should show a non-zero UID like uid=100(appuser). If it shows uid=0(root), your api/Dockerfile is missing a USER instruction. Add: RUN addgroup -S appgroup && adduser -S appuser -G appgroup, then USER appuser."
+      },
+      {
+        id: "cap-06",
+        label: "deploy.sh exits 0 on success and non-zero when a service fails to start",
+        hint: "Start deploy.sh with set -e and use docker compose ps --format json to check service states after starting. Use python3 or a simple grep to detect unhealthy services and exit 1 if any are not running."
+      },
+      {
+        id: "cap-07",
+        label: "verify.sh passes all 7 checks",
+        hint: "Run: bash docker/capstone/verify.sh from the project root (not from inside docker/capstone/). Read each FAIL message carefully — they include the exact command to investigate the problem."
+      },
+    ]}
+  />
+</ExerciseCard>
+
+## Getting Started
+
+1. Read `docker/capstone/README.md` — it has the full architecture, API contract, and requirements.
+2. Read `docker/capstone/api/app.js` and `docker/capstone/web/index.html` — understand what each service does before writing the Dockerfiles.
+3. A sample nginx configuration is at `docker/capstone/web/nginx.conf` — it shows the reverse proxy pattern you need.
+4. Write the files in this order: `api/Dockerfile` → `web/Dockerfile` → `compose.yml` → `deploy.sh`
+5. Run `bash docker/capstone/verify.sh` when you think everything is working.
+
+You do NOT need to modify `api/app.js`, `web/index.html`, or `web/nginx.conf`. Those are provided.
+
+## What You Are Practicing
+
+<Callout type="deep-dive" title="Skills from Every Module So Far">
+This capstone deliberately spans all three foundation modules:
+
+**Linux Fundamentals**
+- Shell scripting in `deploy.sh` — conditionals, exit codes, set -e, health checks
+- File permissions — `chmod +x deploy.sh` before it can run
+- Process awareness — PID 1 in containers, signal handling with `CMD ["node", "app.js"]`
+
+**Networking Foundations**
+- Port publishing — host port 8080 mapped to container port 80
+- DNS resolution — `api:3000` resolved by Docker's embedded DNS on a custom bridge network
+- Reverse proxying — nginx forwards `/api/*` to the API service by service name
+- Network isolation — api and db not published to host
+
+**Docker and Containerization**
+- Dockerfiles — multi-stage build for web, non-root user for api
+- Docker Compose — service definitions, networks, volumes, depends_on
+- Named volumes — data persistence across container restarts
+- Dockerfile best practices — layer caching, .dockerignore, HEALTHCHECK
+</Callout>
