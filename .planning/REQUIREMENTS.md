@@ -76,7 +76,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DOC-06**: Lesson on Docker Compose — multi-service apps, depends_on, environment variables, profiles
 - [x] **DOC-07**: Lesson on Dockerfile best practices — multi-stage builds, layer caching, security
 - [x] **DOC-08**: Hands-on exercises for each Docker lesson with real application scenarios
-- [ ] **DOC-09**: Module cheat sheet with Docker commands and concepts
+- [x] **DOC-09**: Module cheat sheet with Docker commands and concepts
 
 ### Module 5: CI/CD Pipelines
 
@@ -118,7 +118,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Capstone Projects
 
-- [ ] **CAP-01**: Foundation capstone — deploy a Dockerized web app, diagnose network issues, automate with shell scripts
+- [x] **CAP-01**: Foundation capstone — deploy a Dockerized web app, diagnose network issues, automate with shell scripts
 - [ ] **CAP-02**: Advanced capstone — full pipeline: Docker app + CI/CD + IaC + monitoring with intentional failure scenario
 
 ## v2 Requirements
@@ -196,8 +196,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | DOC-06 | Phase 4 | Complete |
 | DOC-07 | Phase 4 | Complete |
 | DOC-08 | Phase 4 | Complete |
-| DOC-09 | Phase 4 | Pending |
-| CAP-01 | Phase 4 | Pending |
+| DOC-09 | Phase 4 | Complete |
+| CAP-01 | Phase 4 | Complete |
 | SYS-01 | Phase 5 | Pending |
 | SYS-02 | Phase 5 | Pending |
 | SYS-03 | Phase 5 | Pending |
