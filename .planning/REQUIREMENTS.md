@@ -53,7 +53,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **NET-06**: Lesson on firewalls — iptables, ufw, security groups concepts, netfilter
 - [x] **NET-07**: Lesson on network troubleshooting — ping, traceroute, tcpdump, netstat/ss, curl
 - [ ] **NET-08**: Hands-on exercises for each networking lesson with multi-container lab environments
-- [ ] **NET-09**: Module cheat sheet with networking commands and concepts
+- [x] **NET-09**: Module cheat sheet with networking commands and concepts
 
 ### Module 3: System Administration
 
@@ -187,7 +187,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | NET-06 | Phase 3 | Complete |
 | NET-07 | Phase 3 | Complete |
 | NET-08 | Phase 3 | Pending |
-| NET-09 | Phase 3 | Pending |
+| NET-09 | Phase 3 | Complete |
 | DOC-01 | Phase 4 | Pending |
 | DOC-02 | Phase 4 | Pending |
 | DOC-03 | Phase 4 | Pending |
