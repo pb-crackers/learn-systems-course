@@ -122,13 +122,13 @@ Plans:
   3. Learner can write a reusable Terraform module and compose it with other modules
   4. Learner can map each major cloud service category (compute, networking, storage, IAM) to a concept they learned in prior modules and explain the mapping without consulting the lesson
   5. Learner can reference both the IaC and cloud cheat sheets for OpenTofu commands and cloud service patterns
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 06-01: Module 6 lesson content — IaC concepts/HCL basics/state/modules (IAC-01 through IAC-04)
-- [ ] 06-02: IaC hands-on exercises with Docker provider, cheat sheet (IAC-05, IAC-06)
-- [ ] 06-03: Module 7 lesson content — cloud concepts/compute/networking/storage/IAM (CLD-01 through CLD-05)
-- [ ] 06-04: Cloud conceptual exercises mapped to local Docker equivalents, cheat sheet (CLD-06, CLD-07)
+- [ ] 06-01-PLAN.md — IaC lessons 1-4 (concepts, HCL basics, state, modules) with mechanism-first explanations (Wave 1, parallel with 06-03)
+- [ ] 06-02-PLAN.md — IaC exercise HCL files (3 directories), verify scripts, cheat sheet, Vitest assertion (Wave 2)
+- [ ] 06-03-PLAN.md — Cloud lessons 1-5 (concepts, compute, networking, storage, IAM) with Docker/Linux mappings (Wave 1, parallel with 06-01)
+- [ ] 06-04-PLAN.md — Cloud mapping Docker Compose exercise, verify script, cheat sheet, Vitest assertion (Wave 2)
 
 ### Phase 7: Monitoring & Advanced Capstone
 **Goal**: Learners can instrument a Dockerized application with Prometheus and Grafana, set up alerting, and complete an advanced capstone that integrates all prior modules into a full pipeline with an intentional failure scenario to diagnose
@@ -170,3 +170,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Phase 3 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 4 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 5 planned: 2026-03-19 — 4 plans, 2 waves*
+*Phase 6 planned: 2026-03-19 — 4 plans, 2 waves*
