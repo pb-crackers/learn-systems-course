@@ -104,13 +104,13 @@ Plans:
   3. Learner can write a GitHub Actions workflow that builds a Docker image, runs tests, and deploys — and can trace what each step is actually doing in the underlying system
   4. Learner can describe blue/green, rolling, and canary deployment strategies and explain the tradeoffs without consulting the lesson
   5. Learner can reference both the sysadmin and CI/CD cheat sheets for commands and pipeline patterns
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 05-01: Module 3 lesson content — users/systemd/logging/disk/scheduling/monitoring (SYS-01 through SYS-06)
-- [ ] 05-02: Sysadmin lab environments, verified exercises, and cheat sheet (SYS-07, SYS-08)
-- [ ] 05-03: Module 5 lesson content — CI/CD concepts/GitHub Actions/build-test-deploy/strategies (CICD-01 through CICD-04)
-- [ ] 05-04: CI/CD hands-on pipeline exercises and cheat sheet (CICD-05, CICD-06)
+- [ ] 05-01-PLAN.md — Sysadmin lessons 1-6 (users, systemd, logging, disk, scheduling, monitoring) with mechanism-first explanations (Wave 1, parallel with 05-03)
+- [ ] 05-02-PLAN.md — Sysadmin Docker labs (2 Dockerfiles, 6 setup/verify scripts), cheat sheet, Vitest assertion (Wave 2)
+- [ ] 05-03-PLAN.md — CI/CD lessons 1-4 (concepts, GitHub Actions, build/test pipelines, deployment strategies) (Wave 1, parallel with 05-01)
+- [ ] 05-04-PLAN.md — CI/CD cheat sheet with pipeline exercise + Vitest assertion (Wave 2)
 
 ### Phase 6: Infrastructure as Code & Cloud
 **Goal**: Learners can write OpenTofu/Terraform HCL to provision infrastructure declaratively using local Docker targets, and understand cloud fundamentals by mapping cloud services to the networking, IaC, and container concepts they already know
@@ -169,3 +169,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Phase 2 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 3 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 4 planned: 2026-03-19 — 4 plans, 2 waves*
+*Phase 5 planned: 2026-03-19 — 4 plans, 2 waves*
