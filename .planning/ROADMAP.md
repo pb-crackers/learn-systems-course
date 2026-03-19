@@ -68,13 +68,13 @@ Plans:
   3. Learner can complete the firewall lesson and write iptables/ufw rules in a lab container that verifiably block or allow the expected traffic
   4. Learner can use the network troubleshooting lesson's tools (ping, traceroute, tcpdump, ss) to diagnose a deliberately broken network scenario and identify the fault
   5. Learner can reference the networking cheat sheet for all commands and concepts from the module
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: Module 2 lesson content — physical/TCP-IP/DNS (NET-01, NET-02, NET-03)
-- [ ] 03-02: Module 2 lesson content — HTTP/SSH/firewalls/troubleshooting (NET-04, NET-05, NET-06, NET-07)
-- [ ] 03-03: Multi-container Docker Compose lab environments and verified exercises (NET-08)
-- [ ] 03-04: Module cheat sheet and progress integration (NET-09)
+- [ ] 03-01-PLAN.md — Lessons 1-3 (physical networking, TCP/IP stack, DNS) with mechanism-first explanations and ASCII diagrams (Wave 1, parallel with 03-02)
+- [ ] 03-02-PLAN.md — Lessons 4-7 (HTTP/HTTPS, SSH, firewalls, troubleshooting) with exercises referencing Docker Compose labs (Wave 1, parallel with 03-01)
+- [ ] 03-03-PLAN.md — Docker Compose multi-container lab infrastructure: Dockerfile, 6 lab directories with compose.yml + setup.sh + verify.sh (Wave 2, parallel with 03-04)
+- [ ] 03-04-PLAN.md — Module cheat sheet with 7 QuickReference sections and What's Next callout bridging to Docker (Wave 2, parallel with 03-03)
 
 ### Phase 4: Docker & Foundation Capstone
 **Goal**: Learners can build, run, and compose Docker-based applications with full understanding of the Linux primitives underneath, and can complete a cross-module foundation capstone that integrates Linux, networking, and Docker skills without step-by-step guidance
@@ -167,3 +167,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Requirements coverage: 80/80 v1 requirements mapped*
 *Phase 1 planned: 2026-03-18 — 4 plans, 3 waves*
 *Phase 2 planned: 2026-03-19 — 4 plans, 2 waves*
+*Phase 3 planned: 2026-03-19 — 4 plans, 2 waves*
