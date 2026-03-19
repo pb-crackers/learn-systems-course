@@ -10,7 +10,7 @@ services:
     networks:
       - lab-net
     command: sleep infinity
-  app:
+  app-server:
     image: nginx:alpine
     networks:
       - lab-net
