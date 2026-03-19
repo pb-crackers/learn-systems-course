@@ -18,7 +18,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 4: Docker & Foundation Capstone** - Complete Docker/containerization module plus cross-module foundation capstone project
 - [x] **Phase 5: System Administration & CI/CD** - Sysadmin module (systemd, logging, disk) combined with CI/CD pipelines module (completed 2026-03-19)
 - [x] **Phase 6: Infrastructure as Code & Cloud** - OpenTofu/IaC module and cloud fundamentals module mapped to prior knowledge (completed 2026-03-19)
-- [ ] **Phase 7: Monitoring & Advanced Capstone** - Prometheus/Grafana monitoring module and full-stack advanced capstone project
+- [x] **Phase 7: Monitoring & Advanced Capstone** - Prometheus/Grafana monitoring module and full-stack advanced capstone project (completed 2026-03-19)
 
 ## Phase Details
 
@@ -160,7 +160,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Docker & Foundation Capstone | 3/4 | In Progress|  |
 | 5. System Administration & CI/CD | 4/4 | Complete   | 2026-03-19 |
 | 6. Infrastructure as Code & Cloud | 4/4 | Complete   | 2026-03-19 |
-| 7. Monitoring & Advanced Capstone | 2/3 | In Progress|  |
+| 7. Monitoring & Advanced Capstone | 3/3 | Complete   | 2026-03-19 |
 
 ---
 *Roadmap created: 2026-03-18*

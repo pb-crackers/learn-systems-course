@@ -108,18 +108,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 8: Monitoring & Observability
 
-- [ ] **MON-01**: Lesson on observability concepts — metrics, logs, traces (three pillars)
-- [ ] **MON-02**: Lesson on Prometheus — metrics collection, PromQL basics, alerting rules
-- [ ] **MON-03**: Lesson on Grafana — dashboards, data sources, visualization
-- [ ] **MON-04**: Lesson on log aggregation — centralized logging, ELK/Loki concepts
-- [ ] **MON-05**: Lesson on incident response — alerting, runbooks, postmortems
+- [x] **MON-01**: Lesson on observability concepts — metrics, logs, traces (three pillars)
+- [x] **MON-02**: Lesson on Prometheus — metrics collection, PromQL basics, alerting rules
+- [x] **MON-03**: Lesson on Grafana — dashboards, data sources, visualization
+- [x] **MON-04**: Lesson on log aggregation — centralized logging, ELK/Loki concepts
+- [x] **MON-05**: Lesson on incident response — alerting, runbooks, postmortems
 - [x] **MON-06**: Hands-on exercises with Docker Compose monitoring stack
 - [x] **MON-07**: Module cheat sheet with monitoring tools and concepts
 
 ### Capstone Projects
 
 - [x] **CAP-01**: Foundation capstone — deploy a Dockerized web app, diagnose network issues, automate with shell scripts
-- [ ] **CAP-02**: Advanced capstone — full pipeline: Docker app + CI/CD + IaC + monitoring with intentional failure scenario
+- [x] **CAP-02**: Advanced capstone — full pipeline: Docker app + CI/CD + IaC + monitoring with intentional failure scenario
 
 ## v2 Requirements
 
@@ -225,14 +225,14 @@ Requirements for initial release. Each maps to roadmap phases.
 | CLD-05 | Phase 6 | Complete |
 | CLD-06 | Phase 6 | Complete |
 | CLD-07 | Phase 6 | Complete |
-| MON-01 | Phase 7 | Pending |
-| MON-02 | Phase 7 | Pending |
-| MON-03 | Phase 7 | Pending |
-| MON-04 | Phase 7 | Pending |
-| MON-05 | Phase 7 | Pending |
+| MON-01 | Phase 7 | Complete |
+| MON-02 | Phase 7 | Complete |
+| MON-03 | Phase 7 | Complete |
+| MON-04 | Phase 7 | Complete |
+| MON-05 | Phase 7 | Complete |
 | MON-06 | Phase 7 | Complete |
 | MON-07 | Phase 7 | Complete |
-| CAP-02 | Phase 7 | Pending |
+| CAP-02 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 80 total
