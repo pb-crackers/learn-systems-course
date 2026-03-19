@@ -1,0 +1,19 @@
+services:
+  sshd-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.sshd
+    networks:
+      - lab-net
+  client:
+    build: ..
+    depends_on: [sshd-server]
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+      - ./verify.sh:/verify/05-ssh.sh:ro
+    networks:
+      - lab-net
+    command: sleep infinity
+networks:
+  lab-net:
+    driver: bridge

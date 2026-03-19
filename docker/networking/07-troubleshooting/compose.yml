@@ -1,0 +1,29 @@
+services:
+  client:
+    build: ..
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+      - ./verify.sh:/verify/07-troubleshooting.sh:ro
+    networks:
+      - lab-net
+    command: sleep infinity
+  app:
+    image: nginx:alpine
+    networks:
+      - lab-net
+    # INTENTIONAL FAULT: nginx configured to listen on port 8080, not port 80.
+    # Users report "curl http://app/ fails" — the app is running but on the wrong port.
+    # Learner must discover this using: curl http://app/ (fails), ss -tlnp (shows 8080),
+    # then curl http://app:8080/ (succeeds). This is a common misconfiguration.
+    command: ["sh", "-c", "echo 'server { listen 8080; location / { return 200 \"app running on 8080\\n\"; } }' > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+  database:
+    image: nginx:alpine
+    networks:
+      - lab-net
+    command: sleep infinity
+networks:
+  lab-net:
+    driver: bridge

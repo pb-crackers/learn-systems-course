@@ -1,0 +1,18 @@
+services:
+  firewall-host:
+    build: ..
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - lab-net
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+      - ./verify.sh:/verify/06-firewalls.sh:ro
+    command: sleep infinity
+  target:
+    image: nginx:alpine
+    networks:
+      - lab-net
+networks:
+  lab-net:
+    driver: bridge
