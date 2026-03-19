@@ -71,10 +71,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **DOC-01**: Lesson on what containers are — namespaces, cgroups, how containers actually work under the hood
 - [x] **DOC-02**: Lesson on Docker images — layers, Dockerfile, build process, registries
 - [x] **DOC-03**: Lesson on Docker containers — lifecycle, exec, logs, resource limits
-- [ ] **DOC-04**: Lesson on Docker volumes — bind mounts, named volumes, data persistence
-- [ ] **DOC-05**: Lesson on Docker networking — bridge, host, overlay, DNS between containers
-- [ ] **DOC-06**: Lesson on Docker Compose — multi-service apps, depends_on, environment variables, profiles
-- [ ] **DOC-07**: Lesson on Dockerfile best practices — multi-stage builds, layer caching, security
+- [x] **DOC-04**: Lesson on Docker volumes — bind mounts, named volumes, data persistence
+- [x] **DOC-05**: Lesson on Docker networking — bridge, host, overlay, DNS between containers
+- [x] **DOC-06**: Lesson on Docker Compose — multi-service apps, depends_on, environment variables, profiles
+- [x] **DOC-07**: Lesson on Dockerfile best practices — multi-stage builds, layer caching, security
 - [ ] **DOC-08**: Hands-on exercises for each Docker lesson with real application scenarios
 - [ ] **DOC-09**: Module cheat sheet with Docker commands and concepts
 
@@ -191,10 +191,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | DOC-01 | Phase 4 | Complete |
 | DOC-02 | Phase 4 | Complete |
 | DOC-03 | Phase 4 | Complete |
-| DOC-04 | Phase 4 | Pending |
-| DOC-05 | Phase 4 | Pending |
-| DOC-06 | Phase 4 | Pending |
-| DOC-07 | Phase 4 | Pending |
+| DOC-04 | Phase 4 | Complete |
+| DOC-05 | Phase 4 | Complete |
+| DOC-06 | Phase 4 | Complete |
+| DOC-07 | Phase 4 | Complete |
 | DOC-08 | Phase 4 | Pending |
 | DOC-09 | Phase 4 | Pending |
 | CAP-01 | Phase 4 | Pending |
