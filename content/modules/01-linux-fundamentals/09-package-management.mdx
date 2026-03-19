@@ -1,0 +1,374 @@
+---
+title: "Package Management"
+description: "apt, repositories, dependencies — installing and managing software on Linux"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "09-package-management"
+order: 9
+difficulty: "Intermediate"
+estimatedMinutes: 20
+prerequisites: ["01-linux-fundamentals/06-shell-fundamentals"]
+tags: ["apt", "dpkg", "packages", "repositories", "dependencies"]
+---
+
+## Overview
+
+A Docker build failed because `apt-get install` couldn't find a package. Was the package renamed? Is the repository missing? Is the index stale? Understanding how repositories, package versions, and dependency resolution work tells you whether to add a PPA, pin a version, run `apt-get update` first, or look for an alternative package. The difference between a 10-second fix and an hour of confusion is understanding the two-layer architecture of Linux package management.
+
+## How It Works
+
+### What is a Package
+
+A package is an archive containing:
+- **Binaries**: the compiled executables (e.g., `/usr/bin/curl`)
+- **Libraries**: shared `.so` files the binaries depend on
+- **Configuration files**: defaults in `/etc/` or `/usr/share/`
+- **Metadata**: name, version, description, maintainer, and — critically — the **dependency list** (other packages this one requires)
+
+On Debian-based systems (Ubuntu, Debian, Kali), packages use the `.deb` format. Each `.deb` is essentially a tar archive with a standardized metadata structure.
+
+### Two-Layer Architecture: dpkg and apt
+
+Debian-based Linux uses two layers of package management that solve different problems:
+
+**dpkg (low level):** Installs, removes, and queries individual `.deb` files on disk. It does NOT fetch packages from the internet and does NOT resolve dependencies. If you give it a `.deb` with unsatisfied dependencies, it will fail and tell you what's missing.
+
+**apt (high level):** Knows about repositories (catalogs of packages on the internet), resolves dependencies automatically, and calls `dpkg` to do the actual installation. Think of `dpkg` as manually placing a file; `apt` is an app store that figures out everything you need first.
+
+```
+You type: apt-get install nginx
+         ↓
+apt:     fetch package index → resolve dependencies → download .deb files
+         ↓
+dpkg:    install each .deb file onto the filesystem
+```
+
+### Repositories: Where Packages Come From
+
+`apt` fetches packages from **repositories** — servers that host curated collections of packages. The repository list lives at `/etc/apt/sources.list` and in files under `/etc/apt/sources.list.d/`.
+
+A single repository entry looks like:
+
+```
+deb http://archive.ubuntu.com/ubuntu jammy main restricted universe
+```
+
+Breaking this apart:
+
+| Component | Value | Meaning |
+|-----------|-------|---------|
+| `deb` | `deb` | Binary packages (use `deb-src` for source code) |
+| URL | `http://archive.ubuntu.com/ubuntu` | The repository server |
+| Codename | `jammy` | Ubuntu 22.04 LTS release name |
+| Sections | `main restricted universe` | Which package categories to include |
+
+**Repository sections:**
+
+| Section | Contents | License status |
+|---------|----------|----------------|
+| `main` | Canonical-supported open-source software | Free and open-source |
+| `restricted` | Drivers and firmware with restricted licenses | Not fully open-source |
+| `universe` | Community-maintained open-source packages | Free, but unsupported |
+| `multiverse` | Software with non-free licenses (codecs, etc.) | Non-free |
+
+### apt-get update: Fetching the Index
+
+Running `apt-get install` without first running `apt-get update` is one of the most common causes of "package not found" errors. Here's why:
+
+`apt-get update` downloads the **package index** — a metadata file from each repository listing every available package, version, and download URL. It does NOT install anything. It just updates apt's local catalog of what's available.
+
+<Callout type="warning" title="Always Run apt-get update Before apt-get install in Dockerfiles">
+Docker caches each RUN layer. If you have:
+
+```dockerfile
+RUN apt-get update
+RUN apt-get install -y curl
+```
+
+Docker will cache the first layer and never re-run `apt-get update` in subsequent builds. Over time, the cached index becomes stale and packages "disappear" (because the index no longer matches the repository). The correct pattern is:
+
+```dockerfile
+RUN apt-get update && apt-get install -y curl
+```
+
+A single RUN layer means the index is always fresh when the install runs. This is the official Docker best practice.
+</Callout>
+
+### apt-get install: Dependency Resolution
+
+When you run `apt-get install nginx`, apt performs these steps:
+
+1. Looks up `nginx` in the local package index (from the last `apt-get update`)
+2. Reads nginx's dependency list from the metadata
+3. Recursively resolves all dependencies (nginx depends on libssl, which depends on libc, etc.)
+4. Downloads all required `.deb` files that aren't already installed
+5. Calls `dpkg` to install each `.deb` in dependency order
+
+The `-y` flag skips the "Do you want to continue? [Y/n]" prompt — essential for scripts and Dockerfiles:
+
+```bash
+apt-get install -y nginx curl git
+```
+
+<Callout type="tip" title="--no-install-recommends Keeps Docker Images Small">
+By default, `apt-get install` also installs "recommended" packages — related software that isn't strictly required. In a Docker container, these are often unnecessary. Adding `--no-install-recommends` can significantly reduce image size:
+
+```bash
+apt-get install -y --no-install-recommends nginx
+```
+
+For minimal containers (alpine-based Dockerfiles, or slim variants like `ubuntu:22.04`), this flag is especially important.
+</Callout>
+
+### Exploring Packages: apt-cache
+
+Before installing, you often want to search for the right package name or understand what it contains:
+
+```bash
+# Search for packages by keyword
+apt-cache search nginx
+
+# Show detailed info about a package
+apt-cache show nginx
+
+# List what packages a package depends on
+apt-cache depends nginx
+
+# List packages that depend on this package
+apt-cache rdepends libc6
+
+# List available versions of a package
+apt-cache policy nginx
+```
+
+`apt-cache` reads from the local index (built by `apt-get update`). It never makes network requests.
+
+### dpkg: Low-Level Package Queries
+
+Once packages are installed, `dpkg` is your tool for inspecting them:
+
+```bash
+# List all installed packages (long list — pipe through less or grep)
+dpkg -l
+dpkg -l | grep nginx           # find specific package
+
+# Check if a specific package is installed
+dpkg -s nginx
+
+# List all files installed by a package
+dpkg -L nginx
+
+# Find which package owns a specific file
+dpkg -S /usr/bin/curl
+
+# Install a .deb file directly (no dependency resolution)
+dpkg -i mypackage.deb
+```
+
+`dpkg -L` is particularly useful when you need to know where a package put its binaries, config files, or library files.
+
+### Version Pinning
+
+In production environments, reproducibility matters. Installing the latest version of a package every time can cause unexpected behavior changes. Version pinning ensures every deployment gets exactly the same package version:
+
+```bash
+# Install a specific version
+apt-get install -y nginx=1.18.0-0ubuntu1.4
+
+# List available versions to find the exact version string
+apt-cache policy nginx
+```
+
+For more complex pinning (like "always prefer packages from a specific repository"), use `/etc/apt/preferences`. This is advanced but important for maintaining stable server configurations.
+
+### Removing Packages
+
+```bash
+# Remove a package (keeps config files in /etc/)
+apt-get remove nginx
+
+# Remove a package AND its config files (purge)
+apt-get purge nginx
+
+# Remove orphaned dependencies (packages nothing else depends on)
+apt-get autoremove
+
+# Combined: remove package + config + clean up orphans
+apt-get purge nginx && apt-get autoremove
+```
+
+The difference between `remove` and `purge` matters when re-installing: `purge` gives you a completely clean slate; `remove` preserves your configuration so reinstallation picks up where you left off.
+
+<Callout type="deep-dive" title="How the Dependency Resolver Works">
+When `apt-get install package` runs, apt uses a constraint-satisfaction algorithm (in the `apt` library, derived from the original "boolean satisfiability" approach) to find a consistent set of package versions that satisfies all dependencies simultaneously.
+
+The algorithm:
+
+1. Start with the requested package and its stated dependencies
+2. For each dependency, find candidate versions in the index
+3. Recursively expand: each candidate may introduce new dependencies
+4. Check for conflicts: two packages cannot both be installed if they conflict (e.g., `apache2` and `nginx` both want port 80 — but they don't actually conflict at the package level, only at runtime)
+5. Apply version constraints: if package A needs `libssl >= 1.1.1` and package B needs `libssl < 1.1.0`, there is no satisfying solution — apt reports a conflict
+
+When apt says "The following packages have unmet dependencies," it means the constraint solver found no valid assignment. Common causes: stale index (run `apt-get update`), conflicting requirements, or a package only available in a repository not in `sources.list`.
+</Callout>
+
+**Forward reference:** In the Docker module (Module 3), you'll see why `apt-get update && apt-get install -y` must be in the same RUN command. Docker layer caching makes a separate `apt-get update` step permanently stale after the first build — the install layer sees the old (cached) index and fails to find new packages.
+
+<TerminalBlock
+  title="bash — package management workflow"
+  lines={[
+    { type: 'comment', content: 'Update index, then install curl and check what files it installs' },
+    { type: 'command', content: 'apt-get update -qq && apt-get install -y --no-install-recommends curl' },
+    { type: 'output', content: 'Reading package lists...' },
+    { type: 'output', content: 'Building dependency tree...' },
+    { type: 'output', content: 'The following NEW packages will be installed: curl libcurl4' },
+    { type: 'output', content: 'Need to get 194 kB of archives.' },
+    { type: 'command', content: 'dpkg -L curl' },
+    { type: 'output', content: '/usr/bin/curl' },
+    { type: 'output', content: '/usr/share/doc/curl/changelog.Debian.gz' },
+    { type: 'output', content: '/usr/share/man/man1/curl.1.gz' },
+    { type: 'comment', content: 'Check what curl depends on' },
+    { type: 'command', content: 'apt-cache depends curl' },
+    { type: 'output', content: 'curl' },
+    { type: 'output', content: '  Depends: libc6' },
+    { type: 'output', content: '  Depends: libcurl4 (= 7.81.0-1ubuntu1.20)' },
+    { type: 'output', content: '  Depends: zlib1g' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Set Up a Development Server Package Environment"
+  difficulty="Intermediate"
+  scenario="You are a DevOps engineer provisioning a new development server. You need to install specific tools, verify what was installed, understand the dependency graph, and practice the common troubleshooting pattern of running apt-get update before installs — because the image was built weeks ago and has a stale package index."
+  objective="By the end of this exercise, you will be able to update the package index, search for and install packages, inspect what files a package installs, examine package dependencies, and explain the difference between apt-get remove and purge."
+  steps={[
+    {
+      step: 1,
+      description: "Start a fresh Ubuntu container to simulate a stale server environment.",
+      command: "docker run -it --rm ubuntu:22.04 /bin/bash"
+    },
+    {
+      step: 2,
+      description: "First, try installing tree WITHOUT running apt-get update first. Observe the output.",
+      command: "apt-get install -y tree"
+    },
+    {
+      step: 3,
+      description: "Now run apt-get update and then install tree. Note the difference.",
+      command: "apt-get update && apt-get install -y tree"
+    },
+    {
+      step: 4,
+      description: "Verify tree installed successfully and run it.",
+      command: "tree /etc/apt"
+    },
+    {
+      step: 5,
+      description: "Use dpkg -L to see every file the tree package installed on this system.",
+      command: "dpkg -L tree"
+    },
+    {
+      step: 6,
+      description: "Use apt-cache show to read the full metadata for tree.",
+      command: "apt-cache show tree"
+    },
+    {
+      step: 7,
+      description: "Show the dependency chain for curl.",
+      command: "apt-cache depends curl"
+    },
+    {
+      step: 8,
+      description: "Show the sources.list file to understand which repositories are configured.",
+      command: "cat /etc/apt/sources.list"
+    },
+    {
+      step: 9,
+      description: "Remove tree with apt-get remove, then check if the binary is still present.",
+      command: "apt-get remove -y tree && which tree"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "pkg-01",
+        label: "You installed tree using apt-get after running apt-get update",
+        hint: "Run: apt-get update && apt-get install -y tree && tree --version"
+      },
+      {
+        id: "pkg-02",
+        label: "You can list files installed by the tree package using dpkg -L",
+        hint: "Run: dpkg -L tree — you should see /usr/bin/tree and documentation files"
+      },
+      {
+        id: "pkg-03",
+        label: "You can show the dependencies of the curl package",
+        hint: "Run: apt-cache depends curl — lists libc6, libcurl4, and others"
+      },
+      {
+        id: "pkg-04",
+        label: "You can explain the difference between apt-get remove and apt-get purge",
+        hint: "remove keeps config files; purge deletes everything including /etc/ config files"
+      },
+      {
+        id: "pkg-05",
+        label: "You can read /etc/apt/sources.list and identify the repository URL and codename",
+        hint: "Run: cat /etc/apt/sources.list — look for 'deb http://...' lines with the Ubuntu codename"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "apt-get",
+      items: [
+        { command: "apt-get update", description: "Fetch package index from all configured repositories" },
+        { command: "apt-get install -y pkg", description: "Install package (non-interactive)", example: "apt-get install -y nginx curl" },
+        { command: "apt-get install -y pkg=version", description: "Install specific version", example: "apt-get install -y nginx=1.18.0-0ubuntu1.4" },
+        { command: "apt-get install -y --no-install-recommends pkg", description: "Install without recommended extras (keep images small)" },
+        { command: "apt-get remove pkg", description: "Uninstall package (preserve config files)" },
+        { command: "apt-get purge pkg", description: "Uninstall package and delete all config files" },
+        { command: "apt-get autoremove", description: "Remove orphaned dependencies no longer needed" }
+      ]
+    },
+    {
+      title: "apt-cache",
+      items: [
+        { command: "apt-cache search keyword", description: "Search for packages by name or description" },
+        { command: "apt-cache show pkg", description: "Display full metadata for a package" },
+        { command: "apt-cache depends pkg", description: "List packages this package depends on" },
+        { command: "apt-cache rdepends pkg", description: "List packages that depend on this package" },
+        { command: "apt-cache policy pkg", description: "Show available versions and priorities" }
+      ]
+    },
+    {
+      title: "dpkg",
+      items: [
+        { command: "dpkg -l", description: "List all installed packages" },
+        { command: "dpkg -l | grep pkg", description: "Check if a package is installed" },
+        { command: "dpkg -s pkg", description: "Show status and metadata of an installed package" },
+        { command: "dpkg -L pkg", description: "List all files installed by a package" },
+        { command: "dpkg -S /path/to/file", description: "Find which package owns a file" },
+        { command: "dpkg -i package.deb", description: "Install a .deb file directly (no dependency resolution)" }
+      ]
+    },
+    {
+      title: "Key Files",
+      items: [
+        { command: "/etc/apt/sources.list", description: "Main repository configuration file" },
+        { command: "/etc/apt/sources.list.d/", description: "Additional repository configs (one file per repo)" },
+        { command: "/var/cache/apt/archives/", description: "Downloaded .deb package cache" },
+        { command: "/var/lib/apt/lists/", description: "Package index files downloaded by apt-get update" }
+      ]
+    }
+  ]}
+/>

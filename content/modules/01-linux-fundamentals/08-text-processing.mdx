@@ -1,0 +1,443 @@
+---
+title: "Text Processing"
+description: "grep, sed, awk, sort, uniq, cut, xargs — transforming data on the command line"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "08-text-processing"
+order: 8
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["01-linux-fundamentals/07-shell-scripting"]
+tags: ["grep", "sed", "awk", "sort", "uniq", "cut", "xargs", "regex", "text"]
+---
+
+## Overview
+
+A web server is returning intermittent 500 errors. The access log has 2 million lines. You need to find all 500-status requests in the last hour, extract the URLs, count which endpoints are failing most, and get an answer in seconds — not hours of scrolling. Linux's text processing tools were built for exactly this. `grep` filters lines by pattern. `awk` extracts fields. `sort | uniq -c` counts occurrences. `sed` transforms text in-place. Chained through pipes, they compose into powerful data analysis pipelines without writing a single line of Python or loading a database.
+
+## How It Works
+
+### The Unix Philosophy in Practice
+
+Unix was designed around a simple idea: small programs that do one thing well, connected by pipes. Text is the universal interface — every tool reads text from stdin and writes text to stdout, which means every tool composes with every other tool. This composability is the core of Linux's power.
+
+```bash
+# Each stage processes the output of the previous stage
+grep "500" access.log | awk '{print $7}' | sort | uniq -c | sort -rn | head -10
+```
+
+This single line reads 2 million log lines, finds errors, extracts URLs, counts them, sorts by frequency, and shows the top 10 — in under a second.
+
+### grep: Pattern Matching
+
+`grep` filters lines from a stream or file. Lines that match the pattern are passed through; non-matching lines are discarded.
+
+```bash
+# Basic usage
+grep "ERROR" app.log           # lines containing "ERROR"
+grep -i "error" app.log        # case-insensitive match
+grep -n "ERROR" app.log        # include line numbers in output
+grep -c "ERROR" app.log        # count matching lines (not content)
+grep -v "ERROR" app.log        # invert — lines that do NOT match
+grep -r "TODO" ./src/          # recursive search across files
+grep -E "ERROR|WARN" app.log   # extended regex — OR pattern
+grep -l "TODO" ./src/*.ts      # list files that match (not lines)
+```
+
+**Regular expression basics for grep:**
+
+| Pattern | Matches |
+|---------|---------|
+| `.` | Any single character |
+| `*` | Zero or more of the preceding character |
+| `+` (with -E) | One or more of the preceding character |
+| `^` | Start of line |
+| `$` | End of line |
+| `[abc]` | Any character in the set |
+| `[^abc]` | Any character NOT in the set |
+| `\b` | Word boundary |
+| `(ERR\|WARN)` (with -E) | Either ERR or WARN |
+
+<Callout type="deep-dive" title="Regex Engine Behavior: Greedy vs Non-Greedy">
+By default, regex quantifiers (`*`, `+`, `?`) are **greedy** — they match as much as possible. In the string `<a>one</a><a>two</a>`, the pattern `<a>.*</a>` matches the entire string (greedy), not just `<a>one</a>`.
+
+`grep` (extended regex with `-E`) does not support non-greedy matching. For non-greedy patterns you need `grep -P` (Perl-compatible regex, if available) using `.*?`, or switch to `awk`/`sed` with character-class negation: `<a>[^<]*</a>` matches content that contains no `<` characters.
+
+Understanding greediness explains why `grep -E "\".*\""` on a JSON line can return more than you expect.
+</Callout>
+
+<TerminalBlock
+  title="bash — grep in action"
+  lines={[
+    { type: 'comment', content: 'Find all HTTP 500 errors in an access log' },
+    { type: 'command', content: 'grep " 500 " access.log | wc -l' },
+    { type: 'output', content: '47' },
+    { type: 'comment', content: 'Show the last 5 errors with line numbers' },
+    { type: 'command', content: 'grep -n " 500 " access.log | tail -5' },
+    { type: 'output', content: '2001847: 10.0.0.4 - - [19/Mar/2026:10:44:01] "GET /api/users 500 342"' },
+    { type: 'output', content: '2001901: 10.0.0.7 - - [19/Mar/2026:10:44:58] "POST /api/orders 500 189"' },
+  ]}
+/>
+
+### sed: Stream Editor
+
+`sed` reads a stream line by line and applies transformation commands. The most common use is substitution:
+
+```bash
+# Substitute first occurrence on each line
+sed 's/old/new/' file.txt
+
+# Substitute all occurrences on each line (global flag)
+sed 's/old/new/g' file.txt
+
+# Case-insensitive substitution
+sed 's/error/ERROR/gi' file.txt
+
+# Delete lines matching a pattern
+sed '/DEBUG/d' app.log
+
+# Print only specific lines (suppress default output with -n)
+sed -n '10,20p' file.txt    # lines 10-20
+
+# In-place edit (modifies the original file)
+sed -i 's/localhost/db.prod.internal/g' config.conf
+
+# In-place edit with backup on macOS
+sed -i.bak 's/localhost/db.prod.internal/g' config.conf
+```
+
+<Callout type="warning" title="sed -i With No Backup Destroys the Original">
+`sed -i 's/old/new/g' important.conf` rewrites the file in place with no backup. If your substitution pattern is wrong or the file path is incorrect, the original content is gone. Always test your substitution without `-i` first, or create a backup: `cp config.conf config.conf.bak` before using `-i`. On macOS, `sed -i ''` is required (empty string extension) while Linux accepts `sed -i` directly.
+</Callout>
+
+### awk: Pattern-Action Language
+
+`awk` is more powerful than `grep` or `sed` — it's a mini programming language that processes text field by field. Each line is automatically split into fields (`$1`, `$2`, ...) separated by whitespace (or a custom delimiter with `-F`).
+
+```bash
+# Print the first field (column) of each line
+awk '{print $1}' access.log
+
+# Print multiple fields
+awk '{print $1, $7}' access.log       # IP and URL
+
+# Custom field separator (: for /etc/passwd)
+awk -F: '{print $1}' /etc/passwd      # just usernames
+
+# Pattern matching: only process matching lines
+awk '/500/ {print $7}' access.log     # print URL field from 500 lines
+
+# Arithmetic: sum the 5th column
+awk '{sum += $5} END {print sum}' access.log
+
+# Conditional logic
+awk '{if ($9 >= 500) print $1, $7}' access.log
+```
+
+**Built-in awk variables:**
+
+| Variable | Meaning |
+|----------|---------|
+| `$0` | The entire current line |
+| `$1`, `$2`, ... | Individual fields |
+| `NF` | Number of fields in the current line |
+| `NR` | Current line number (record number) |
+| `FS` | Field separator (default: whitespace) |
+| `OFS` | Output field separator |
+
+<Callout type="deep-dive" title="awk as a Mini Programming Language">
+`awk` has full programming constructs: variables, arithmetic, string operations, arrays, loops, and user-defined functions. The BEGIN and END blocks run before and after all lines are processed — perfect for initialization and summaries:
+
+```bash
+awk '
+  BEGIN {
+    print "=== Error Analysis ==="
+    FS = " "
+  }
+  /500/ {
+    url_count[$7]++   # associative array: URL -> count
+    total++
+  }
+  END {
+    print "Total 500 errors:", total
+    for (url in url_count) {
+      print url_count[url], url
+    }
+  }
+' access.log | sort -rn
+```
+
+This is equivalent to a Python script, but runs as a single command without a file. For complex pipelines that need state (counts, aggregations, multi-field conditionals), `awk` is often faster to write than Python and runs significantly faster on large files.
+</Callout>
+
+### sort: Ordering Text
+
+`sort` reorders lines alphabetically by default. Flags control numeric, reverse, and field-based sorting:
+
+```bash
+# Alphabetical sort (default)
+sort names.txt
+
+# Numeric sort (essential for numbers — without -n, "10" sorts before "9")
+sort -n numbers.txt
+
+# Reverse order
+sort -r file.txt
+
+# Numeric reverse (descending) — most common for frequency counts
+sort -rn counts.txt
+
+# Sort by a specific field (tab-separated, field 2)
+sort -k2 data.txt
+
+# Sort by field 3 numerically, using : as delimiter
+sort -t: -k3 -n /etc/passwd
+
+# Remove duplicates while sorting
+sort -u file.txt
+```
+
+### uniq: Collapse Consecutive Duplicates
+
+`uniq` removes or counts **adjacent** duplicate lines. It only collapses lines that are next to each other.
+
+<Callout type="warning" title="uniq Only Works on Adjacent Lines — Sort First">
+`uniq` does NOT find all duplicates in a file. It only removes lines that appear consecutively. The typical pattern is always `sort | uniq` — sort first to bring duplicates together, then `uniq` to collapse them. Skipping the sort and using `uniq` alone will silently miss non-adjacent duplicates.
+</Callout>
+
+```bash
+# Remove duplicate lines (requires sort first for non-adjacent duplicates)
+sort file.txt | uniq
+
+# Count occurrences of each line
+sort file.txt | uniq -c
+
+# Show only duplicate lines
+sort file.txt | uniq -d
+
+# Show only lines that appear exactly once
+sort file.txt | uniq -u
+
+# The classic frequency-count pipeline:
+sort file.txt | uniq -c | sort -rn
+```
+
+### cut: Extract Columns
+
+`cut` extracts specific columns from delimiter-separated text:
+
+```bash
+# Extract field 1 from colon-delimited file
+cut -d: -f1 /etc/passwd           # usernames
+
+# Extract fields 1 and 3
+cut -d: -f1,3 /etc/passwd         # username and UID
+
+# Extract a range of fields
+cut -d: -f1-4 /etc/passwd         # fields 1 through 4
+
+# Extract by character position (not delimiter)
+cut -c1-10 file.txt               # first 10 characters of each line
+
+# Extract from tab-separated data (default delimiter)
+cut -f2 data.tsv
+```
+
+### xargs: Convert stdin to Arguments
+
+Some commands don't read from stdin — they only accept arguments. `xargs` bridges this gap by converting stdin lines into command-line arguments:
+
+```bash
+# Delete all .log files found by find
+find /var/log -name "*.log" -mtime +30 | xargs rm
+
+# With a placeholder (for commands that need the argument in a specific position)
+find . -name "*.txt" | xargs -I {} cp {} /backup/
+
+# Process in parallel (4 parallel jobs)
+cat server-list.txt | xargs -P 4 -I {} ssh {} uptime
+
+# Handle filenames with spaces (null-delimited)
+find . -name "*.txt" -print0 | xargs -0 grep "TODO"
+```
+
+<Callout type="tip" title="xargs -I {} for Complex Commands">
+The `-I {}` flag defines a placeholder that gets substituted for each input line. This lets you place the argument anywhere in the command:
+
+```bash
+cat hosts.txt | xargs -I {} sh -c 'echo "Processing {}"; curl -s http://{}/health'
+```
+
+`sh -c` is the pattern for running a multi-command string per input line. Without `-I {}`, `xargs` appends inputs to the end of the command, which doesn't work for URLs in the middle of a string.
+</Callout>
+
+### Pipeline Composition: Putting It Together
+
+The real power comes from chaining these tools. Here's a worked example — finding the top 10 most frequent error messages in an application log:
+
+```bash
+grep "ERROR" app.log \       # 1. Filter only ERROR lines
+  | awk '{print $5}' \       # 2. Extract the 5th field (error code/message)
+  | sort \                   # 3. Sort alphabetically (brings duplicates together)
+  | uniq -c \                # 4. Count consecutive duplicates
+  | sort -rn \               # 5. Sort by count, descending
+  | head -10                 # 6. Show top 10
+```
+
+Reading this pipeline stage by stage is a key skill. Each `|` is a hand-off: "take whatever came out of the left side and feed it as input to the right side."
+
+<TerminalBlock
+  title="bash — multi-stage pipeline"
+  lines={[
+    { type: 'comment', content: 'Analyze web server access log: top 5 error endpoints' },
+    { type: 'command', content: 'grep " 500 " access.log | awk \'{print $7}\' | sort | uniq -c | sort -rn | head -5' },
+    { type: 'output', content: '     23 /api/users/search' },
+    { type: 'output', content: '     17 /api/orders' },
+    { type: 'output', content: '      8 /api/products/bulk' },
+    { type: 'output', content: '      5 /api/auth/refresh' },
+    { type: 'output', content: '      3 /api/webhooks/stripe' },
+    { type: 'comment', content: 'Translate an error code in a config file' },
+    { type: 'command', content: 'sed \'s/ERR_CONN_REFUSED/CONNECTION_REFUSED/g\' app.conf' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Analyze a Web Server Access Log"
+  difficulty="Intermediate"
+  scenario="You are a site reliability engineer at an e-commerce company. The on-call dashboard is showing elevated error rates. You have a 50,000-line nginx access log and need to identify which endpoints are failing most, which client IPs are generating the most errors, and create a summary report — all in under 5 minutes using command-line tools."
+  objective="By the end of this exercise, you will be able to build multi-stage text processing pipelines using grep, awk, sort, uniq -c, sed, and cut to extract actionable insights from log files."
+  steps={[
+    {
+      step: 1,
+      description: "Start a container and create a sample access log to work with.",
+      command: "docker run -it --rm ubuntu:22.04 /bin/bash"
+    },
+    {
+      step: 2,
+      description: "Generate a sample log with realistic entries. Run this setup command to create 1000 log lines.",
+      command: "python3 -c \"\nimport random, datetime\nstatuses = [200]*80 + [404]*10 + [500]*8 + [302]*2\nurls = ['/api/users','/api/orders','/api/products','/static/app.js','/health']\nips = ['10.0.0.' + str(i) for i in range(1,6)]\nfor i in range(1000):\n    ip = random.choice(ips)\n    url = random.choice(urls)\n    status = random.choice(statuses)\n    size = random.randint(100, 5000)\n    print(f'{ip} - - [19/Mar/2026:10:00:{i%60:02d}] \\\"GET {url} HTTP/1.1\\\" {status} {size}')\n\" > /tmp/access.log && wc -l /tmp/access.log"
+    },
+    {
+      step: 3,
+      description: "Use grep to find all 500 errors and count them.",
+      command: "grep ' 500 ' /tmp/access.log | wc -l"
+    },
+    {
+      step: 4,
+      description: "Extract just the URLs from 500 errors using awk. The URL is in field 7.",
+      command: "grep ' 500 ' /tmp/access.log | awk '{print $7}'"
+    },
+    {
+      step: 5,
+      description: "Build the full frequency pipeline: which endpoints have the most 500 errors?",
+      command: "grep ' 500 ' /tmp/access.log | awk '{print $7}' | sort | uniq -c | sort -rn"
+    },
+    {
+      step: 6,
+      description: "Now find which client IPs are generating the most errors. IP address is field 1.",
+      command: "grep ' 500 ' /tmp/access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head -5"
+    },
+    {
+      step: 7,
+      description: "Use sed to create a sanitized version of the log, replacing all IP addresses with [REDACTED].",
+      command: "sed 's/^[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/[REDACTED]/' /tmp/access.log | head -3"
+    },
+    {
+      step: 8,
+      description: "Use cut to extract only the status codes from the entire log, then count them by status.",
+      command: "awk '{print $9}' /tmp/access.log | sort | uniq -c | sort -rn"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "text-01",
+        label: "You extracted the top 5 error URLs from the log using a multi-stage pipeline",
+        hint: "Run: grep ' 500 ' /tmp/access.log | awk '{print $7}' | sort | uniq -c | sort -rn | head -5"
+      },
+      {
+        id: "text-02",
+        label: "You used sed to replace a value in the log (e.g., redact IP addresses)",
+        hint: "Run: sed 's/^[0-9.]*\\/[REDACTED]/' /tmp/access.log | head -3 — verify IPs are replaced"
+      },
+      {
+        id: "text-03",
+        label: "You built a pipeline with 4 or more stages",
+        hint: "The frequency analysis pipeline has 5 stages: grep | awk | sort | uniq -c | sort -rn"
+      },
+      {
+        id: "text-04",
+        label: "You understand why sort must come before uniq -c",
+        hint: "uniq only counts adjacent duplicates. Without sort, non-consecutive duplicates are missed"
+      },
+      {
+        id: "text-05",
+        label: "You used awk to extract a specific field from structured log output",
+        hint: "Run: awk '{print $1}' /tmp/access.log | head -5 — should show IP addresses only"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "grep",
+      items: [
+        { command: "grep 'pattern' file", description: "Lines matching pattern" },
+        { command: "grep -i", description: "Case-insensitive match" },
+        { command: "grep -n", description: "Show line numbers" },
+        { command: "grep -c", description: "Count matching lines" },
+        { command: "grep -v", description: "Invert — lines NOT matching" },
+        { command: "grep -r 'pattern' dir/", description: "Recursive search in directory" },
+        { command: "grep -E 'a|b'", description: "Extended regex (OR, +, etc.)" }
+      ]
+    },
+    {
+      title: "sed",
+      items: [
+        { command: "sed 's/old/new/' file", description: "Substitute first occurrence per line" },
+        { command: "sed 's/old/new/g' file", description: "Substitute all occurrences (global)" },
+        { command: "sed -i 's/old/new/g' file", description: "In-place edit (caution: destructive)" },
+        { command: "sed '/pattern/d' file", description: "Delete lines matching pattern" },
+        { command: "sed -n '10,20p' file", description: "Print only lines 10-20" }
+      ]
+    },
+    {
+      title: "awk",
+      items: [
+        { command: "awk '{print $1}' file", description: "Print first field of each line" },
+        { command: "awk -F: '{print $1}' file", description: "Use : as field separator" },
+        { command: "awk '/pattern/ {print}' file", description: "Process only matching lines" },
+        { command: "awk '{sum+=$3} END {print sum}'", description: "Sum a column across all lines" },
+        { command: "NR, NF, $0", description: "Line number, field count, whole line" }
+      ]
+    },
+    {
+      title: "sort, uniq, cut",
+      items: [
+        { command: "sort -n", description: "Numeric sort" },
+        { command: "sort -rn", description: "Numeric reverse sort (descending)" },
+        { command: "sort -k2", description: "Sort by second field" },
+        { command: "sort | uniq -c", description: "Count occurrences of each line (sort first!)" },
+        { command: "uniq -d", description: "Show only duplicate lines" },
+        { command: "cut -d: -f1", description: "Extract field 1 from colon-delimited input" }
+      ]
+    },
+    {
+      title: "xargs",
+      items: [
+        { command: "cmd | xargs rm", description: "Delete files listed on stdin" },
+        { command: "cmd | xargs -I {} cp {} /dest/", description: "Use {} as placeholder for each input line" },
+        { command: "cmd | xargs -P 4 -I {} sh -c 'cmd {}'", description: "Run 4 parallel jobs" },
+        { command: "find . -print0 | xargs -0 grep 'x'", description: "Handle filenames with spaces (null-delimited)" }
+      ]
+    }
+  ]}
+/>
