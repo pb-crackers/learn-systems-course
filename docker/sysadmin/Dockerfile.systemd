@@ -1,0 +1,29 @@
+# Systemd-enabled image for SYS-02 (systemd) and SYS-03 (logging) labs.
+# jrei/systemd-ubuntu:22.04 runs systemd as PID 1 — required for systemctl exercises.
+#
+# Run command (all flags required):
+#   docker run -d --name sysadmin-systemd \
+#     --privileged \
+#     --tmpfs /tmp --tmpfs /run --tmpfs /run/lock \
+#     -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
+#     sysadmin-systemd
+#   docker exec -it sysadmin-systemd bash
+#
+# Apple Silicon tip: if the image fails to start on an M-series Mac, add:
+#   --platform linux/amd64
+# Example: docker run --platform linux/amd64 --privileged ...
+# (jrei/systemd-ubuntu:22.04 is an amd64 image; Docker Desktop runs it via Rosetta 2)
+FROM jrei/systemd-ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    curl wget vim nano \
+    procps \
+    rsyslog \
+    logrotate \
+    && rm -rf /var/lib/apt/lists/*
+COPY verify/ /usr/local/lib/learn-systems/verify/
+COPY setup/ /usr/local/lib/learn-systems/setup/
+RUN chmod +x /usr/local/lib/learn-systems/verify/*.sh \
+             /usr/local/lib/learn-systems/setup/*.sh
+# NOTE: No CMD — jrei/systemd-ubuntu uses /sbin/init as its ENTRYPOINT.
+# Connect with: docker exec -it sysadmin-systemd bash
