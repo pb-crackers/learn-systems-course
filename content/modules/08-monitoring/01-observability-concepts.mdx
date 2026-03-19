@@ -1,0 +1,204 @@
+---
+title: "Observability: Metrics, Logs, and Traces"
+description: "The three pillars of observability — what each tells you, when to use which, and how they connect to the monitoring tools you will learn"
+module: "Monitoring & Observability"
+moduleSlug: "08-monitoring"
+lessonSlug: "01-observability-concepts"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["04-sysadmin/06-system-monitoring"]
+tags: ["observability", "metrics", "logs", "traces", "monitoring", "three-pillars", "prometheus", "grafana"]
+---
+
+## Overview
+
+Your Node.js application is slow. Users are complaining. You SSH in and run `top` — CPU is fine, memory is fine. The load average is 0.3 on a 4-core machine. Nothing is wrong, according to the machine.
+
+But something is wrong. The machine is fine. The application is not.
+
+A database query is taking 3 seconds. A dependency is timing out. A third-party API is returning slowly. `top` cannot tell you any of this — it sees CPU and memory, not request latency, query times, or service call durations.
+
+This is the gap between system monitoring and observability.
+
+## How It Works
+
+In the System Administration module, you used `top`, `htop`, `vmstat`, and `iostat`. Those tools monitor the machine — CPU cycles, memory pages, disk sectors. Observability goes further: it monitors the application running on the machine. It answers not just "is the server stressed?" but "is my application working correctly, and if not, why?"
+
+The three pillars of observability provide three complementary types of answers.
+
+### Pillar 1: Metrics
+
+**Metrics are numeric measurements collected over time.** Every metric is a number — a count, a size, a duration — associated with a timestamp and optional labels.
+
+There are three metric types:
+
+| Type | Behavior | Examples | PromQL Function |
+|------|----------|----------|-----------------|
+| **Counter** | Only goes up (resets on restart) | Total requests, total errors, bytes sent | `rate()` over a window |
+| **Gauge** | Goes up and down | Current memory, active connections, queue depth | Read the raw value |
+| **Histogram** | Distribution across buckets | Request latency, response sizes | `histogram_quantile()` |
+
+The analogy: a car's dashboard. The speedometer (a gauge) shows your current speed — it goes up and down. The odometer (a counter) only ever increases. Neither tells you about the quality of the roads you are driving on — that requires traces.
+
+**Metrics answer "how much" and "how fast."**
+
+A metric can tell you: "There were 2,400 requests in the last minute, and 48 of them returned a 500 error." That is enough to fire an alert. It is not enough to tell you why 48 requests failed.
+
+**Tool:** Prometheus (covered in the next lesson).
+
+### Pillar 2: Logs
+
+**Logs are timestamped text records of discrete events.** A log line says something happened: "2026-03-15T14:23:01Z ERROR Query timeout after 3002ms on /api/orders."
+
+Logs come in two forms:
+
+- **Structured logs** (JSON): `{"level":"error","message":"Query timeout","duration_ms":3002,"route":"/api/orders"}` — machine-parseable, easier to filter and aggregate
+- **Unstructured logs** (plain text): `[ERROR] 14:23:01 Query timeout after 3002ms` — human-readable but harder to parse programmatically
+
+The analogy: a flight recorder's black box. Every event is captured in full detail. When something goes wrong, you replay the recording to understand exactly what happened. The downside: at scale, you generate billions of log lines per day. Searching through them is expensive.
+
+**Logs answer "what happened."**
+
+A log can tell you: "The query that timed out was `SELECT * FROM orders WHERE user_id = 12345 ORDER BY created_at` — it ran for 3 seconds and exceeded the 2-second timeout." Now you know not just that something failed, but exactly what failed and what the application was doing.
+
+**Tool:** Loki, ELK stack (covered in Lesson 4).
+
+### Pillar 3: Traces
+
+**Traces follow a single request across every service it touches.** A trace is composed of spans — each span represents one operation (an API call, a database query, a cache lookup). Spans have parent-child relationships: the root span is the incoming request; child spans are the operations it triggered.
+
+The analogy: tracking a package through shipping. The package leaves the warehouse (root span), gets scanned at each facility (child spans), and arrives at your door. Each scan is a span: timestamp, duration, location. If the package is late, you look at the trace to find which facility held it.
+
+**Traces answer "where did the time go."**
+
+A trace can tell you: "The /api/orders request took 3.2 seconds. 0.1s was spent in the API handler. 2.9s was spent in a database query. 0.2s was in a Redis cache check that missed." You now know exactly which service in the call chain is the bottleneck.
+
+**Tools:** Jaeger, Zipkin (these are v2 topics — distributed tracing across services is covered in advanced coursework. For now, understand the concept: traces are how you debug latency in distributed systems.)
+
+<Callout type="deep-dive" title="Monitoring vs Observability">
+These two words are often used interchangeably, but they describe different capabilities.
+
+**Monitoring** tells you WHEN something is wrong. An alert fires: "P95 latency exceeded 500ms for the last 2 minutes." You know there is a problem.
+
+**Observability** tells you WHY it is wrong. You open the trace for one of those slow requests and see: "Database service added 450ms. The slow query is a full table scan on the orders table — no index on user_id."
+
+Monitoring requires only metrics and alerts. Observability requires all three pillars working together: metrics to detect the anomaly, logs to see the specific errors, traces to pinpoint which service in the chain is slow.
+
+You need both. Monitoring without observability gives you alerts with no way to diagnose them. Observability without monitoring means you only notice problems when users complain.
+</Callout>
+
+<Callout type="tip" title="Bridge from Phase 5: System vs Application Monitoring">
+You already know process-level monitoring — `top` shows CPU and memory per process. `vmstat` shows system-wide I/O wait. `iostat` shows disk saturation.
+
+Prometheus extends this to application-level metrics: how many HTTP requests per second, what percentage return a 500 error, how long does the P95 request take. Same concept (numeric measurements over time), different granularity (application behavior instead of kernel resources).
+
+The two levels complement each other. If Prometheus shows high request latency AND `vmstat` shows high `%wa`, you know the application is slow because the disk is slow. If Prometheus shows high latency but `top` shows idle CPU and low I/O wait, the bottleneck is elsewhere — a downstream service, a slow query, a network hop.
+</Callout>
+
+### When to Use Which Pillar
+
+The three pillars are not competing alternatives — they are a debugging sequence:
+
+```
+1. Start with metrics (cheap, always collected, good for alerting)
+   → Alert: P95 latency > 500ms for 2 minutes
+
+2. Drill into logs when the metric anomaly appears (expensive to search, but detailed)
+   → Filter logs by time window and service
+   → Find: "database query timeout" errors, frequency, affected routes
+
+3. Use traces when the request crosses multiple services (most expensive, most precise)
+   → Open trace for a slow request
+   → Identify: database service span takes 450ms of the 500ms total
+```
+
+Metrics are the cheapest data type to collect and store — they are just numbers. Alert on metrics. Logs are expensive at scale because they are text — do not query logs unless metrics pointed you there. Traces are the most expensive to collect because they require instrumentation across every service — use them to diagnose latency problems in distributed systems.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Classify Observability Problems by Pillar"
+  difficulty="Foundation"
+  scenario="Your web application has three services: a frontend, an API, and a database. Three problems have been reported. For each problem, identify which observability pillar you would use FIRST to investigate, explain why, and describe what specific data you would look for."
+  objective="By the end of this exercise, you will be able to classify operational problems to the correct observability pillar and explain the cost-effectiveness of each pillar."
+  steps={[
+    {
+      step: 1,
+      description: "Problem 1: API response times doubled over the last 10 minutes. Users are noticing slowness but not getting errors. Which pillar do you start with, and why?",
+      command: "echo 'Analysis: Start with METRICS. Response time is a numeric measurement over time — exactly what metrics capture. Look for: request latency histogram (P95/P99), broken down by route and service. Metrics will tell you which routes are slow and whether it started suddenly or gradually.'"
+    },
+    {
+      step: 2,
+      description: "Problem 2: The frontend is showing 500 errors on the checkout page. Error rate is spiking in your metrics dashboard. Now what?",
+      command: "echo 'Analysis: Metrics already told you WHEN (error rate spiking) and WHERE (checkout page). Now use LOGS to find WHAT. Filter logs for 500 errors on /checkout in the last 15 minutes. Look for: the specific exception, stack trace, or error message that explains why requests are failing.'"
+    },
+    {
+      step: 3,
+      description: "Problem 3: A request to /api/orders takes 8 seconds. Each individual service (frontend, API, database) responds in under 100ms when called directly. But the end-to-end request is 8 seconds. Where is the time going?",
+      command: "echo 'Analysis: This is the classic distributed latency mystery — TRACES. When each service appears fast but the total is slow, the latency is hidden in the connections between services: network hops, serialization, handoffs, retries. A trace shows the full call graph with timing for every span, revealing where the 8 seconds are actually spent.'"
+    },
+    {
+      step: 4,
+      description: "Summarize the decision pattern: when do you start with metrics vs logs vs traces?",
+      command: "echo 'Pattern: Metrics = always-on baseline, first alert, detect anomalies. Logs = triggered by metric anomaly, diagnose specific errors. Traces = triggered by latency mystery across services, pinpoint distributed bottlenecks. Cost order: metrics (cheapest) < logs < traces (most expensive).'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "classify-latency",
+        label: "You can classify a latency problem to the metrics pillar and explain why metrics are the starting point",
+        hint: "Latency is a numeric measurement over time — a histogram captures its distribution. Metrics are cheap and always collected, making them the correct first step."
+      },
+      {
+        id: "classify-errors",
+        label: "You can explain why you switch from metrics to logs after an error rate alert fires",
+        hint: "Metrics tell you WHEN errors are happening and at what rate. Logs tell you WHAT the error is — the exception type, stack trace, and context of each failure."
+      },
+      {
+        id: "classify-traces",
+        label: "You can explain when traces are necessary and metrics/logs are insufficient",
+        hint: "Traces are necessary when a request is slow but no single service is obviously slow. The latency exists between services — in the handoffs, network hops, and retries that metrics and logs do not capture."
+      },
+      {
+        id: "cost-model",
+        label: "You can explain why metrics are cheaper to query than logs at scale",
+        hint: "Metrics are just numbers: counter increments, gauge values, histogram bucket counts. A high-traffic app might generate 1 million log lines per minute but only a few thousand time-series data points. Querying metrics is a math operation on numbers; querying logs requires scanning text."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "The Three Pillars",
+      items: [
+        { command: "Metrics", description: "Numeric measurements over time. Counter (only up), Gauge (up/down), Histogram (distribution). Answers: how much, how fast.", example: "http_requests_total, process_memory_bytes, request_duration_seconds" },
+        { command: "Logs", description: "Timestamped text records of events. Structured (JSON) or unstructured (plain text). Answers: what happened.", example: "{\"level\":\"error\",\"message\":\"Query timeout\",\"duration_ms\":3002}" },
+        { command: "Traces", description: "End-to-end request paths across services. Root span + child spans with parent-child relationships. Answers: where did the time go.", example: "HTTP request → API handler span → DB query span → Redis check span" },
+      ]
+    },
+    {
+      title: "When to Use Each",
+      items: [
+        { command: "Start with metrics", description: "Alert thresholds, trend detection, capacity planning — always-on, cheapest to collect and query", example: "Alert: error_rate > 5% for 2 minutes" },
+        { command: "Drill into logs", description: "After a metric anomaly — find the specific error message, exception, or event that caused it", example: "Filter: level=error AND route=/checkout AND time=[last 15min]" },
+        { command: "Use traces", description: "When latency is high but no single service is slow — find the distributed bottleneck", example: "Trace shows: DB span = 450ms of 500ms total request time" },
+      ]
+    },
+    {
+      title: "Tool Mapping",
+      items: [
+        { command: "Prometheus", description: "Metrics collection and storage — pull-based scrape model, PromQL query language", example: "Covered in Lesson 2" },
+        { command: "Grafana", description: "Visualization layer — dashboards for metrics (Prometheus) and logs (Loki)", example: "Covered in Lesson 3" },
+        { command: "Loki + Promtail", description: "Log aggregation — Promtail ships logs, Loki stores and queries with LogQL", example: "Covered in Lesson 4" },
+      ]
+    }
+  ]}
+/>

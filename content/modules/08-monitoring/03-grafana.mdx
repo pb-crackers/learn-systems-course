@@ -11,6 +11,259 @@ prerequisites: ["08-monitoring/02-prometheus"]
 tags: ["grafana", "dashboards", "visualization", "panels", "datasources", "provisioning"]
 ---
 
-## Grafana
+## Overview
 
-*Full content will be added in plan 07-01 continuation.*
+You have metrics in Prometheus. You can query them with PromQL in the Prometheus UI. But a Prometheus query box is not a monitoring system — it is a calculator. You have to manually type a query every time you want to see something. There is no history, no side-by-side comparison, no alert visualization.
+
+Grafana fills this gap. Grafana is a visualization layer: it queries your data sources (Prometheus, Loki, databases, APIs) and renders the results as panels arranged in dashboards. A dashboard is a collection of panels, each answering one question about your system. The sum of those panels tells a story — the health of your application at a glance.
+
+## How It Works
+
+### Grafana's Role in the Stack
+
+Grafana does not store data. It is a query-and-render system: it sends queries to data sources and renders the responses as visualizations. This is a critical design distinction.
+
+```
+Data flow:
+  Application → /metrics endpoint → Prometheus scrapes → TSDB stores
+  Grafana → sends PromQL query to Prometheus → Prometheus returns data → Grafana renders panel
+```
+
+Grafana is stateless with respect to metrics. If you delete Grafana, your metrics are still in Prometheus. If you delete Prometheus, Grafana has nothing to render. Grafana is the view layer; Prometheus is the data layer.
+
+This also means Grafana can query multiple data sources in the same dashboard. A single dashboard can have panels querying Prometheus for metrics and panels querying Loki for logs — different data sources, same visualization surface.
+
+### Datasource Provisioning
+
+The most important Grafana configuration concept for this course is provisioning — configuring Grafana automatically via YAML files instead of through the UI.
+
+Grafana reads YAML files from `/etc/grafana/provisioning/datasources/` at startup. Each file defines one or more datasources. No manual UI configuration is required — on every `docker compose up`, Grafana starts with the datasource already configured.
+
+The Prometheus datasource configuration:
+
+```yaml
+# grafana/provisioning/datasources/prometheus.yml
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+    version: 1
+```
+
+Key details:
+- `access: proxy` means Grafana's backend queries Prometheus on your behalf — your browser does not reach Prometheus directly
+- `url: http://prometheus:9090` uses the Docker service name, not `localhost` — inside the Docker network, Grafana reaches Prometheus by service name
+- `isDefault: true` makes this the pre-selected datasource when creating new panels
+- `httpMethod: POST` is required for Prometheus v3 — older Grafana versions use GET by default, which does not work with long PromQL queries
+
+Why provision over manual configuration: provisioned datasources appear automatically on every fresh stack start. Manual configuration requires clicking through the Grafana UI each time. In a team environment, provisioning ensures every developer has identical Grafana configuration — it is reproducible and version-controlled.
+
+### Dashboard Concepts
+
+A **dashboard** is a JSON document containing a collection of panels, layout positions, variables, and refresh settings. Grafana renders this JSON as an interactive grid of visualizations.
+
+A **panel** is one visualization. Each panel has:
+- A PromQL query (or multiple queries)
+- A visualization type (time series, stat, gauge, table, heatmap)
+- A title, display options, and optional alert configuration
+
+Panel types and when to use them:
+
+| Panel Type | Best For | Example PromQL |
+|-----------|---------|----------------|
+| **Time Series** | Metrics that change over time — request rate, memory, error rate | `rate(http_requests_total[5m])` |
+| **Stat** | Single current value — uptime, current error rate, total users | `up{job="monitored-app"}` |
+| **Gauge** | Value with defined min/max and thresholds — CPU usage (0-100%) | `container_cpu_usage_seconds_total` |
+| **Table** | Tabular data — top 10 slowest routes, all active alerts | `topk(10, rate(http_requests_total[5m]))` |
+| **Heatmap** | Distribution over time — maps directly to histogram bucket data | `rate(http_request_duration_seconds_bucket[5m])` |
+
+### Dashboard Provisioning
+
+Like datasources, dashboards can be provisioned via files. Grafana reads a provider YAML that tells it where to find dashboard JSON files:
+
+```yaml
+# grafana/provisioning/dashboards/dashboards.yml
+apiVersion: 1
+
+providers:
+  - name: default
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+```
+
+Grafana scans the `path` directory every `updateIntervalSeconds` and loads any `.json` files it finds as dashboards. The `updateIntervalSeconds: 30` means changes to dashboard JSON files appear in Grafana within 30 seconds without restarting.
+
+Dashboard JSON is complex (100-500 lines per dashboard). The exercise for this lesson uses a provided starter dashboard JSON that includes the four golden signals. Focus your effort on understanding the PromQL queries inside each panel and the panel type choices — not the JSON structure itself.
+
+### Anonymous Access Configuration
+
+The monitoring stack runs Grafana with anonymous access enabled:
+
+```yaml
+environment:
+  - GF_AUTH_ANONYMOUS_ENABLED=true
+  - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+  - GF_AUTH_DISABLE_LOGIN_FORM=true
+```
+
+With these settings, anyone who opens Grafana in their browser is immediately logged in as an admin — no login screen, no credentials. This removes the authentication barrier for local learning environments.
+
+<Callout type="warning" title="Anonymous Admin Access is Development-Only">
+`GF_AUTH_ANONYMOUS_ENABLED=true` with `GF_AUTH_ANONYMOUS_ORG_ROLE=Admin` grants every visitor full administrative access to Grafana. In production, Grafana must use authentication: OIDC (single sign-on), LDAP, or at minimum built-in username/password credentials.
+
+The anonymous admin setting exists in this course's Docker stack to eliminate the login barrier for learning labs. If you ever copy these configuration files for a real deployment, remove these three environment variables and configure proper authentication.
+</Callout>
+
+<Callout type="tip" title="Port Mapping: App at 3000, Grafana at localhost:3001">
+Grafana internally runs on port 3000. The monitoring stack's `compose.yml` maps Grafana's container port to host port 3001 (`"3001:3000"`). This is because the monitored Node.js app also runs on port 3000.
+
+- Open the app at: `http://localhost:3000`
+- Open Grafana at: `http://localhost:3001`
+- Open Prometheus at: `http://localhost:9090`
+- Open Alertmanager at: `http://localhost:9093`
+
+Inside the Docker network, Grafana talks to Prometheus at `http://prometheus:9090` (service name, not localhost). The port 3001 mapping only affects access from your host machine — inside the Docker network, Prometheus is still at port 9090 by its service name.
+</Callout>
+
+### The Four Golden Signals
+
+Google's Site Reliability Engineering book defines four signals that, together, tell you whether a service is healthy:
+
+1. **Latency** — how long requests take (P95 or P99 is more meaningful than average)
+2. **Traffic** — how many requests the service handles per second
+3. **Errors** — the rate of requests that fail (5xx errors, timeouts)
+4. **Saturation** — how full the service's resources are (memory usage relative to limit, CPU utilization)
+
+A dashboard with panels for all four golden signals gives you immediate insight into service health. If all four look normal, the service is working. If any one spikes, you know where to investigate.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Build a Four Golden Signals Dashboard in Grafana"
+  difficulty="Intermediate"
+  scenario="Your monitoring stack is running. You need a dashboard that shows the four golden signals for the monitored application: latency, traffic, errors, and saturation. Build one from scratch in Grafana to understand how panels, PromQL queries, and visualization types connect."
+  objective="By the end of this exercise, you will be able to create Grafana panels with PromQL queries, choose appropriate panel types, and interpret the four golden signals dashboard."
+  steps={[
+    {
+      step: 1,
+      description: "Ensure the monitoring stack is running. If not, start it from the docker/monitoring/ directory.",
+      command: "cd docker/monitoring && docker compose up -d && sleep 10"
+    },
+    {
+      step: 2,
+      description: "Open Grafana at localhost:3001. You should be immediately logged in (no login screen — anonymous access is configured).",
+      command: "open http://localhost:3001"
+    },
+    {
+      step: 3,
+      description: "Verify the Prometheus datasource was auto-provisioned. Navigate to: Settings (gear icon) > Data Sources. You should see 'Prometheus' listed with a green checkmark.",
+      command: "curl -s 'http://localhost:3001/api/datasources' | python3 -c \"import sys,json; sources=json.load(sys.stdin); [print(s['name'], '-', s['type']) for s in sources]\""
+    },
+    {
+      step: 4,
+      description: "Create a new dashboard. Click the + icon > New Dashboard > Add visualization.",
+      command: "echo 'In the Grafana UI: click + (top right) > New Dashboard > + Add visualization'"
+    },
+    {
+      step: 5,
+      description: "Panel 1: Traffic (Request Rate). Select visualization type: Time Series. Enter this PromQL query and set the legend to {{route}}.",
+      command: "echo 'PromQL: sum(rate(http_requests_total[5m])) by (route)  |  Visualization: Time Series  |  Title: Request Rate (req/s)'"
+    },
+    {
+      step: 6,
+      description: "Panel 2: Latency (P95). Add a new panel. Select Time Series. Enter the histogram_quantile PromQL.",
+      command: "echo 'PromQL: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))  |  Visualization: Time Series  |  Title: P95 Latency (seconds)'"
+    },
+    {
+      step: 7,
+      description: "Panel 3: Error Rate. Add a new panel. Select Stat to show a single current percentage. Enter the error rate PromQL.",
+      command: "echo 'PromQL: rate(http_requests_total{status_code=~\"5..\"}[5m]) / rate(http_requests_total[5m])  |  Visualization: Stat  |  Title: Error Rate  |  Unit: Percent (0-100)'"
+    },
+    {
+      step: 8,
+      description: "Panel 4: Memory Saturation. Add a new panel. Select Time Series. Show process memory usage.",
+      command: "echo 'PromQL: process_resident_memory_bytes{job=\"monitored-app\"}  |  Visualization: Time Series  |  Title: Memory Usage  |  Unit: bytes (IEC)'"
+    },
+    {
+      step: 9,
+      description: "Save the dashboard. Click the Save icon (floppy disk), name it 'Four Golden Signals', and save.",
+      command: "echo 'In Grafana: click the save icon (top right), enter name: Four Golden Signals, click Save'"
+    },
+    {
+      step: 10,
+      description: "Generate traffic to see the panels update. Send 100 requests to the app.",
+      command: "for i in $(seq 1 100); do curl -s http://localhost:3000/ > /dev/null; curl -s http://localhost:3000/health > /dev/null; done && echo 'Traffic generated — refresh Grafana dashboard'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "datasource-provisioned",
+        label: "Prometheus data source appears in Grafana Settings > Data Sources as provisioned",
+        hint: "Provisioned datasources show a 'Provisioned' badge. If no datasource appears, check that docker/monitoring/grafana/provisioning/datasources/prometheus.yml is mounted correctly."
+      },
+      {
+        id: "traffic-panel",
+        label: "Request Rate panel shows a time series graph that updates as traffic is generated",
+        hint: "The rate() of a counter only shows data if there has been traffic in the last 5 minutes. Run the curl loop to generate traffic, then wait 15-30s for Prometheus to scrape and Grafana to refresh."
+      },
+      {
+        id: "latency-panel",
+        label: "P95 Latency panel renders a value (even if small for a simple app)",
+        hint: "For the simple monitoring app, P95 latency will be under 10ms. The panel will show a flat line near 0 — that is correct. The panel type proves the query works even if the value is small."
+      },
+      {
+        id: "panel-types",
+        label: "You can explain why you used Time Series for latency/traffic and Stat for error rate",
+        hint: "Time Series is for metrics that change over time and where trends matter. Stat is for the current value of a single metric where the trend is less important than the current number (what is the error rate RIGHT NOW?)."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Panel Types",
+      items: [
+        { command: "Time Series", description: "Line/area graph for metrics that change over time — best for most monitoring metrics", example: "Request rate, memory usage, latency over time" },
+        { command: "Stat", description: "Single prominent number for current value — best for 'what is it right now'", example: "Current error rate, uptime, active connections" },
+        { command: "Gauge", description: "Radial gauge with thresholds for values with a defined range", example: "CPU usage 0-100%, disk usage 0-100%" },
+        { command: "Table", description: "Tabular data for ranked or multi-column metrics", example: "Top 10 slowest routes, all active alert rules" },
+        { command: "Heatmap", description: "Distribution over time — maps directly to Prometheus histogram data", example: "Request latency distribution, showing long-tail outliers" },
+      ]
+    },
+    {
+      title: "Provisioning",
+      items: [
+        { command: "/etc/grafana/provisioning/datasources/", description: "Mount YAML datasource configs here — Grafana auto-loads at startup", example: "prometheus.yml with url: http://prometheus:9090" },
+        { command: "/etc/grafana/provisioning/dashboards/", description: "Mount dashboard provider YAML + dashboard JSON files here", example: "dashboards.yml provider + app-dashboard.json" },
+        { command: "GF_AUTH_ANONYMOUS_ENABLED=true", description: "Enable anonymous access — development only, never production", example: "Set GF_AUTH_ANONYMOUS_ORG_ROLE=Admin for full access" },
+      ]
+    },
+    {
+      title: "The Four Golden Signals",
+      items: [
+        { command: "Latency", description: "How long requests take — use P95 or P99, not average (averages hide outliers)", example: "histogram_quantile(0.95, sum(rate(duration_bucket[5m])) by (le))" },
+        { command: "Traffic", description: "How many requests per second the service handles", example: "sum(rate(http_requests_total[5m])) by (route)" },
+        { command: "Errors", description: "Rate of failed requests — 5xx errors, timeouts, rejected connections", example: "rate(http_requests_total{status_code=~'5..'}[5m]) / rate(http_requests_total[5m])" },
+        { command: "Saturation", description: "How full the service's constrained resource is — memory, CPU, connection pool", example: "process_resident_memory_bytes / container_spec_memory_limit_bytes" },
+      ]
+    }
+  ]}
+/>

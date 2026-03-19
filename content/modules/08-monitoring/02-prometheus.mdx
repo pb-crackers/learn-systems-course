@@ -1,0 +1,375 @@
+---
+title: "Prometheus: How Metrics Collection Actually Works"
+description: "From counters and gauges to PromQL queries — how Prometheus scrapes, stores, and queries time-series metrics"
+module: "Monitoring & Observability"
+moduleSlug: "08-monitoring"
+lessonSlug: "02-prometheus"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 30
+prerequisites: ["08-monitoring/01-observability-concepts"]
+tags: ["prometheus", "promql", "metrics", "counter", "gauge", "histogram", "alerting", "scrape"]
+---
+
+## Overview
+
+Most monitoring systems work by having your application push metrics to a central collector. You instrument your code to call `metrics.send("requests_total", 1)` and hope the data arrives. If your app crashes mid-send, metrics are lost. If your collector is overloaded, it backpressures your app.
+
+Prometheus flips this model: Prometheus pulls metrics from your application. Your app exposes a `/metrics` endpoint. Prometheus periodically fetches it. If Prometheus is down, your app is unaffected. If your app is down, Prometheus knows immediately — because fetching `/metrics` failed.
+
+This pull-based architecture is Prometheus's defining design decision. Understanding it is the key to understanding everything else about how Prometheus works.
+
+## How It Works
+
+### The Scrape Model
+
+Prometheus operates on a scrape cycle:
+
+```
+Every scrape_interval (default: 15s):
+  1. Prometheus reads its config to find targets (your apps, services, exporters)
+  2. For each target, Prometheus sends an HTTP GET to http://target:port/metrics
+  3. The target responds with metrics in the Prometheus text format
+  4. Prometheus parses the response and writes the data to its time-series database (TSDB)
+  5. Prometheus records up{job="your-app"} = 1 (scrape succeeded) or 0 (scrape failed)
+```
+
+The `/metrics` endpoint response looks like this:
+
+```
+# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",route="/api/users",status_code="200"} 12847
+http_requests_total{method="POST",route="/api/orders",status_code="201"} 3421
+http_requests_total{method="GET",route="/api/orders",status_code="500"} 48
+
+# HELP process_resident_memory_bytes Resident memory size in bytes
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 45678592
+```
+
+Each line is a metric name, a label set in `{}`, and a value. The `# HELP` and `# TYPE` comments provide metadata. This is the Prometheus text format — a plain-text protocol that any application can implement.
+
+### Time-Series Storage (TSDB)
+
+Prometheus stores each unique combination of metric name + label set as a time-series. Each time-series gets a sequence of (timestamp, value) pairs — one per scrape.
+
+```
+metric_name{label1="val1",label2="val2"} → [(t1, v1), (t2, v2), (t3, v3), ...]
+```
+
+A metric like `http_requests_total{method="GET",route="/api/users",status_code="200"}` is a single time-series. `http_requests_total{method="POST",route="/api/orders",status_code="201"}` is a different time-series — same metric name, different label set.
+
+Labels are the key to Prometheus power. You can aggregate, filter, and split metrics by labels. "Show me error rate broken down by route" is a label aggregation query.
+
+### Metric Types
+
+**Counter**
+
+A counter only ever increases (or resets to zero when the process restarts). Counters track cumulative totals: total requests, total errors, total bytes transferred.
+
+```
+http_requests_total{method="GET",status_code="200"} → 12847
+```
+
+The raw counter value is rarely useful — it always goes up. What matters is the rate of increase. Always use `rate()` with counters:
+
+```promql
+rate(http_requests_total[5m])
+```
+
+This returns the per-second rate of increase, averaged over the last 5 minutes. If the counter goes from 12000 to 12847 in 5 minutes (300 seconds), the rate is 847/300 ≈ 2.82 requests per second.
+
+**Gauge**
+
+A gauge can go up or down. Gauges measure current state: current memory usage, active connections, queue depth, CPU temperature.
+
+```
+process_resident_memory_bytes → 45678592
+active_connections → 23
+```
+
+Read gauges directly — the raw value is meaningful. `process_resident_memory_bytes` right now is 45.6 MB. No need for `rate()`.
+
+**Histogram**
+
+A histogram tracks the distribution of values by counting how many observations fall into each pre-defined bucket. Histograms are the canonical way to track request latency.
+
+```
+http_request_duration_seconds_bucket{le="0.005"} 4823
+http_request_duration_seconds_bucket{le="0.01"}  5234
+http_request_duration_seconds_bucket{le="0.025"} 7891
+http_request_duration_seconds_bucket{le="0.05"}  9234
+http_request_duration_seconds_bucket{le="0.1"}   11456
+http_request_duration_seconds_bucket{le="0.25"}  12100
+http_request_duration_seconds_bucket{le="0.5"}   12700
+http_request_duration_seconds_bucket{le="1"}     12830
+http_request_duration_seconds_bucket{le="+Inf"}  12847
+http_request_duration_seconds_sum 1284.7
+http_request_duration_seconds_count 12847
+```
+
+The `le` label means "less than or equal to." A bucket with `le="0.1"` contains the count of all requests that completed in 100ms or less. `+Inf` contains all requests. The `_sum` is the sum of all observed values. The `_count` is the total number of observations.
+
+The canonical histogram query is the P95 latency:
+
+```promql
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+)
+```
+
+This returns: "95% of requests complete in X seconds or less, broken down by route."
+
+**Summary**
+
+Summaries are similar to histograms but calculate quantiles client-side. They are useful when you need accurate quantiles for a single instance, but they cannot be aggregated across instances. For multi-instance deployments, always prefer histograms — they aggregate correctly.
+
+### Essential PromQL Patterns
+
+PromQL (Prometheus Query Language) is a functional query language for time-series data. Every PromQL expression returns either an instant vector (one value per time-series, right now) or a range vector (multiple values per time-series over a time window).
+
+```promql
+# 1. Select all time-series for a metric (instant vector)
+http_requests_total
+
+# 2. Filter by label value
+http_requests_total{job="monitored-app", status_code="200"}
+
+# 3. Rate of increase over 5-minute window (use with counters)
+rate(http_requests_total[5m])
+
+# 4. Aggregate across all instances, keep the route label
+sum(rate(http_requests_total[5m])) by (route)
+
+# 5. P95 request latency (the canonical histogram_quantile pattern)
+histogram_quantile(0.95,
+  sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+)
+
+# 6. Is the app up? (1 = scrape succeeded, 0 = scrape failed)
+up{job="monitored-app"}
+
+# 7. Current memory usage in bytes
+process_resident_memory_bytes{job="monitored-app"}
+
+# 8. Heap growth rate (key query for memory leak detection)
+increase(nodejs_heap_used_bytes[5m])
+```
+
+Key PromQL rules:
+- Use `rate()` with counters. Never graph raw counter values — they just go up.
+- Use raw gauge values. Never use `rate()` with gauges — a rate of memory usage change is rarely what you want.
+- `rate()` requires a range vector (the `[5m]` suffix). `sum()`, `avg()`, and aggregations work on instant vectors.
+- The `by (label)` clause preserves labels in aggregations. Without it, all labels are dropped.
+
+### Alert Rules
+
+Prometheus evaluates alert rules on the `evaluation_interval` (default: 15s). An alert rule defines a PromQL expression that, when true, moves the alert into PENDING state. After the `for` duration elapses, the alert becomes FIRING and is sent to Alertmanager.
+
+```yaml
+groups:
+  - name: app-alerts
+    rules:
+      - alert: AppDown
+        expr: up{job="monitored-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "App {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 1 minute"
+
+      - alert: HighRequestLatency
+        expr: >
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route)
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on {{ $labels.route }}"
+          description: "P95 latency is {{ $value | humanizeDuration }} on route {{ $labels.route }}"
+
+      - alert: HighErrorRate
+        expr: >
+          rate(http_requests_total{status_code=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m])
+          > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over last 5 minutes"
+```
+
+The `for: 2m` in `HighRequestLatency` means: "the condition must be true continuously for 2 minutes before the alert fires." This prevents noisy alerts from short-lived spikes. During those 2 minutes, the alert is PENDING. After 2 minutes of continuous violation, it becomes FIRING.
+
+The alert lifecycle:
+1. Prometheus evaluates the rule expression
+2. Expression is true → alert enters PENDING state
+3. Alert remains PENDING for the `for` duration
+4. After `for` elapses → alert becomes FIRING
+5. Prometheus sends firing alert to Alertmanager
+6. Alertmanager routes, groups, and sends notifications (Slack, PagerDuty, email, webhook)
+7. When the condition resolves → Prometheus sends a RESOLVED notification
+
+<Callout type="warning" title="node-exporter Does Not Work on macOS">
+`prom/node-exporter` does NOT work on macOS — node-exporter does NOT work on macOS because it reads Linux `/proc` and `/sys` filesystems — `/proc/stat`, `/proc/meminfo`, `/sys/block/` — that do not exist on macOS.
+
+For container-level metrics in local development, use `gcr.io/cadvisor/cadvisor` instead. cAdvisor uses the Docker socket API to collect container CPU, memory, and network metrics — it works cross-platform because it talks to Docker, not the OS filesystem.
+
+The Docker Compose monitoring stack in `docker/monitoring/` uses cAdvisor for exactly this reason.
+</Callout>
+
+<Callout type="tip" title="Reloading Prometheus Config Without Restarting">
+After editing `prometheus.yml` or adding new alert rules, reload the config without restarting the container:
+
+```bash
+curl -X POST http://localhost:9090/-/reload
+```
+
+This requires the `--web.enable-lifecycle` flag in the Prometheus container command. The monitoring stack already includes this flag.
+
+Without this flag, config changes require a full container restart, which resets any in-progress alert PENDING timers.
+</Callout>
+
+<Callout type="deep-dive" title="What up{job='monitored-app'} == 1 Actually Means">
+The `up` metric is set to 1 when Prometheus successfully makes an HTTP GET to your app's `/metrics` endpoint and receives a valid response. It is set to 0 when the scrape fails — connection refused, timeout, or non-200 HTTP status.
+
+What `up == 1` does NOT guarantee: that your app is correctly serving real user traffic. Your `/metrics` endpoint could return 200 while every other route returns 500. The app could be out of memory and failing all requests, but if `/metrics` still responds, `up` is 1.
+
+Always combine the `up` check with application-level metrics:
+
+```promql
+# Both must be true for confidence the app is healthy
+up{job="monitored-app"} == 1
+AND
+rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m]) < 0.01
+```
+
+The `up` metric tells you Prometheus can reach the app. Your error rate metric tells you the app is actually working.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Write PromQL Queries Against a Running Application"
+  difficulty="Foundation"
+  scenario="Your team deployed a Node.js API instrumented with prom-client. The Docker Compose monitoring stack exposes Prometheus at localhost:9090. Use the Prometheus UI to write PromQL queries that answer real questions about the application's health."
+  objective="By the end of this exercise, you will be able to write and interpret the 8 essential PromQL patterns, distinguishing counter vs gauge queries and understanding what each returns."
+  steps={[
+    {
+      step: 1,
+      description: "Start the monitoring stack. The stack includes the instrumented app, Prometheus, Grafana, and Alertmanager.",
+      command: "cd docker/monitoring && docker compose up -d"
+    },
+    {
+      step: 2,
+      description: "Wait for the stack to start and open the Prometheus UI. It takes 5-10 seconds for all services to register as scrape targets.",
+      command: "sleep 10 && open http://localhost:9090"
+    },
+    {
+      step: 3,
+      description: "Check that Prometheus can reach the app. Navigate to Status > Targets in the Prometheus UI. The monitored-app job should show State: UP.",
+      command: "curl -s 'http://localhost:9090/api/v1/targets' | python3 -c \"import sys,json; targets=json.load(sys.stdin)['data']['activeTargets']; [print(t['labels']['job'], t['health']) for t in targets]\""
+    },
+    {
+      step: 4,
+      description: "Query 1: Is the app up? Run this in the Prometheus UI expression browser.",
+      command: "echo 'PromQL: up{job=\"monitored-app\"}  → Should return 1 (scrape succeeded)'"
+    },
+    {
+      step: 5,
+      description: "Generate some traffic to the app so metrics have values to query.",
+      command: "for i in $(seq 1 50); do curl -s http://localhost:3000/ > /dev/null; curl -s http://localhost:3000/health > /dev/null; done"
+    },
+    {
+      step: 6,
+      description: "Query 2: Total HTTP requests (counter — shows cumulative count since startup).",
+      command: "echo 'PromQL: http_requests_total{job=\"monitored-app\"}  → Shows cumulative requests per route/method/status'"
+    },
+    {
+      step: 7,
+      description: "Query 3: Request rate over 5 minutes (counter with rate() — per-second rate of requests).",
+      command: "echo 'PromQL: rate(http_requests_total[5m])  → Shows ~requests per second for each time series'"
+    },
+    {
+      step: 8,
+      description: "Query 4: P95 request latency (histogram_quantile — 95th percentile latency).",
+      command: "echo 'PromQL: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))  → Returns P95 latency in seconds'"
+    },
+    {
+      step: 9,
+      description: "Query 5: Current heap memory usage (gauge — read raw value directly).",
+      command: "echo 'PromQL: process_resident_memory_bytes{job=\"monitored-app\"}  → Memory in bytes (gauge, read raw)'"
+    },
+    {
+      step: 10,
+      description: "View the alert rules loaded into Prometheus. Navigate to Alerts in the Prometheus UI to see the AppDown, HighRequestLatency, and HighErrorRate rules.",
+      command: "curl -s 'http://localhost:9090/api/v1/rules' | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(r['name']) for g in d['data']['groups'] for r in g['rules']]\""
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "target-up",
+        label: "up{job=\"monitored-app\"} returns 1 in the Prometheus UI",
+        hint: "Check Status > Targets — the monitored-app job should show State: UP. If it shows DOWN, the app container may not have started. Run: docker compose ps"
+      },
+      {
+        id: "counter-rate",
+        label: "rate(http_requests_total[5m]) returns a non-zero value after generating traffic",
+        hint: "The rate() of a counter that is not increasing returns 0. Make sure you ran curl requests to the app first. If still 0, check that Prometheus has had time to scrape (wait 15s after traffic)."
+      },
+      {
+        id: "histogram-quantile",
+        label: "The histogram_quantile(0.95, ...) query returns a latency value in seconds",
+        hint: "The result will be a small number like 0.003 (3ms). If the result is NaN, the histogram_bucket metric has no data — generate more traffic and wait for a scrape."
+      },
+      {
+        id: "gauge-memory",
+        label: "process_resident_memory_bytes shows the app's current memory usage",
+        hint: "This is a gauge — you read it directly without rate(). The value will be tens of megabytes (tens of millions of bytes) for a Node.js app."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Metric Types",
+      items: [
+        { command: "Counter", description: "Monotonically increasing — use rate() to get per-second rate of change", example: "http_requests_total, errors_total, bytes_sent_total" },
+        { command: "Gauge", description: "Can increase or decrease — read the raw value directly", example: "active_connections, memory_bytes, cpu_temperature" },
+        { command: "Histogram", description: "Distribution of values in buckets — use histogram_quantile() for percentiles", example: "http_request_duration_seconds_bucket{le='0.5'}" },
+        { command: "Summary", description: "Client-side quantiles — less flexible than histograms, cannot aggregate across instances", example: "Use Histogram instead for multi-instance deployments" },
+      ]
+    },
+    {
+      title: "Essential PromQL",
+      items: [
+        { command: "rate(metric[5m])", description: "Per-second rate of increase for a counter over 5-minute window", example: "rate(http_requests_total[5m])" },
+        { command: "sum(expr) by (label)", description: "Aggregate a metric across dimensions, preserving one label", example: "sum(rate(http_requests_total[5m])) by (route)" },
+        { command: "histogram_quantile(0.95, sum(rate(bucket[5m])) by (le))", description: "P95 latency from histogram data", example: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))" },
+        { command: "increase(metric[5m])", description: "Total increase of a counter over 5 minutes (not per-second rate)", example: "increase(nodejs_heap_used_bytes[5m])" },
+      ]
+    },
+    {
+      title: "Alert Concepts",
+      items: [
+        { command: "PENDING state", description: "Alert expression is true, but for duration has not elapsed yet — alert is not yet sent", example: "for: 2m means alert must be true for 2 continuous minutes" },
+        { command: "FIRING state", description: "Alert has been true for the full for duration — Alertmanager notifies", example: "Alertmanager sends Slack/PagerDuty/webhook notification" },
+        { command: "/-/reload endpoint", description: "Reload Prometheus config without restart — requires --web.enable-lifecycle flag", example: "curl -X POST http://localhost:9090/-/reload" },
+      ]
+    }
+  ]}
+/>
