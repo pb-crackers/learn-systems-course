@@ -63,8 +63,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SYS-04**: Lesson on disk management — fdisk, mount, fstab, LVM basics, df, du
 - [x] **SYS-05**: Lesson on process management and scheduling — cron, systemd timers, at, nice/renice
 - [x] **SYS-06**: Lesson on system monitoring — top, htop, vmstat, iostat, resource bottlenecks
-- [ ] **SYS-07**: Hands-on exercises for each sysadmin lesson
-- [ ] **SYS-08**: Module cheat sheet with sysadmin commands and concepts
+- [x] **SYS-07**: Hands-on exercises for each sysadmin lesson
+- [x] **SYS-08**: Module cheat sheet with sysadmin commands and concepts
 
 ### Module 4: Containerization with Docker
 
@@ -204,8 +204,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | SYS-04 | Phase 5 | Complete |
 | SYS-05 | Phase 5 | Complete |
 | SYS-06 | Phase 5 | Complete |
-| SYS-07 | Phase 5 | Pending |
-| SYS-08 | Phase 5 | Pending |
+| SYS-07 | Phase 5 | Complete |
+| SYS-08 | Phase 5 | Complete |
 | CICD-01 | Phase 5 | Complete |
 | CICD-02 | Phase 5 | Complete |
 | CICD-03 | Phase 5 | Complete |
