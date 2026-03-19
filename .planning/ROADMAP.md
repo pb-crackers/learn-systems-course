@@ -154,7 +154,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. App Foundation | 4/4 | Complete   | 2026-03-19 |
+| 1. App Foundation | 4/4 | Complete    | 2026-03-19 |
 | 2. Linux Fundamentals | 0/4 | Not started | - |
 | 3. Networking Foundations | 0/4 | Not started | - |
 | 4. Docker & Foundation Capstone | 0/4 | Not started | - |
