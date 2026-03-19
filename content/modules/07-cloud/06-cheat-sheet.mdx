@@ -1,0 +1,127 @@
+---
+title: "Cloud Fundamentals Cheat Sheet"
+description: "Quick reference for cloud concepts, compute, networking, storage, and IAM — with AWS/GCP/Azure service name mappings"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "06-cheat-sheet"
+order: 6
+difficulty: "Foundation"
+estimatedMinutes: 5
+prerequisites: []
+tags: ["cloud", "cheat-sheet", "aws", "gcp", "azure", "reference"]
+---
+
+## Overview
+
+All cloud concepts, service mappings, and mental models from this module in one place. Use this as a reference when you encounter cloud service names in documentation, job postings, or team conversations.
+
+## Cloud Concepts
+
+<QuickReference
+  sections={[
+    {
+      title: "Cloud Concepts (Lesson 1)",
+      items: [
+        { command: "IaaS (Infrastructure as a Service)", description: "You manage: OS, runtime, application. Provider manages: hardware, hypervisor, physical networking. Examples: EC2, Compute Engine, Azure VMs. Think: renting a server.", example: "EC2 instance — you SSH in and install whatever you want" },
+        { command: "PaaS (Platform as a Service)", description: "You manage: application code. Provider manages: OS, runtime, scaling, patching. Examples: ECS Fargate, Cloud Run, Azure Container Apps. Think: just run your container.", example: "Cloud Run — give it a Docker image, it handles scaling" },
+        { command: "SaaS (Software as a Service)", description: "You manage: your data and configuration. Provider manages: everything else including the application. Examples: Gmail, GitHub, Datadog." },
+        { command: "Region", description: "A physical geographic location (data center cluster). Examples: us-east-1 (AWS Virginia), us-central1 (GCP Iowa), eastus (Azure Virginia). Choosing regions affects latency and data residency." },
+        { command: "Availability Zone (AZ)", description: "Isolated failure domain within a region — separate power, cooling, and networking. Multiple AZs per region. Deploying across AZs gives high availability (HA)." },
+        { command: "Multi-AZ deployment", description: "Run instances in two or more AZs. If one AZ fails, the others keep serving traffic. The load balancer routes around the failure automatically. Cost: 2x instances." },
+      ]
+    }
+  ]}
+/>
+
+## Compute Services
+
+<QuickReference
+  sections={[
+    {
+      title: "Compute Services (Lesson 2)",
+      items: [
+        { command: "Virtual Machines (VMs)", description: "Full OS, SSH access, you install everything. AWS: EC2. GCP: Compute Engine. Azure: Azure VMs. Use when: you need OS-level control, custom kernel, or are lifting-and-shifting existing apps.", example: "ssh -i key.pem ec2-user@<public-ip>" },
+        { command: "Managed Containers", description: "Run Docker images without managing the host OS or Kubernetes cluster. AWS: ECS Fargate. GCP: Cloud Run. Azure: Container Apps. Use when: you have a containerized app and want to skip ops.", example: "gcloud run deploy my-app --image gcr.io/project/my-app:latest" },
+        { command: "Serverless Functions", description: "Per-invocation billing. No idle cost. Event-driven. Cold start penalty. AWS: Lambda. GCP: Cloud Functions. Azure: Azure Functions. Use when: infrequent events, background tasks, webhook handlers.", example: "aws lambda invoke --function-name my-fn output.json" },
+        { command: "When to use VMs", description: "Need SSH access, custom OS config, legacy apps, stateful workloads. Higher ops burden. Predictable workloads where reserved pricing saves money." },
+        { command: "When to use Managed Containers", description: "Containerized apps with variable traffic. Less ops overhead than VMs. No kernel access needed. Startup in seconds, not minutes." },
+        { command: "When to use Serverless", description: "Spiky or infrequent workloads. Background processing. Event handlers. Short-lived operations (< 15 minutes). Cannot maintain persistent connections." },
+      ]
+    }
+  ]}
+/>
+
+## Cloud Networking
+
+<QuickReference
+  sections={[
+    {
+      title: "Cloud Networking (Lesson 3)",
+      items: [
+        { command: "VPC (Virtual Private Cloud)", description: "Your isolated private network in the cloud. Maps to: docker network create. You define the IP range (CIDR), subnets, and routing. AWS: VPC. GCP: VPC Network. Azure: Virtual Network.", example: "10.0.0.0/16 — gives 65,536 IPs for your cloud network" },
+        { command: "Public Subnet", description: "Subnet with a route to the Internet Gateway. Resources here get public IPs and are internet-reachable. Use for: load balancers, bastion hosts. Maps to: Docker host network." },
+        { command: "Private Subnet", description: "No route to the internet. Resources here are not directly reachable from outside. Use for: databases, app servers, internal services. Maps to: Docker bridge network (internal)." },
+        { command: "Load Balancer", description: "Distributes incoming traffic across multiple compute instances. Handles health checks — removes unhealthy instances automatically. Maps to: nginx upstream block. AWS: ALB. GCP: Cloud Load Balancing. Azure: Azure Load Balancer." },
+        { command: "Security Group", description: "Stateful firewall rules at the instance level. Allow rule = traffic passes. Default: deny all inbound, allow all outbound. Maps to: iptables rules. Return traffic is automatically allowed (stateful).", example: "Allow port 443 from 0.0.0.0/0 — HTTPS from anywhere" },
+        { command: "DNS", description: "Translates domain names to IP addresses. Cloud DNS integrates with your VPC for private hostnames. AWS: Route 53. GCP: Cloud DNS. Azure: Azure DNS. Maps to: CoreDNS from Phase 3." },
+      ]
+    }
+  ]}
+/>
+
+## Cloud Storage
+
+<QuickReference
+  sections={[
+    {
+      title: "Cloud Storage (Lesson 4)",
+      items: [
+        { command: "Block Storage", description: "Raw storage volume attached to one instance at a time. Behaves like a physical disk — format it, mount it, use it as a filesystem. AWS: EBS. GCP: Persistent Disk. Azure: Azure Disk Storage. Maps to: docker volume.", example: "mkfs.ext4 /dev/xvdf && mount /dev/xvdf /data" },
+        { command: "Object Storage", description: "HTTP-accessible key-value store. No filesystem — store and retrieve files via URL. Globally unique bucket names. No size limit per bucket. AWS: S3. GCP: Cloud Storage. Azure: Azure Blob Storage. No Docker equivalent — cloud-native concept.", example: "aws s3 cp myfile.zip s3://my-bucket/myfile.zip" },
+        { command: "File Storage (Shared NFS)", description: "Network filesystem mounted simultaneously by many instances. Shared state across compute fleet. AWS: EFS. GCP: Filestore. Azure: Azure Files. Maps to: NFS volume mount from Phase 2.", example: "mount -t nfs4 fs-xxxx.efs.region.amazonaws.com:/ /mnt/efs" },
+        { command: "When to use Block Storage", description: "Database data files, OS root volumes, single-instance workloads needing low-latency disk I/O. Can only attach to one instance at a time." },
+        { command: "When to use Object Storage", description: "Static files, backups, logs, media, data lake. High durability (11 nines). Cheap at scale. HTTP API, not filesystem. No concurrency issues." },
+        { command: "When to use File Storage", description: "Shared config, shared uploads, legacy apps that need a real filesystem path accessible from multiple instances. More expensive than object storage." },
+      ]
+    }
+  ]}
+/>
+
+## IAM
+
+<QuickReference
+  sections={[
+    {
+      title: "IAM — Identity and Access Management (Lesson 5)",
+      items: [
+        { command: "IAM Users", description: "Long-lived identity for a human. Has credentials (password + access keys). Maps to: Linux user account. Best practice: avoid long-lived access keys — use roles instead.", example: "alice is an IAM user; she logs in to the console or uses aws-cli" },
+        { command: "IAM Groups", description: "Collection of users that share the same permissions. Maps to: Linux groups. Attach policies to groups, not individual users — easier to manage at scale.", example: "developers group → has AdministratorAccess policy; operators group → has ReadOnlyAccess" },
+        { command: "IAM Policy", description: "JSON document that defines who can do what on which resource. Maps to: chmod/chown — defines allowed actions. Policies are attached to users, groups, or roles.", example: '{"Effect": "Allow", "Action": "s3:GetObject", "Resource": "arn:aws:s3:::my-bucket/*"}' },
+        { command: "IAM Role", description: "Temporary identity that can be assumed by services or humans. Maps to: sudo — temporary privilege escalation. Roles have no credentials — they generate temporary tokens on assumption.", example: "EC2 instance assumes a role to read from S3 — no access keys stored on disk" },
+        { command: "Service Accounts / Managed Identity", description: "Identity for an application (not a human). AWS: IAM Role for EC2/ECS. GCP: Service Account. Azure: Managed Identity. Allows apps to call cloud APIs without storing credentials in code." },
+        { command: "Least Privilege", description: "Start with no permissions. Add only what is required for the specific task. Never use AdministratorAccess in production. Audit and reduce permissions regularly. The most violated security principle in cloud.", example: "Instead of s3:* on *, use s3:GetObject on arn:aws:s3:::specific-bucket/*" },
+      ]
+    }
+  ]}
+/>
+
+## Service Mapping Reference
+
+| Layer | Docker / Linux | AWS | GCP | Azure |
+|-------|---------------|-----|-----|-------|
+| Compute (IaaS) | docker run | EC2 | Compute Engine | Azure VMs |
+| Compute (PaaS) | docker compose | ECS Fargate | Cloud Run | Container Apps |
+| Serverless | (no equivalent) | Lambda | Cloud Functions | Azure Functions |
+| Network | docker network | VPC | VPC Network | Virtual Network |
+| Subnet | --subnet | Subnet | Subnet | Subnet |
+| Load Balancer | nginx upstream | ALB | Cloud Load Balancing | Azure Load Balancer |
+| Object Storage | (no equivalent) | S3 | Cloud Storage | Azure Blob Storage |
+| Block Storage | docker volume | EBS | Persistent Disk | Azure Disk Storage |
+| File Storage | NFS mount | EFS | Filestore | Azure Files |
+| Identity | Linux user | IAM User | Cloud IAM | Azure AD User |
+| Permission | chmod/chown | IAM Policy | IAM Role | RBAC Role |
+| Role Assume | sudo | IAM Role Assume | Service Account | Managed Identity |
+
+<Callout type="info">
+**What's Next:** You now understand infrastructure as code and cloud concepts. In the next module, you will learn to monitor all of this with Prometheus and Grafana — turning running infrastructure into observable systems. You will see how the same containers, networks, and services you have built throughout this course emit metrics that reveal exactly what is happening inside them at runtime.
+</Callout>
