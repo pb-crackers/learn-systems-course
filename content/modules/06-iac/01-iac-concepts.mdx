@@ -1,0 +1,228 @@
+---
+title: "Infrastructure as Code: Why Declaring Infrastructure Beats Scripting It"
+description: "State management, drift detection, and the plan/apply cycle — how IaC actually works before you touch a single command"
+module: "Infrastructure as Code"
+moduleSlug: "06-iac"
+lessonSlug: "01-iac-concepts"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["05-cicd/01-cicd-concepts"]
+tags: ["iac", "infrastructure-as-code", "declarative", "state", "drift", "opentofu", "terraform"]
+---
+
+## Overview
+
+Your team manually configured 12 servers via SSH and shell scripts. Three months later nobody remembers which server has which configuration — different software versions, different environment variables, different firewall rules. One server goes down. Rebuilding it takes a full day of guesswork, cross-referencing chat logs and runbooks that were last updated in 2022.
+
+Infrastructure as Code (IaC) solves this problem by treating infrastructure configuration the same way developers treat software: written in files, stored in version control, applied automatically, and auditable at any time. If a server goes down, you rebuild it in minutes from the same code that built the original.
+
+This lesson explains the mechanism before the commands. Once you understand why IaC works the way it does, the commands are obvious.
+
+## How It Works
+
+### Imperative vs Declarative: The Core Distinction
+
+Remember manually creating Docker containers with `docker run`? That is the **imperative** approach — you issue a sequence of commands and the system executes them in order:
+
+```bash
+# Imperative: you tell the system HOW to get there
+docker run -d --name web nginx:1.25
+docker run -d --name db postgres:15
+docker network connect my-net web
+docker network connect my-net db
+```
+
+The problem with imperative scripts: they are sequential instructions. If the first command already ran and you run the script again, you get an error ("container already exists"). If you want to change the port, you have to figure out whether to `docker stop`, `docker rm`, and re-run, or `docker update`. The script tells you what to do, not what the end state should be.
+
+**Declarative IaC** flips this. You describe what you want to exist — the desired end state — and OpenTofu figures out how to get there:
+
+```hcl
+# Declarative: you tell the system WHAT you want
+resource "docker_container" "web" {
+  name  = "web"
+  image = docker_image.nginx.image_id
+}
+
+resource "docker_container" "db" {
+  name  = "db"
+  image = docker_image.postgres.image_id
+}
+```
+
+OpenTofu reads this, compares it to what currently exists, and applies the minimum set of changes to reach the desired state. Run it twice and the second run does nothing — already there. Change the port and reapply — OpenTofu figures out whether to update in place or recreate.
+
+### The IaC Workflow: Write, Plan, Apply
+
+Every OpenTofu workflow follows this cycle:
+
+```
+Write HCL → tofu plan (preview changes) → tofu apply (execute changes)
+```
+
+1. **Write HCL:** You declare the infrastructure you want in `.tf` files.
+2. **`tofu plan`:** OpenTofu reads your HCL, reads the current state, and computes the diff. It shows you exactly what will be created, modified, or destroyed — before touching anything.
+3. **`tofu apply`:** You confirm the plan. OpenTofu executes the changes and updates the state file.
+
+The `tofu plan` step is the safety net. You always see what will happen before it happens. This is impossible with shell scripts — a script starts executing immediately with no preview.
+
+### The State File: OpenTofu's Source of Truth
+
+When you run `tofu apply`, OpenTofu does not just create infrastructure — it records what it created in a file called `terraform.tfstate`. This JSON file is OpenTofu's memory of the world.
+
+The state file maps each HCL resource block to a real-world infrastructure object:
+
+```json
+{
+  "resources": [
+    {
+      "type": "docker_container",
+      "name": "web",
+      "instances": [
+        {
+          "attributes": {
+            "id": "a1b2c3d4e5f6...",
+            "name": "learn-iac-web",
+            "image": "sha256:abc123...",
+            "ports": [{"external": 8080, "internal": 80}]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Without this file, OpenTofu cannot know what it previously created. It cannot distinguish "this container does not exist yet" from "this container was created by someone else." The state file is what makes declarative IaC work at all.
+
+### Drift Detection: When Reality Diverges from Desired State
+
+Drift happens when someone modifies infrastructure outside of OpenTofu — manually stopping a container, changing a firewall rule in the cloud console, or running `docker rm` on a managed container.
+
+On every `tofu plan` run, OpenTofu:
+1. Reads the current state file (what it thinks exists)
+2. Queries the actual infrastructure (what actually exists)
+3. Computes the diff between your HCL (what you want) and reality (what's there)
+
+If someone manually stopped a container that OpenTofu manages, the next `tofu plan` shows:
+
+```
+  # docker_container.web must be replaced
+-/+ resource "docker_container" "web" {
+      ~ id     = "a1b2c3..." -> (known after apply)
+        name   = "learn-iac-web"
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+OpenTofu detected that the running container (tracked in state) no longer matches reality (container is stopped). Running `tofu apply` restores the desired state. This is drift detection in action.
+
+### A Brief History: Terraform → OpenTofu
+
+**Terraform** was created by HashiCorp in 2014 and became the dominant IaC tool. In August 2023, HashiCorp changed Terraform's license from the open-source Mozilla Public License to the Business Source License (BSL), which restricts commercial use.
+
+The community responded by forking Terraform as **OpenTofu** under the Linux Foundation in September 2023. OpenTofu uses the original Mozilla Public License (MPL-2.0) and maintains 1:1 CLI and HCL compatibility with Terraform.
+
+**For your job search:** Job postings say "Terraform." OpenTofu is what you use in this course. Everything you learn here — HCL syntax, the plan/apply cycle, state management, modules — works identically with both tools. The only difference is the binary name: `tofu` instead of `terraform`.
+
+<Callout type="deep-dive" title="IaC and CI/CD: The Deployment Piece Done Right">
+In the CI/CD module, you learned that pipelines automate the build/test/deploy lifecycle. The deploy step is where IaC fits: instead of a pipeline running `ssh` commands and hoping the server is in the right state, the pipeline runs `tofu apply` against a state file.
+
+This means deployments are reproducible — the same HCL produces the same infrastructure every time. It means infrastructure is auditable — changes go through pull requests and review. And it means rollback is a real option — `git revert` + `tofu apply` restores the previous state.
+
+IaC is the "deploy" piece of CI/CD done correctly.
+</Callout>
+
+<Callout type="tip" title="CLI Command Names">
+OpenTofu uses the `tofu` CLI command. Terraform uses `terraform`. The syntax, file structure, and workflow are identical — only the binary name differs. When you read job postings or tutorials that show `terraform plan`, mentally substitute `tofu plan`.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Compare Imperative vs Declarative Infrastructure"
+  difficulty="Foundation"
+  scenario="Your team has been creating Docker containers manually with shell scripts. A new developer asked to add HTTPS support — in the shell script approach, that means figuring out which docker commands to re-run in what order without breaking the running containers. Compare the imperative (shell script) and declarative (HCL) approaches to understand why IaC handles change better."
+  objective="By the end of this exercise, you will be able to explain why declarative infrastructure handles change safely, describe what the state file tracks, and define drift."
+  steps={[
+    {
+      step: 1,
+      description: "Consider a shell script that creates 3 containers: a web server, an API, and a database. Write down what happens when you need to change the web server's port from 8080 to 8443.",
+      command: "# With a shell script: docker stop web && docker rm web && docker run -d --name web -p 8443:443 nginx"
+    },
+    {
+      step: 2,
+      description: "Notice the problem: the script must know the current state (is the container running?), the desired state, and how to transition between them. If the container crashed before you ran the script, the docker stop fails.",
+      command: "# The script is order-dependent and state-unaware"
+    },
+    {
+      step: 3,
+      description: "Now consider the HCL equivalent. To change the port, you change one number in the resource block and run tofu apply. OpenTofu figures out that it needs to recreate the container with the new port mapping.",
+      command: "# In HCL: change external = 8080 to external = 8443, then: tofu apply"
+    },
+    {
+      step: 4,
+      description: "OpenTofu shows you the plan before applying: '1 to destroy, 1 to add'. You confirm it. The old container is removed and the new one is created — no manual state tracking required.",
+      command: "# tofu plan → review → tofu apply → done"
+    },
+    {
+      step: 5,
+      description: "Think about the drift scenario: someone manually runs 'docker stop web' without going through OpenTofu. What will tofu plan show on the next run?",
+      command: "# tofu plan will show: docker_container.web must be replaced (container is stopped, desired state is running)"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "declarative-safer",
+        label: "You can explain why declarative is safer for infrastructure changes",
+        hint: "With imperative scripts, you must manually manage state transitions. With declarative IaC, you describe the desired end state and the tool computes the transition. The plan step shows you what will change before it changes."
+      },
+      {
+        id: "state-file-purpose",
+        label: "You can describe what the state file tracks",
+        hint: "The state file (terraform.tfstate) maps each HCL resource block to a real infrastructure object ID. It is OpenTofu's memory — without it, OpenTofu cannot know what it previously created."
+      },
+      {
+        id: "drift-definition",
+        label: "You can explain what drift means and how OpenTofu detects it",
+        hint: "Drift is when someone modifies infrastructure outside of OpenTofu (manually). On every plan run, OpenTofu compares the state file against actual infrastructure and shows the difference as changes to apply."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Core IaC Concepts",
+      items: [
+        { command: "Declarative IaC", description: "Describe the desired end state; the tool figures out how to get there. vs. Imperative: issue sequential commands." },
+        { command: "terraform.tfstate", description: "JSON file that maps HCL resource blocks to real infrastructure IDs. OpenTofu's source of truth." },
+        { command: "Drift", description: "When infrastructure differs from the state file because someone changed it outside OpenTofu. Detected on every plan run." },
+        { command: "Plan/Apply cycle", description: "tofu plan previews changes (safe, read-only), tofu apply executes them. Always plan before apply." },
+      ]
+    },
+    {
+      title: "OpenTofu CLI",
+      items: [
+        { command: "tofu init", description: "Initialize working directory, download providers", example: "cd my-infra && tofu init" },
+        { command: "tofu plan", description: "Preview changes — shows what will be created, modified, or destroyed", example: "tofu plan" },
+        { command: "tofu apply", description: "Execute the plan and update state. Prompts for confirmation.", example: "tofu apply" },
+        { command: "tofu destroy", description: "Destroy all managed infrastructure and clear state", example: "tofu destroy" },
+      ]
+    },
+    {
+      title: "Key Distinctions",
+      items: [
+        { command: "Terraform vs OpenTofu", description: "OpenTofu is the open-source fork (MPL-2.0). CLI is 'tofu' instead of 'terraform'. HCL is identical." },
+        { command: "tofu vs terraform CLI", description: "Job postings say 'Terraform'. Everything learned here (HCL, state, modules) works with both tools." },
+      ]
+    }
+  ]}
+/>

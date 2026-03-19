@@ -1,0 +1,383 @@
+---
+title: "HCL Syntax: Providers, Resources, Variables, and Outputs"
+description: "OpenTofu's configuration language in depth — how providers, resources, variables, and outputs work before writing your first tofu apply"
+module: "Infrastructure as Code"
+moduleSlug: "06-iac"
+lessonSlug: "02-hcl-basics"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 30
+prerequisites: ["06-iac/01-iac-concepts"]
+tags: ["hcl", "providers", "resources", "variables", "outputs", "opentofu", "terraform", "docker-provider"]
+---
+
+## Overview
+
+HCL (HashiCorp Configuration Language) is the language you write OpenTofu configurations in. It looks like a cross between JSON and a programming language — structured enough for machines to parse, readable enough for humans to review in pull requests. This lesson teaches you how each piece of HCL works: where providers come from, what a resource block means, how variables flow through configurations, and how outputs expose values to callers.
+
+By the end you will write a complete configuration: three files (`main.tf`, `variables.tf`, `outputs.tf`) that provision a real Docker container running nginx.
+
+## How It Works
+
+### File Structure: OpenTofu Reads All .tf Files in a Directory
+
+OpenTofu does not have a single entry point like `index.js`. When you run `tofu plan` in a directory, **OpenTofu reads every `.tf` file in that directory and merges them into a single configuration**. The split into `main.tf`, `variables.tf`, and `outputs.tf` is a convention — you could put everything in one file, but separating concerns makes configurations easier to navigate.
+
+```
+my-infra/
+├── main.tf          # Provider config, resource declarations
+├── variables.tf     # Input variable declarations
+└── outputs.tf       # Output value declarations
+```
+
+OpenTofu processes all three files together. A variable declared in `variables.tf` is available in `main.tf`. An output in `outputs.tf` can reference resources in `main.tf`.
+
+### The terraform{} Block: Required Providers
+
+Every configuration starts with a `terraform {}` block that declares which providers it needs:
+
+```hcl
+terraform {
+  required_providers {
+    docker = {
+      source  = "registry.opentofu.org/kreuzwerker/docker"
+      version = "3.9.0"
+    }
+  }
+}
+```
+
+**Source:** Tells OpenTofu where to download the provider. The format is `registry/namespace/type`. `registry.opentofu.org` is the OpenTofu provider registry — use this instead of `registry.terraform.io` for the Docker provider (see warning callout below).
+
+**Version:** Pins the provider to an exact version. `3.9.0` means exactly that version, not newer. This matters because `v4.0.0-beta2` of the Docker provider was released with breaking changes — a loose constraint like `~> 3.0` should be safe under SemVer, but explicit pinning removes all ambiguity and is the right practice for learners and production configs alike.
+
+**Note on `terraform {}` vs `opentofu {}`:** OpenTofu 1.x accepts both `terraform {}` and `opentofu {}` as the root block name. Use `terraform {}` — it works in both tools and is what you will see in every codebase and job posting.
+
+### The provider{} Block: Configuring the Provider
+
+After declaring required providers, you configure the provider with a `provider` block:
+
+```hcl
+provider "docker" {}
+```
+
+This minimal form uses all defaults — the Docker provider connects to the Docker daemon at `/var/run/docker.sock`. For most Docker Desktop installations on macOS and Linux, this is correct and no further configuration is needed.
+
+If you use a different Docker runtime, you may need to specify the socket path (see warning callout below).
+
+### Resource Blocks: Declaring Infrastructure
+
+A resource block declares a piece of infrastructure you want to exist:
+
+```hcl
+resource "docker_image" "nginx" {
+  name         = "nginx:1.25"
+  keep_locally = true
+}
+```
+
+The block structure: `resource "TYPE" "NAME" { arguments }`.
+
+- **TYPE:** The resource type, provided by the Docker provider. `docker_image` manages Docker images, `docker_container` manages containers.
+- **NAME:** A local label you choose. Used to reference this resource elsewhere in the configuration.
+- **Arguments:** The configuration for this specific resource. Different resource types have different required and optional arguments.
+
+The `keep_locally = true` argument tells the Docker provider not to delete the image when you run `tofu destroy`. Without this, running `tofu destroy` would delete the local nginx image, which you probably want to keep.
+
+A container resource that references the image:
+
+```hcl
+resource "docker_container" "web" {
+  name  = var.container_name
+  image = docker_image.nginx.image_id
+
+  ports {
+    internal = 80
+    external = var.external_port
+  }
+
+  labels {
+    label = "managed-by"
+    value = "opentofu"
+  }
+}
+```
+
+Notice `docker_image.nginx.image_id` — this is a **resource reference**. It refers to the `image_id` attribute of the `docker_image` resource named `nginx`. OpenTofu uses these references to determine dependency order: it creates the image resource before the container because the container depends on the image's ID.
+
+### Variable Blocks: Parameterizing Configurations
+
+Hard-coding values in `main.tf` makes configurations inflexible — you would need a different configuration for every environment. Variables let you parameterize values:
+
+```hcl
+variable "container_name" {
+  type        = string
+  description = "Name for the Docker container"
+  default     = "learn-iac-web"
+}
+
+variable "external_port" {
+  type        = number
+  description = "Host port to map container port 80 to"
+  default     = 8080
+
+  validation {
+    condition     = var.external_port >= 1024 && var.external_port <= 65535
+    error_message = "Port must be in the range 1024-65535 (non-privileged ports)."
+  }
+}
+```
+
+The `validation` block runs before `tofu apply` and rejects invalid inputs with the `error_message`. If you try to use port 80 (a privileged port requiring root), the validation catches it before any infrastructure is touched.
+
+You reference variables with `var.name` syntax: `var.container_name`, `var.external_port`.
+
+**Setting variable values** (in priority order, highest first):
+1. `-var` flag: `tofu apply -var="external_port=9090"`
+2. `.tfvars` file: `terraform.tfvars` in the working directory is loaded automatically
+3. Environment variable: `TF_VAR_external_port=9090`
+4. Default value in the `variable` block
+
+### Output Blocks: Exposing Values
+
+Outputs expose values from your configuration — useful for seeing what was created, and essential for module composition (covered in lesson 4):
+
+```hcl
+output "container_id" {
+  description = "ID of the created Docker container"
+  value       = docker_container.web.id
+}
+
+output "container_name" {
+  description = "Name of the created Docker container"
+  value       = docker_container.web.name
+}
+```
+
+After `tofu apply`, outputs are printed to the terminal. You can also query them explicitly: `tofu output container_name`.
+
+### The Complete Workflow
+
+Every OpenTofu workflow follows the same sequence:
+
+```bash
+tofu init      # Download providers declared in required_providers
+tofu fmt       # Format .tf files to canonical style (modifies files in place)
+tofu validate  # Check syntax and schema validity (does not access infrastructure)
+tofu plan      # Preview changes (safe, read-only, shows diff)
+tofu apply     # Execute the plan (creates/modifies/destroys infrastructure)
+tofu destroy   # Destroy all managed resources
+```
+
+`tofu init` must run before any other command in a new directory — it downloads the provider binaries into a `.terraform/` directory. This directory should be added to `.gitignore` (the provider binaries are large and platform-specific).
+
+<Callout type="warning" title="Docker Socket Path for Non-Docker-Desktop Users">
+The Docker provider connects to your Docker daemon via `/var/run/docker.sock`. If you use Rancher Desktop or Podman Desktop instead of Docker Desktop, the socket path may differ. Configure the provider explicitly:
+
+```hcl
+provider "docker" {
+  host = "unix:///Users/yourusername/.rd/docker.sock"
+}
+```
+
+For Rancher Desktop: `~/.rd/docker.sock`. For OrbStack: `/var/run/docker.sock` (same as Docker Desktop). If `tofu init` succeeds but `tofu plan` fails with "Cannot connect to the Docker daemon," this is the issue.
+</Callout>
+
+<Callout type="warning" title="Use registry.opentofu.org, Not registry.terraform.io">
+Use `registry.opentofu.org/kreuzwerker/docker` as the source in your `required_providers` block — not `registry.terraform.io/kreuzwerker/docker`. The Terraform registry has had GPG key verification issues with the kreuzwerker Docker provider since v3.7.0. The OpenTofu registry resolves these cleanly. This is the correct source for OpenTofu configurations.
+</Callout>
+
+### Complete Example: main.tf, variables.tf, outputs.tf
+
+Here is the complete configuration from the exercise directory `docker/iac/01-basics/`:
+
+```hcl
+# docker/iac/01-basics/main.tf
+terraform {
+  required_providers {
+    docker = {
+      source  = "registry.opentofu.org/kreuzwerker/docker"
+      version = "3.9.0"
+    }
+  }
+}
+
+provider "docker" {}
+
+resource "docker_image" "nginx" {
+  name         = "nginx:1.25"
+  keep_locally = true
+}
+
+resource "docker_container" "web" {
+  name  = var.container_name
+  image = docker_image.nginx.image_id
+
+  ports {
+    internal = 80
+    external = var.external_port
+  }
+
+  labels {
+    label = "managed-by"
+    value = "opentofu"
+  }
+}
+```
+
+```hcl
+# docker/iac/01-basics/variables.tf
+variable "container_name" {
+  type        = string
+  description = "Name for the Docker container"
+  default     = "learn-iac-web"
+}
+
+variable "external_port" {
+  type        = number
+  description = "Host port to map container port 80 to"
+  default     = 8080
+
+  validation {
+    condition     = var.external_port >= 1024 && var.external_port <= 65535
+    error_message = "Port must be in the range 1024-65535 (non-privileged ports)."
+  }
+}
+```
+
+```hcl
+# docker/iac/01-basics/outputs.tf
+output "container_id" {
+  description = "ID of the created Docker container"
+  value       = docker_container.web.id
+}
+
+output "container_name" {
+  description = "Name of the created Docker container"
+  value       = docker_container.web.name
+}
+```
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Provision an Nginx Web Server with OpenTofu"
+  difficulty="Foundation"
+  scenario="Provision an Nginx web server using OpenTofu instead of docker run. You will initialize a provider, plan the changes, apply them, and verify the container is running — seeing the full declarative workflow from HCL to a live container."
+  objective="By the end of this exercise, you will have run the complete tofu init/plan/apply workflow, inspected the state file, and destroyed infrastructure cleanly."
+  steps={[
+    {
+      step: 1,
+      description: "Navigate to the exercise directory. The main.tf, variables.tf, and outputs.tf files are already written for you — read them before running any commands.",
+      command: "cd docker/iac/01-basics && ls"
+    },
+    {
+      step: 2,
+      description: "Read the main.tf to understand what will be created: a docker_image resource (nginx:1.25) and a docker_container resource (learn-iac-web on port 8080).",
+      command: "cat main.tf"
+    },
+    {
+      step: 3,
+      description: "Initialize OpenTofu. This downloads the kreuzwerker/docker v3.9.0 provider binary into .terraform/. You should see 'OpenTofu has been successfully initialized!'",
+      command: "tofu init"
+    },
+    {
+      step: 4,
+      description: "Preview the changes without applying them. OpenTofu shows exactly what it will create: 2 resources (docker_image.nginx and docker_container.web).",
+      command: "tofu plan"
+    },
+    {
+      step: 5,
+      description: "Apply the plan. OpenTofu will ask 'Do you want to perform these actions?' — type 'yes'. After applying, it prints the output values.",
+      command: "tofu apply"
+    },
+    {
+      step: 6,
+      description: "Verify the container is running. You should see learn-iac-web in the container list with port 0.0.0.0:8080->80/tcp.",
+      command: "docker ps"
+    },
+    {
+      step: 7,
+      description: "Test that the web server responds. You should see the nginx welcome page HTML.",
+      command: "curl localhost:8080"
+    },
+    {
+      step: 8,
+      description: "Inspect the state file OpenTofu created. Find the docker_container resource entry and notice the 'id' field — this is the real Docker container ID.",
+      command: "cat terraform.tfstate"
+    },
+    {
+      step: 9,
+      description: "Clean up by destroying the infrastructure. OpenTofu removes the container (but not the nginx image, because keep_locally = true).",
+      command: "tofu destroy"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "tofu-init",
+        label: "tofu init succeeded and downloaded the kreuzwerker/docker provider",
+        hint: "Output should include 'Installing kreuzwerker/docker v3.9.0...' and 'OpenTofu has been successfully initialized!'"
+      },
+      {
+        id: "tofu-plan",
+        label: "tofu plan shows 2 resources to create (docker_image + docker_container)",
+        hint: "Plan output ends with: 'Plan: 2 to add, 0 to change, 0 to destroy.'"
+      },
+      {
+        id: "container-running",
+        label: "docker ps shows the learn-iac-web container running",
+        hint: "Run: docker ps | grep learn-iac-web — should show port 0.0.0.0:8080->80/tcp"
+      },
+      {
+        id: "curl-works",
+        label: "curl localhost:8080 returns the nginx welcome page",
+        hint: "Response should contain 'Welcome to nginx!' HTML"
+      },
+      {
+        id: "state-file",
+        label: "terraform.tfstate exists in the exercise directory",
+        hint: "Run: ls -la terraform.tfstate — file should exist with a non-zero size. Inspect it with cat or jq ."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "HCL Block Types",
+      items: [
+        { command: "terraform { required_providers {} }", description: "Declares which providers are needed and their versions/sources", example: "terraform { required_providers { docker = { source = \"registry.opentofu.org/kreuzwerker/docker\", version = \"3.9.0\" } } }" },
+        { command: "provider \"TYPE\" {}", description: "Configures a provider (credentials, endpoints, socket paths)", example: "provider \"docker\" { host = \"unix:///var/run/docker.sock\" }" },
+        { command: "resource \"TYPE\" \"NAME\" {}", description: "Declares infrastructure to manage. TYPE from provider, NAME is local label.", example: "resource \"docker_container\" \"web\" { name = \"learn-iac\" }" },
+        { command: "variable \"NAME\" {}", description: "Declares an input variable with type, description, default, and optional validation", example: "variable \"port\" { type = number, default = 8080 }" },
+        { command: "output \"NAME\" {}", description: "Exposes a value after apply. Printed to console, accessible via 'tofu output'", example: "output \"container_name\" { value = docker_container.web.name }" },
+      ]
+    },
+    {
+      title: "OpenTofu CLI Workflow",
+      items: [
+        { command: "tofu init", description: "Download providers. Must run first in any new directory.", example: "tofu init" },
+        { command: "tofu fmt", description: "Format .tf files to canonical HCL style. Run before committing.", example: "tofu fmt" },
+        { command: "tofu validate", description: "Check syntax and resource schema validity. Catches typos before plan.", example: "tofu validate" },
+        { command: "tofu plan", description: "Preview changes. Safe and read-only. Review before apply.", example: "tofu plan" },
+        { command: "tofu apply", description: "Execute plan. Prompts for 'yes' confirmation by default.", example: "tofu apply" },
+        { command: "tofu output", description: "Print output values after apply", example: "tofu output container_name" },
+        { command: "tofu destroy", description: "Destroy all managed resources. Prompts for confirmation.", example: "tofu destroy" },
+      ]
+    },
+    {
+      title: "Resource Reference Syntax",
+      items: [
+        { command: "TYPE.NAME.attribute", description: "Reference an attribute of another resource", example: "docker_image.nginx.image_id" },
+        { command: "var.NAME", description: "Reference an input variable", example: "var.container_name" },
+        { command: "module.NAME.output", description: "Reference a module output (covered in lesson 4)", example: "module.frontend.container_id" },
+      ]
+    }
+  ]}
+/>
