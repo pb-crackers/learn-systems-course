@@ -1,0 +1,189 @@
+---
+title: "Cloud Computing: What It Actually Is (Not Marketing Buzzwords)"
+description: "From single Docker host to multi-AZ deployments — mapping cloud computing to infrastructure you already understand"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "01-cloud-concepts"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["06-iac/01-iac-concepts"]
+tags: ["cloud", "iaas", "paas", "saas", "regions", "availability-zones", "aws", "gcp", "azure"]
+---
+
+## Overview
+
+Your team's app runs on a single Docker host. It works great — until the machine fails at 3 AM, or you need to handle 10x traffic for a product launch. Manually spinning up a second host means SSH-ing into a new machine, installing Docker, copying your Compose file, and hoping nothing breaks. And you still have two single points of failure instead of one.
+
+Cloud computing solves these problems — but understanding what it actually does (versus what vendors say it does) requires mapping it to concepts you already know. Vendors describe cloud as "infinite scalability" and "zero downtime." Underneath that marketing language is a concrete reality: API-managed computer hardware that you can provision in seconds instead of weeks.
+
+## How It Works
+
+### The Actual Definition: Someone Else's Computers, Managed via APIs
+
+Cloud computing is not magic. It is a large-scale data center where you rent compute, storage, and networking resources — and instead of calling a vendor to provision hardware, you make API calls (or run `tofu apply`) to do it programmatically.
+
+You have already used IaC in the previous module. When you wrote a `resource "docker_container"` block, OpenTofu called the Docker API to create a container. Cloud providers work the same way — instead of `provider "docker" {}` you write `provider "aws" {}`, and instead of `docker_container`, you write `aws_instance`. The API creates a virtual machine on Amazon's hardware.
+
+```yaml
+# This is your app on a single Docker host
+# docker/app/compose.yml
+services:
+  api:
+    image: myapp:latest
+    ports:
+      - "3000:3000"
+    deploy:
+      replicas: 1   # One instance, single point of failure
+
+  db:
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
+```
+
+The limitation is the host itself. If the machine dies, so do your containers, your database volume, and your users' requests. Cloud compute lets you run these same containers across multiple independent machines so a single hardware failure does not take you down.
+
+### Service Models: IaaS, PaaS, and SaaS
+
+Every cloud offering fits into one of three abstraction levels. The higher the abstraction, the less you manage — and the less control you have.
+
+| Model | What You Manage | What the Provider Manages | Docker Equivalent |
+|-------|-----------------|--------------------------|-------------------|
+| **IaaS** (Infrastructure as a Service) | OS, runtime, app | Physical hardware, virtualization | Your Docker host — you manage everything above bare metal |
+| **PaaS** (Platform as a Service) | Application code | OS, runtime, scaling, load balancing | Managed container service — you push an image, the platform handles the rest |
+| **SaaS** (Software as a Service) | Configuration, data | Everything | Gmail — you do not run the mail server |
+
+**IaaS** is the closest to what you already know. An AWS EC2 instance is a virtual machine on Amazon's hardware. You SSH into it exactly like your local Docker host. You install Docker, run containers, manage updates. The provider handles the physical hardware — you handle everything above it.
+
+**PaaS** is like `docker compose up` but the provider handles the host. You push your Docker image to AWS Elastic Container Service (ECS) or Google Cloud Run, and the platform runs it across multiple machines, handles load balancing, and scales replicas based on traffic. You write no `docker run` commands — the platform does.
+
+**SaaS** is a fully managed application. When you use GitHub, you do not manage the servers that run GitHub. You consume the application. Most of the cloud-native databases and monitoring tools you will encounter as a practitioner are SaaS products.
+
+<Callout type="deep-dive" title="You Already Know IaC from the Previous Module">
+Cloud providers are just very large providers for OpenTofu. Instead of `provider "docker" {}` you write `provider "aws" {}` or `provider "google" {}`, and resources map to cloud services instead of local containers. The plan/apply cycle, state management, and drift detection all work identically. When you see a cloud architecture in HCL, you will already understand the structure — only the resource names are new.
+</Callout>
+
+### Regions and Availability Zones
+
+Cloud infrastructure is physically distributed. Understanding the geography prevents expensive design mistakes.
+
+**Regions** are distinct geographic locations — typically a city or metro area. Each region contains multiple, independent data centers. Examples: `us-east-1` (Northern Virginia, AWS), `us-central1` (Iowa, GCP), `eastus` (Virginia, Azure). When you launch a resource, you choose which region hosts it. Resources in different regions cannot communicate directly without explicit configuration.
+
+**Availability Zones (AZs)** are isolated data center buildings within a region. They share the same geographic region but have independent power, cooling, and networking. If one AZ loses power (or a backhoe cuts its fiber), the others continue operating.
+
+```
+Region: us-east-1 (Northern Virginia, AWS)
+┌───────────────────────────────────────────────────┐
+│  AZ: us-east-1a      AZ: us-east-1b               │
+│  ┌────────────┐      ┌────────────┐                │
+│  │ Building A │      │ Building B │                │
+│  │ Own power  │      │ Own power  │                │
+│  │ Own cooling│      │ Own cooling│                │
+│  └────────────┘      └────────────┘                │
+│  Low-latency fiber connection between AZs          │
+└───────────────────────────────────────────────────┘
+```
+
+**Why multi-AZ matters:** If your API runs in a single AZ and that AZ has a hardware failure, your app goes down. If your API runs across two AZs with a load balancer distributing traffic, one AZ failing means the load balancer routes all traffic to the healthy AZ — no downtime for users.
+
+### The Three Major Providers
+
+This course is provider-agnostic. Cloud concepts are identical across providers — only service names differ. When you understand VPCs, you understand VPCs on AWS, GCP, and Azure. The mapping table in each lesson shows you the name each provider uses.
+
+| Provider | Founded | Market Position | Key Differentiator |
+|----------|---------|-----------------|-------------------|
+| **AWS** (Amazon Web Services) | 2006 | Largest market share | Widest service breadth, oldest ecosystem |
+| **GCP** (Google Cloud Platform) | 2011 | Strong in data/ML | Google's network infrastructure |
+| **Azure** (Microsoft Azure) | 2010 | Enterprise adoption | Active Directory integration, hybrid cloud |
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Map Your Docker Stack to Cloud Equivalents"
+  difficulty="Foundation"
+  scenario="You have been running a web application on a single Docker host: an nginx frontend, a Node.js API, and a PostgreSQL database. Your manager asks you to prepare a migration plan to the cloud. Before touching any cloud console, you need to map each component to its cloud equivalent and explain the service model."
+  objective="By the end of this exercise, you will be able to identify the IaaS/PaaS/SaaS model appropriate for each component, explain the difference between regions and AZs, and map a Docker Compose stack to cloud services."
+  steps={[
+    {
+      step: 1,
+      description: "Identify the service model for each component. For each service in the Docker Compose stack (nginx, Node.js API, PostgreSQL), determine whether the cloud equivalent would be IaaS, PaaS, or SaaS — and explain why.",
+      command: "# Think through: who manages the OS? Who manages the runtime? Who manages the data?"
+    },
+    {
+      step: 2,
+      description: "Map the Compose stack to cloud services. nginx → ?, Node.js API → ?, PostgreSQL → ?. Use the AWS column from the service mapping table in the lesson.",
+      command: "# nginx (load balancer role) → ALB | Node.js API → ECS/Fargate | PostgreSQL → RDS (managed DB)"
+    },
+    {
+      step: 3,
+      description: "Explain the single-AZ risk. What happens to each component if the single AZ hosting your app experiences a hardware failure?",
+      command: "# All three fail — one AZ, no redundancy"
+    },
+    {
+      step: 4,
+      description: "Explain the multi-AZ improvement. If the API runs in two AZs behind a load balancer, what happens when one AZ fails?",
+      command: "# Load balancer routes to healthy AZ — users see no downtime (within seconds of failover)"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "cld-01-models",
+        label: "Can name and explain IaaS, PaaS, and SaaS with a Docker/Linux analogy for each",
+        hint: "IaaS = your Docker host (manage everything above bare metal), PaaS = managed container service (just push the image), SaaS = Gmail (you consume the app)"
+      },
+      {
+        id: "cld-01-regions",
+        label: "Can explain the difference between a region and an availability zone",
+        hint: "Region = geographic location (city), AZ = isolated building within that region with independent power/cooling"
+      },
+      {
+        id: "cld-01-compose-map",
+        label: "Can identify which cloud service model matches docker compose + a managed host (IaaS or PaaS?)",
+        hint: "Docker Compose on a machine you manage = IaaS (you manage the OS and runtime). Pushing an image to ECS/Cloud Run = PaaS (provider manages the host). The Compose file is still IaaS if you manage the Docker host."
+      },
+      {
+        id: "cld-01-multiaz",
+        label: "Can explain why multi-AZ deployment prevents downtime from a single hardware failure",
+        hint: "Each AZ is a physically separate building. A load balancer distributes traffic across AZs. One AZ failing means the load balancer stops routing to it — healthy AZs continue serving traffic."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Service Models",
+      items: [
+        { command: "IaaS", description: "Infrastructure as a Service — rent VMs, manage OS and runtime yourself. EC2 (AWS), Compute Engine (GCP), Azure VMs." },
+        { command: "PaaS", description: "Platform as a Service — push container image, provider manages host/scaling. ECS/Fargate (AWS), Cloud Run (GCP), Container Apps (Azure)." },
+        { command: "SaaS", description: "Software as a Service — consume a fully managed application. RDS (AWS managed DB), BigQuery (GCP), GitHub." }
+      ]
+    },
+    {
+      title: "Geography",
+      items: [
+        { command: "Region", description: "Distinct geographic location (city/metro). Examples: us-east-1 (AWS), us-central1 (GCP), eastus (Azure)." },
+        { command: "Availability Zone (AZ)", description: "Isolated data center building within a region. Independent power, cooling, networking. Failure of one AZ does not affect others." },
+        { command: "Multi-AZ deployment", description: "Running resources in multiple AZs behind a load balancer. Standard pattern for high availability." }
+      ]
+    },
+    {
+      title: "Providers",
+      items: [
+        { command: "AWS", description: "Amazon Web Services (2006). Largest service catalog. Service prefix: aws_ in OpenTofu/Terraform." },
+        { command: "GCP", description: "Google Cloud Platform (2011). Strong in data engineering and ML workloads. Service prefix: google_ in OpenTofu." },
+        { command: "Azure", description: "Microsoft Azure (2010). Enterprise adoption via Active Directory integration. Service prefix: azurerm_ in OpenTofu." }
+      ]
+    }
+  ]}
+/>

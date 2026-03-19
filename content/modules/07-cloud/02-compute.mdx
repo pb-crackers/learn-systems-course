@@ -1,0 +1,227 @@
+---
+title: "Cloud Compute: VMs, Containers, and Serverless"
+description: "Map the three cloud compute tiers to what you already know — Docker containers, namespaces, and cgroups"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "02-compute"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["07-cloud/01-cloud-concepts", "03-docker/01-what-are-containers"]
+tags: ["compute", "vm", "containers", "serverless", "ec2", "lambda", "ecs", "cloud-run", "fargate"]
+---
+
+## Overview
+
+Cloud providers offer three tiers of compute. Each tier abstracts away more of the infrastructure beneath it — and each maps to something you already know from the Docker module. Understanding the tiers means knowing when to use each: choosing wrong costs you either control you needed or complexity you did not.
+
+## How It Works
+
+### Tier 1: Virtual Machines
+
+In the Docker module, you learned that containers use Linux namespaces and cgroups to isolate processes while sharing the host kernel. A virtual machine goes one layer deeper — it virtualizes the entire hardware, including CPU, memory, network interfaces, and storage controllers. Each VM runs its own kernel.
+
+```
+Physical Host (AWS, GCP, or Azure data center machine)
+┌─────────────────────────────────────────────────────────┐
+│  Hypervisor (KVM, Xen, Hyper-V)                         │
+│  ┌─────────────────────┐  ┌─────────────────────┐       │
+│  │  VM 1 (your EC2)    │  │  VM 2 (another user) │       │
+│  │  ┌───────────────┐  │  │  ┌───────────────┐  │       │
+│  │  │ Linux kernel  │  │  │  │ Linux kernel  │  │       │
+│  │  │ your OS       │  │  │  │ their OS      │  │       │
+│  │  │ your Docker   │  │  │  │ their app     │  │       │
+│  │  └───────────────┘  │  │  └───────────────┘  │       │
+│  └─────────────────────┘  └─────────────────────┘       │
+└─────────────────────────────────────────────────────────┘
+```
+
+You SSH into a VM exactly like you SSH into your local Docker host — because it IS a full machine. The difference is that AWS, GCP, or Azure owns the physical hardware. You get the machine via API call.
+
+| Provider | VM Service | CLI to Launch |
+|----------|-----------|---------------|
+| AWS | EC2 (Elastic Compute Cloud) | `aws ec2 run-instances` |
+| GCP | Compute Engine | `gcloud compute instances create` |
+| Azure | Azure VMs | `az vm create` |
+
+**When VMs are the right choice:** You need a specific OS version, a custom kernel module, GPU access, or an application that does not run in containers. VMs give you the most control — and the most responsibility. You manage OS patches, Docker installation, and everything above the hardware.
+
+<Callout type="deep-dive" title="VMs vs Containers: The Kernel Boundary">
+Containers share the host kernel — `docker run` starts an isolated process using namespaces and cgroups, but the container's `ps` output shares PIDs with the host (just hidden by the PID namespace). A VM has its own kernel. This means:
+
+1. A container image must be built for the host kernel's architecture (ARM64 vs AMD64). A VM can run any OS.
+2. A kernel-level bug affects all containers on the host. A VM is isolated at the hypervisor level — a kernel bug in VM 1 does not affect VM 2.
+3. VMs start in seconds to minutes. Containers start in milliseconds. For burst traffic that needs thousands of new compute units in seconds, containers win.
+</Callout>
+
+### Tier 2: Managed Container Services
+
+You know how to run `docker compose up` to start multiple services on your local machine. Managed container services do the same thing — but across multiple machines, with automatic load balancing and scaling.
+
+```dockerfile
+# Your local Dockerfile — unchanged when moving to cloud
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+You build this image exactly as you do locally: `docker build -t myapp:v1.0 .`. Then you push it to a container registry (Amazon ECR, Google Artifact Registry, Azure Container Registry — all are registry services identical to Docker Hub). The managed service pulls the image and runs it.
+
+The provider handles:
+- Running your image across multiple machines
+- Health checks (equivalent to Docker `HEALTHCHECK` directive, but cloud-managed)
+- Load balancing traffic across healthy instances
+- Replacing failed instances automatically
+- Scaling up replicas when CPU or request count rises
+
+You do not write `docker run` commands. You write a service definition — either in HCL with OpenTofu, or in the provider's console/CLI — and the platform handles the `docker run` equivalent on each machine.
+
+| Provider | Managed Container Service | Model |
+|----------|--------------------------|-------|
+| AWS | ECS (Elastic Container Service) + Fargate | Fargate = serverless compute for containers (no EC2 to manage) |
+| GCP | Cloud Run | Fully serverless container platform |
+| Azure | Container Apps | Serverless containers with Kubernetes underneath |
+
+**When managed containers are the right choice:** Your app already runs in Docker and you want cloud deployment without managing VMs or Kubernetes. This is the fastest path from a working Dockerfile to cloud production. If you know Docker (and you do), managed container services are the on-ramp.
+
+<Callout type="tip" title="Start Here">
+If you know Docker, managed container services are the fastest path to cloud deployment. VMs are for when you need full OS control. Serverless is for event-driven glue code. For most web applications and APIs that already have a Dockerfile, managed containers are the right choice.
+</Callout>
+
+### Tier 3: Serverless Functions
+
+Serverless has no Docker equivalent. You write a single function — not an application, not a container, just a function — upload it, and the cloud runs it only when triggered. You pay per invocation (each function call), not per hour (like VMs or managed containers).
+
+```javascript
+// AWS Lambda function — a single function, not an application
+// No HTTP server, no express, no port binding
+// The platform handles all of that
+exports.handler = async (event) => {
+  const body = JSON.parse(event.body);
+  const result = processData(body.input);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ result })
+  };
+};
+```
+
+The cloud provider manages:
+- The runtime (Node.js, Python, Go, Java — you choose at deploy time)
+- Scaling from zero to thousands of concurrent invocations in milliseconds
+- The HTTP wrapper (API Gateway in front of Lambda, for example)
+- The server that actually runs the code (you never see it)
+
+| Provider | Serverless Service | Max Execution Time |
+|----------|-------------------|-------------------|
+| AWS | Lambda | 15 minutes |
+| GCP | Cloud Functions | 60 minutes |
+| Azure | Azure Functions | 60 minutes (Consumption plan) |
+
+**When serverless is the right choice:** Event-driven processing (resize an image when uploaded to S3), low-frequency tasks (run a report at midnight), or background jobs triggered by queue messages. Serverless is a poor fit for steady-traffic web APIs — a server that gets 100 requests/second has no "zero instances" state to scale from.
+
+**When serverless is the wrong choice:** Applications with constant traffic (a serverless function that runs 24/7 costs more than a container), long-running connections (WebSockets), or applications that need to hold state in memory between requests.
+
+### The Compute Decision Framework
+
+| Question | Answer | Right Choice |
+|----------|--------|-------------|
+| Do you need a specific OS or kernel module? | Yes | VM (EC2, Compute Engine, Azure VM) |
+| Does your app already have a Dockerfile? | Yes | Managed containers (ECS, Cloud Run, Container Apps) |
+| Is your workload event-driven, spiky, or infrequent? | Yes | Serverless (Lambda, Cloud Functions, Azure Functions) |
+| Does your app run 24/7 under steady traffic? | Yes | Managed containers (more cost-effective than serverless at scale) |
+| Do you need root access to the OS? | Yes | VM |
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Choose the Right Compute Tier for a Real Application"
+  difficulty="Foundation"
+  scenario="Your team is migrating a three-component application to the cloud. The app consists of: (1) a Node.js REST API that serves 200 requests/minute around the clock, (2) an image resizer that runs when a user uploads a photo (spiky, infrequent), and (3) a nightly report generator that runs for 10 minutes at midnight. You need to choose the right compute tier for each component and justify the decision."
+  objective="By the end of this exercise, you will be able to apply the compute decision framework to real workload characteristics and explain the tradeoffs of each tier."
+  steps={[
+    {
+      step: 1,
+      description: "Evaluate the Node.js API. It runs 24/7 with steady traffic and already has a Dockerfile. Which compute tier? Why is serverless a poor choice even though it is 'simpler'?",
+      command: "# Managed containers (ECS/Cloud Run) — steady traffic means serverless is expensive and adds cold-start latency"
+    },
+    {
+      step: 2,
+      description: "Evaluate the image resizer. It triggers on user upload (event-driven), is infrequent (maybe 50 uploads/day), and each resize takes 2 seconds. Which compute tier? What does 'scale to zero' mean for this workload?",
+      command: "# Serverless (Lambda/Cloud Functions) — event-driven, infrequent, short duration. Scale to zero = no cost when idle."
+    },
+    {
+      step: 3,
+      description: "Evaluate the nightly report. It runs for 10 minutes at midnight. Could this be serverless? What is the Lambda max execution time limit that affects this decision?",
+      command: "# Lambda max is 15 minutes — a 10-minute report fits, but check your cloud's limit. Cloud Functions allows 60 minutes."
+    },
+    {
+      step: 4,
+      description: "Name the specific service for each component on AWS. API → ?, Image resizer → ?, Report generator → ?",
+      command: "# API: ECS with Fargate | Image resizer: Lambda | Report: Lambda (or ECS scheduled task for longer jobs)"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "cld-02-vm",
+        label: "Can explain the kernel-level difference between a container and a VM",
+        hint: "Containers share the host kernel (namespaces + cgroups). VMs have their own kernel, virtualized by a hypervisor. VMs provide stronger isolation; containers start faster."
+      },
+      {
+        id: "cld-02-managed",
+        label: "Can explain why a managed container service is the right choice for a Dockerized web API",
+        hint: "The app already has a Dockerfile. Managed containers take that image, run it across multiple machines, and handle load balancing and health checks — no VM management required."
+      },
+      {
+        id: "cld-02-serverless-wrong",
+        label: "Can explain why a 24/7 web API is a poor fit for serverless",
+        hint: "A constantly-running function has no 'zero' state. At steady traffic, you pay per-invocation which exceeds the cost of a managed container. Cold starts also add latency on the first request after idle periods."
+      },
+      {
+        id: "cld-02-providers",
+        label: "Can name the managed container and serverless service for all three providers (AWS, GCP, Azure)",
+        hint: "Containers: ECS/Fargate (AWS), Cloud Run (GCP), Container Apps (Azure). Serverless: Lambda (AWS), Cloud Functions (GCP), Azure Functions."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Compute Tiers",
+      items: [
+        { command: "Virtual Machines", description: "Full hardware virtualization. Own kernel, full OS control. SSH access. EC2 (AWS), Compute Engine (GCP), Azure VMs." },
+        { command: "Managed Containers", description: "Run Docker images across multiple machines. Provider handles hosts, load balancing, scaling. ECS/Fargate (AWS), Cloud Run (GCP), Container Apps (Azure)." },
+        { command: "Serverless Functions", description: "Event-driven, pay-per-invocation. No server management. Scales to zero. Lambda (AWS), Cloud Functions (GCP), Azure Functions." }
+      ]
+    },
+    {
+      title: "Docker to Cloud Mapping",
+      items: [
+        { command: "docker run", description: "Cloud equivalent: launching an EC2 instance or ECS task" },
+        { command: "docker compose up", description: "Cloud equivalent: deploying a service to ECS, Cloud Run, or Container Apps" },
+        { command: "docker build + docker push", description: "Cloud equivalent: build image, push to ECR (AWS) / Artifact Registry (GCP) / ACR (Azure)" },
+        { command: "HEALTHCHECK in Dockerfile", description: "Cloud equivalent: health check configuration in ECS task definition or Cloud Run service" }
+      ]
+    },
+    {
+      title: "Decision Guide",
+      items: [
+        { command: "Need OS control / GPU?", description: "Use VMs (EC2, Compute Engine, Azure VM)" },
+        { command: "Have a Dockerfile, steady traffic?", description: "Use managed containers (ECS/Fargate, Cloud Run, Container Apps)" },
+        { command: "Event-driven, infrequent, short duration?", description: "Use serverless (Lambda, Cloud Functions, Azure Functions)" }
+      ]
+    }
+  ]}
+/>

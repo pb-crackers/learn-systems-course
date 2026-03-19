@@ -1,0 +1,239 @@
+---
+title: "Cloud Networking: VPCs, Subnets, and Load Balancers"
+description: "Map VPCs to Docker bridge networks, subnets to --subnet flags, and load balancers to nginx reverse proxy"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "03-cloud-networking"
+order: 3
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["07-cloud/01-cloud-concepts", "02-networking/02-tcp-ip-stack", "03-docker/05-docker-networking"]
+tags: ["vpc", "subnets", "load-balancer", "security-groups", "cloud-networking", "aws", "gcp", "azure"]
+---
+
+## Overview
+
+When you created a Docker bridge network with `docker network create appnet`, you built an isolated private network where containers can find each other by name. Cloud networking is the same concept at infrastructure scale — but because it spans physical data centers across multiple availability zones, the pieces are exposed individually rather than hidden behind a single command.
+
+Every cloud networking concept maps directly to something you already configured in the networking fundamentals module or the Docker networking lesson. This lesson makes those mappings explicit.
+
+## How It Works
+
+### VPC = docker network create
+
+A **VPC (Virtual Private Cloud)** is an isolated network, just like a Docker bridge network. Resources inside a VPC can communicate with each other. Traffic from outside must be explicitly allowed. You define the IP address range (CIDR block), and cloud resources launched into the VPC get private IPs from that range.
+
+```bash
+# Docker: create an isolated bridge network
+docker network create --subnet 10.0.0.0/16 appnet
+
+# Cloud equivalent (conceptual — what AWS does internally when you create a VPC):
+# Create VPC with CIDR 10.0.0.0/16
+# Result: an isolated network where your EC2/ECS resources get IPs in 10.0.x.x
+```
+
+When you ran `docker network create appnet`, Docker created a Linux bridge interface on your host (`br-xxxxxxxx`) and assigned it a subnet from the `172.18.0.0/16` range. Cloud VPCs do the same thing — they are software-defined network boundaries. Containers (or VMs) in the same VPC can talk to each other. Containers in different VPCs cannot, by default.
+
+| Provider | VPC Service | Default Behavior |
+|----------|------------|-----------------|
+| AWS | VPC (Virtual Private Cloud) | Each account gets a default VPC per region |
+| GCP | VPC Network | Global — one VPC spans all regions |
+| Azure | Virtual Network (VNet) | Regional — one VNet per region |
+
+<Callout type="deep-dive" title="DNS Resolution in Cloud VPCs">
+Remember the DNS resolution chain from the networking module? Cloud providers have their own DNS services (Route 53 on AWS, Cloud DNS on GCP, Azure DNS) that work the same way — authoritative nameservers responding to queries. The only difference is you manage records via API instead of zone files.
+
+Inside a VPC, cloud providers also run an embedded resolver (similar to Docker's `127.0.0.11`). On AWS, it sits at the base of your VPC CIDR + 2 (e.g., `10.0.0.2` for a `10.0.0.0/16` VPC). When an EC2 instance looks up `api.internal`, the VPC resolver handles it. This is the cloud equivalent of the Docker embedded DNS you observed in `docker exec web cat /etc/resolv.conf`.
+</Callout>
+
+### Subnets = Docker Network --subnet
+
+In the networking module, you learned that subnets partition an IP range — a `/24` subnet gives you 256 addresses, a `/16` gives you 65,536. Cloud subnets do the same partitioning, but with two additional properties that Docker network subnets do not have:
+
+1. **Each subnet is tied to a specific availability zone.** A subnet in `us-east-1a` is physically separate from a subnet in `us-east-1b`.
+2. **Subnets are either public or private**, depending on whether they have a route to an internet gateway.
+
+```
+VPC: 10.0.0.0/16
+├── Public Subnet: 10.0.1.0/24  (AZ: us-east-1a)  ← Has internet gateway route
+│   Resources here get public IPs, can receive inbound internet traffic
+│   Use for: load balancers, bastion hosts
+│
+├── Public Subnet: 10.0.2.0/24  (AZ: us-east-1b)  ← Has internet gateway route
+│   Second AZ — if 1a fails, 1b continues serving
+│
+├── Private Subnet: 10.0.10.0/24 (AZ: us-east-1a) ← No internet gateway route
+│   Resources here have private IPs only, cannot be reached from internet
+│   Use for: application servers, APIs
+│
+└── Private Subnet: 10.0.11.0/24 (AZ: us-east-1b) ← No internet gateway route
+    Use for: databases — never directly internet-accessible
+```
+
+The public/private distinction is the primary security boundary for cloud networking. Your database should always be in a private subnet — it is never directly internet-accessible, only reachable from your application servers in the private subnet.
+
+This mirrors the Docker network isolation pattern you practiced: containers on `backend-net` (the database) were only reachable from containers also on `backend-net` (the API), not from the frontend.
+
+### Load Balancers = nginx Reverse Proxy
+
+In the Docker Compose lesson, you used nginx as a reverse proxy to distribute traffic across multiple app containers. Cloud load balancers do exactly this — at scale, across multiple availability zones, with health checks that automatically stop sending traffic to failing instances.
+
+```yaml
+# Docker Compose: nginx as reverse proxy across two app containers
+# This is your local equivalent of a cloud load balancer
+services:
+  loadbalancer:
+    image: nginx:1.25
+    ports:
+      - "8080:80"
+    depends_on:
+      - app1
+      - app2
+
+  app1:
+    image: myapp:latest
+    expose:
+      - "80"
+
+  app2:
+    image: myapp:latest
+    expose:
+      - "80"
+
+# Cloud equivalent mapping:
+# - nginx container         → Cloud Load Balancer (ALB/Cloud LB/Azure LB)
+# - "8080:80" port publish  → Public IP on the load balancer
+# - app1, app2              → EC2 instances or ECS tasks in different AZs
+# - Docker bridge network   → VPC private subnet
+# - expose: "80"            → Security group allowing port 80 from load balancer
+```
+
+The cloud load balancer receives traffic on a public IP, performs health checks on your app instances (equivalent to nginx checking if an upstream is alive), and distributes requests only to healthy instances. If an instance in one AZ fails, the load balancer automatically stops routing traffic to it and sends all traffic to healthy instances in other AZs.
+
+| Provider | Load Balancer Service | Layer |
+|----------|----------------------|-------|
+| AWS | ALB (Application Load Balancer) | Layer 7 (HTTP/HTTPS) |
+| GCP | Cloud Load Balancing | Layer 7 (global) |
+| Azure | Azure Load Balancer / Application Gateway | L4/L7 |
+
+### Security Groups = iptables / ufw Rules
+
+In the firewall lesson, you wrote `iptables` rules to control inbound and outbound traffic. Cloud security groups are the same concept — a stateful firewall attached to each instance (or service) that controls which traffic is allowed.
+
+Key difference from `iptables`: security groups are **stateful**. If an inbound connection is allowed (e.g., a request from the load balancer on port 80), the response is automatically allowed back out. You do not need a separate outbound rule for the response — the connection state is tracked. This matches the `ufw` default behavior but differs from raw `iptables` where you must explicitly allow `ESTABLISHED,RELATED` return traffic.
+
+```
+Security Group: sg-api
+  Inbound Rules:
+    - Port 80, Source: sg-loadbalancer   ← Allow HTTP from load balancer only
+    - Port 22, Source: 10.0.100.0/24     ← Allow SSH from bastion host subnet only
+  Outbound Rules:
+    - All traffic, Destination: 0.0.0.0/0  ← Allow all outbound (responses auto-allowed by state)
+
+Security Group: sg-database
+  Inbound Rules:
+    - Port 5432, Source: sg-api          ← Allow PostgreSQL from API only
+    # No SSH, no HTTP — database is not accessible from internet or load balancer
+  Outbound Rules:
+    - All traffic, Destination: 0.0.0.0/0
+```
+
+The security group for the database references `sg-api` as the source — not an IP range. This means "allow traffic from anything that has the `sg-api` security group attached." If you add more API instances, they automatically get database access because they attach the same security group. No IP management needed.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Design a Cloud Network Architecture for a Web Application"
+  difficulty="Intermediate"
+  scenario="You are designing the network architecture for a production web application: a load balancer, two application servers in different AZs, and a PostgreSQL database. You need to place each component in the right subnet, define the security group rules, and map each component to its Docker Compose equivalent."
+  objective="By the end of this exercise, you will be able to design a basic cloud network topology using VPC, public/private subnets, load balancer, and security groups — and map each component to the Docker equivalent you already know."
+  steps={[
+    {
+      step: 1,
+      description: "Identify which components go in public subnets vs private subnets. Load balancer, app servers, database — where does each go and why?",
+      command: "# LB → public subnet (receives internet traffic) | app servers → private subnet (only reachable from LB) | DB → private subnet (only reachable from app)"
+    },
+    {
+      step: 2,
+      description: "Map the Docker Compose architecture to cloud components. Which Docker Compose service maps to the VPC? To the load balancer? To the app containers? To the exposed ports?",
+      command: "# Docker network → VPC | nginx container → ALB | app1/app2 → EC2/ECS tasks in different AZs | port '8080:80' → ALB public IP:443"
+    },
+    {
+      step: 3,
+      description: "Define security group rules for the load balancer. What inbound traffic should it allow? (Think: what do users send to it?) What outbound traffic does it need? (Think: what does it forward?)",
+      command: "# Inbound: 443 from 0.0.0.0/0 (internet HTTPS) | Outbound: 80 to sg-app (forward to app servers)"
+    },
+    {
+      step: 4,
+      description: "Define security group rules for the database. What should it allow inbound? What should be blocked? Why does referencing sg-app (not an IP) make this more maintainable?",
+      command: "# Inbound: 5432 from sg-app ONLY | No SSH, no HTTP | sg-app reference means new app instances auto-get DB access without IP changes"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "cld-03-vpc",
+        label: "Can explain a VPC as an isolated network analogous to a Docker bridge network",
+        hint: "A VPC is a software-defined isolated network. Resources inside can talk to each other. Traffic from outside must be explicitly allowed. Same isolation model as docker network create."
+      },
+      {
+        id: "cld-03-subnets",
+        label: "Can explain the difference between public and private subnets and why databases go in private subnets",
+        hint: "Public subnet has a route to an internet gateway — resources can receive inbound internet traffic. Private subnet has no such route — only reachable from within the VPC. Databases in private subnets are never directly internet-accessible."
+      },
+      {
+        id: "cld-03-lb",
+        label: "Can map the nginx reverse proxy in Docker Compose to a cloud load balancer",
+        hint: "nginx in Compose: receives traffic on a port, forwards to app containers, health checks upstreams. Cloud LB: receives traffic on a public IP, routes to EC2/ECS instances across AZs, health checks targets. Same function, different scale."
+      },
+      {
+        id: "cld-03-security-groups",
+        label: "Can explain why cloud security groups are stateful (unlike raw iptables) and what that means for rule design",
+        hint: "Stateful = if inbound connection is allowed, return traffic is automatically allowed. You only write inbound rules for services — no separate ESTABLISHED outbound rule needed. This matches ufw default behavior."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Cloud Networking Concepts",
+      items: [
+        { command: "VPC", description: "Isolated network. CIDR block defines IP range. AWS VPC, GCP VPC Network, Azure Virtual Network. Equivalent: docker network create." },
+        { command: "Public Subnet", description: "Subnet with internet gateway route. Resources can receive inbound internet traffic. Use for: load balancers, bastion hosts." },
+        { command: "Private Subnet", description: "Subnet without internet gateway. Resources only reachable within VPC. Use for: app servers, databases." },
+        { command: "Availability Zone", description: "Physical location of subnet. One subnet = one AZ. Deploy across 2+ AZs for high availability." }
+      ]
+    },
+    {
+      title: "Load Balancers",
+      items: [
+        { command: "ALB (AWS)", description: "Application Load Balancer — Layer 7 HTTP/HTTPS routing. Terminates SSL, routes by path/header." },
+        { command: "Cloud Load Balancing (GCP)", description: "Global layer 7 load balancer. Single IP serves all regions — traffic routed to nearest healthy instance." },
+        { command: "Application Gateway (Azure)", description: "Layer 7 HTTP load balancer with WAF option. Azure Load Balancer is Layer 4." }
+      ]
+    },
+    {
+      title: "Security Groups",
+      items: [
+        { command: "Security Group", description: "Stateful firewall attached to instances. Inbound + outbound rules. Source can be a CIDR or another security group ID." },
+        { command: "Stateful", description: "Return traffic for allowed inbound connections is automatically allowed. No need for ESTABLISHED outbound rules." },
+        { command: "Security Group chaining", description: "Use security group ID as source/destination instead of IPs. New instances with the same SG automatically get the same access." }
+      ]
+    },
+    {
+      title: "Docker to Cloud Mapping",
+      items: [
+        { command: "docker network create", description: "Cloud equivalent: creating a VPC with a CIDR block" },
+        { command: "nginx reverse proxy", description: "Cloud equivalent: Application Load Balancer (ALB, Cloud LB, Application Gateway)" },
+        { command: "Docker bridge network isolation", description: "Cloud equivalent: private subnets with security group rules" },
+        { command: "expose: '80'", description: "Cloud equivalent: security group inbound rule allowing port 80 from the load balancer SG" }
+      ]
+    }
+  ]}
+/>
