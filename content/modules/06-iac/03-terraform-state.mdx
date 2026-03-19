@@ -1,0 +1,359 @@
+---
+title: "Terraform State: How OpenTofu Tracks Your Infrastructure"
+description: "What terraform.tfstate contains, why remote backends exist, and how state locking prevents corruption — the internals of OpenTofu's memory"
+module: "Infrastructure as Code"
+moduleSlug: "06-iac"
+lessonSlug: "03-terraform-state"
+order: 3
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["06-iac/02-hcl-basics"]
+tags: ["state", "terraform-state", "tfstate", "remote-backends", "state-locking", "drift", "tofu-state"]
+---
+
+## Overview
+
+In the previous lesson, you ran `tofu apply` and a `terraform.tfstate` file appeared in your directory. That file is not a side effect you can ignore — it is the mechanism that makes every subsequent `tofu plan` and `tofu apply` work correctly. Without understanding the state file, you cannot understand why OpenTofu behaves the way it does when infrastructure drifts, why team workflows need remote backends, or why corrupting the state file is one of the most disruptive things you can do to a production infrastructure.
+
+This lesson opens the state file and explains what every field means, shows you how drift detection works mechanically, introduces the `tofu state` subcommands for inspecting and repairing state, and explains why remote backends with state locking are necessary for any team.
+
+## How It Works
+
+### What the State File Actually Contains
+
+`terraform.tfstate` is a JSON document. After running `tofu apply` on the nginx exercise from the previous lesson, it looks like this (simplified):
+
+```json
+{
+  "version": 4,
+  "terraform_version": "1.11.5",
+  "serial": 3,
+  "lineage": "a7f3b2c1-...",
+  "outputs": {
+    "container_name": {
+      "value": "learn-iac-web",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "docker_image",
+      "name": "nginx",
+      "provider": "provider[\"registry.opentofu.org/kreuzwerker/docker\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "id": "sha256:e784f4560448b14a96a9e",
+            "name": "nginx:1.25",
+            "keep_locally": true
+          }
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "docker_container",
+      "name": "web",
+      "provider": "provider[\"registry.opentofu.org/kreuzwerker/docker\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "id": "a1b2c3d4e5f6...",
+            "name": "learn-iac-web",
+            "image": "sha256:e784f4560448b14a96a9e",
+            "ports": [{"external": 8080, "internal": 80}]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Each resource block in your HCL corresponds to one entry in the `resources` array. The `instances[].attributes` object contains every attribute OpenTofu knows about the real infrastructure — including attributes you never specified in HCL that the provider filled in automatically (like the Docker container's full `id`).
+
+The `serial` counter increments with every apply. The `lineage` is a UUID generated when the state is first created — it identifies this specific state file across its history.
+
+**The state file is the bridge between your HCL code and reality.** The `id` field in `docker_container.web.instances[0].attributes.id` is the actual Docker container ID. When you run `docker inspect a1b2c3d4e5f6`, that is the same container OpenTofu manages.
+
+<Callout type="deep-dive" title="Open terraform.tfstate After Applying">
+After running `tofu apply`, open `terraform.tfstate` in your editor. Find the `resources` array. Each entry has a `type` (like `docker_container`), a `name` (like `web`), and an `instances` array with the actual infrastructure attributes. The `id` in `attributes` is the real Docker container ID — run `docker inspect <that-id>` and you will see the same container that `docker ps` shows. This is the bridge between your HCL code and reality: OpenTofu stores every attribute it knows about the real object, not just what you declared.
+</Callout>
+
+### The Refresh Cycle: How OpenTofu Detects Drift
+
+On every `tofu plan` run, OpenTofu performs a three-step process:
+
+1. **Read state:** Load `terraform.tfstate` to see what OpenTofu thinks exists
+2. **Refresh:** Query actual infrastructure to see what actually exists. For Docker, this means calling the Docker API to inspect each container and image. OpenTofu compares the real attributes against what the state file says.
+3. **Diff:** Compare refreshed reality against your HCL (desired state) and compute the minimum set of changes
+
+If the refresh reveals that a container in the state file no longer exists (because someone ran `docker stop` + `docker rm`), OpenTofu marks that resource as needing replacement. The plan output shows:
+
+```
+  # docker_container.web must be replaced
+-/+ resource "docker_container" "web" {
+      ~ id     = "a1b2c3..." -> (known after apply)
+        name   = "learn-iac-web"
+        # (other attributes unchanged)
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+The `-/+` symbol means "destroy and recreate." The `~` on `id` means that attribute will change. This is drift detection: OpenTofu found that the real state (container gone) differs from the desired state (container should exist) and computed the plan to fix it.
+
+If someone only stopped the container (not removed it), OpenTofu detects the stopped state and plans to recreate it in the running state. The plan shows the container must be replaced because the running state is part of its desired attributes.
+
+### tofu state Subcommands: Inspecting and Managing State
+
+The `tofu state` family of subcommands lets you inspect and manipulate state without touching real infrastructure:
+
+```bash
+# List all resources in state
+tofu state list
+
+# Output:
+# docker_image.nginx
+# docker_container.web
+
+# Inspect a specific resource in detail
+tofu state show docker_container.web
+
+# Output:
+# resource "docker_container" "web" {
+#   id    = "a1b2c3d4..."
+#   name  = "learn-iac-web"
+#   image = "sha256:e784f4..."
+#   ...
+# }
+```
+
+Two additional commands for state surgery (use carefully):
+
+**`tofu state rm`** — Remove a resource from state without destroying it. Use when you want OpenTofu to "forget" a resource (perhaps it was imported into a different configuration):
+
+```bash
+tofu state rm docker_container.web
+# OpenTofu removes the entry from state but leaves the real container running
+```
+
+**`tofu state mv`** — Rename a resource in state. Use when you refactor HCL and rename a resource block but don't want the resource destroyed and recreated:
+
+```bash
+tofu state mv docker_container.web docker_container.nginx_web
+# Renames the state entry without touching the real container
+```
+
+<Callout type="warning" title="Never Manually Edit terraform.tfstate">
+Never open `terraform.tfstate` in a text editor and modify it by hand. The file has a checksum mechanism and version tracking — manual edits can produce a corrupt state that causes OpenTofu to fail in unpredictable ways. A corrupted state file can cause OpenTofu to try to create duplicate resources, fail to destroy existing ones, or lose track of infrastructure entirely.
+
+Use `tofu state` subcommands for any state modifications. They validate the changes and update the checksum correctly.
+</Callout>
+
+### Remote Backends: State for Teams
+
+The default behavior — storing `terraform.tfstate` as a local file — works for solo learners, but breaks down the moment a second person is involved. Consider what happens with local state on a team:
+
+1. Alice runs `tofu apply` on her laptop — state file is on her laptop
+2. Bob runs `tofu apply` on his laptop — he has a different (stale) state file
+3. Bob's apply creates duplicate infrastructure (he thinks nothing exists)
+4. Alice's next apply crashes (state file doesn't match reality)
+
+**Remote backends** solve this by storing state in a shared location. The three most common patterns:
+
+**AWS S3 + DynamoDB:**
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "my-org-tfstate"
+    key            = "prod/web/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+  }
+}
+```
+S3 stores the state file. DynamoDB provides state locking (a lock entry is created during apply and deleted when done).
+
+**Google Cloud Storage:**
+```hcl
+terraform {
+  backend "gcs" {
+    bucket = "my-org-tfstate"
+    prefix = "prod/web"
+  }
+}
+```
+GCS provides both storage and built-in locking — no separate lock table needed.
+
+**Azure Blob Storage:**
+```hcl
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "tfstate-rg"
+    storage_account_name = "myorgtfstate"
+    container_name       = "tfstate"
+    key                  = "prod/web/terraform.tfstate"
+  }
+}
+```
+
+You do not need a cloud account to understand why remote backends exist — the concept is the same as any shared database. Instead of each team member having their own copy of state, there is one authoritative copy in a central location.
+
+### State Locking: Preventing Simultaneous Apply
+
+**State locking** prevents two people from running `tofu apply` simultaneously against the same state file. Without locking:
+
+1. Alice starts `tofu apply` — reads state, starts creating resources
+2. Bob starts `tofu apply` 30 seconds later — reads the same stale state (Alice's changes haven't been written yet)
+3. Both operations complete, but the final state file reflects only one of the two applies (whichever wrote last)
+4. Resources from the other apply exist in reality but not in state — orphaned infrastructure
+
+With locking, Bob's `tofu apply` is blocked until Alice's completes:
+
+```
+Error: Error acquiring the state lock
+
+Error message: ConditionalCheckFailedException: The conditional request failed
+Lock Info:
+  ID:        1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e
+  Path:      s3://my-org-tfstate/prod/web/terraform.tfstate
+  Operation: OperationTypeApply
+  Who:       alice@macbook.local
+  Version:   1.11.5
+  Created:   2026-03-19T10:15:30Z
+  Info:
+```
+
+Bob can either wait for Alice's apply to complete, or if Alice's operation crashed without releasing the lock, an administrator can force-unlock with `tofu force-unlock <lock-id>`.
+
+<Callout type="tip" title="Gitignore for State Files">
+Add `terraform.tfstate` and `terraform.tfstate.backup` to `.gitignore`. State files can contain sensitive data: resource IDs, IP addresses, database connection strings, and other attributes that providers store in state. Committing state files exposes this data to anyone who can read the repository.
+
+In production, use a remote backend instead of committing state to git. For the exercises in this course, the state files are local and contain no sensitive data, but the `.gitignore` habit is important to build now.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Detect Drift and Inspect State"
+  difficulty="Intermediate"
+  scenario="Your colleague manually stopped a container that OpenTofu manages, without going through tofu destroy. You need to detect the drift, understand what the state file records, and restore the desired state using tofu apply."
+  objective="By the end of this exercise, you will be able to read terraform.tfstate, simulate infrastructure drift by manually changing a container, use tofu plan to detect it, and use tofu state commands to inspect managed resources."
+  steps={[
+    {
+      step: 1,
+      description: "Navigate to the state exercise directory and initialize OpenTofu.",
+      command: "cd docker/iac/02-state && tofu init"
+    },
+    {
+      step: 2,
+      description: "Apply the configuration to create the infrastructure. Confirm with 'yes'.",
+      command: "tofu apply"
+    },
+    {
+      step: 3,
+      description: "Inspect the state file directly. Find the docker_container entry and note the 'id' attribute — this is the real Docker container ID.",
+      command: "cat terraform.tfstate"
+    },
+    {
+      step: 4,
+      description: "Use tofu state list to see all resources OpenTofu is managing.",
+      command: "tofu state list"
+    },
+    {
+      step: 5,
+      description: "Use tofu state show to inspect the container resource in detail. Compare what it shows to the raw state file.",
+      command: "tofu state show docker_container.web"
+    },
+    {
+      step: 6,
+      description: "Simulate drift: manually stop the container outside OpenTofu. This is what happens when someone runs docker stop without going through IaC.",
+      command: "docker stop learn-iac-web"
+    },
+    {
+      step: 7,
+      description: "Run tofu plan to detect the drift. OpenTofu queries the Docker API, discovers the container is stopped (which differs from the desired running state), and plans to replace it.",
+      command: "tofu plan"
+    },
+    {
+      step: 8,
+      description: "Apply the plan to restore the desired state. OpenTofu removes the stopped container and creates a new running container.",
+      command: "tofu apply"
+    },
+    {
+      step: 9,
+      description: "Verify the container is running again.",
+      command: "docker ps"
+    },
+    {
+      step: 10,
+      description: "Clean up all managed resources.",
+      command: "tofu destroy"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "state-structure",
+        label: "You can read terraform.tfstate and find the docker_container resource entry with its real Docker ID",
+        hint: "Look in the 'resources' array for type 'docker_container'. The 'attributes.id' field is the real Docker container ID — verify with: docker inspect <id>"
+      },
+      {
+        id: "drift-detected",
+        label: "tofu plan detected the manually stopped container as a change",
+        hint: "After docker stop, tofu plan should show '# docker_container.web must be replaced' with a -/+ symbol indicating destroy-and-recreate."
+      },
+      {
+        id: "state-restored",
+        label: "tofu apply restored the container to the running state",
+        hint: "After tofu apply, docker ps should show learn-iac-web running again with port 8080 mapped."
+      },
+      {
+        id: "state-list",
+        label: "tofu state list shows all managed resources",
+        hint: "Output should include: docker_image.nginx and docker_container.web"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "State Concepts",
+      items: [
+        { command: "terraform.tfstate", description: "JSON file mapping HCL resources to real infrastructure IDs. OpenTofu's source of truth — never edit manually." },
+        { command: "Drift", description: "When real infrastructure differs from the state file (because someone changed it outside OpenTofu). Detected on every tofu plan." },
+        { command: "Remote backend", description: "Shared state storage (S3, GCS, Azure Blob) for team use. Replaces the local state file." },
+        { command: "State locking", description: "Prevents simultaneous tofu apply runs that would corrupt state. Provided by DynamoDB (AWS), GCS (GCP), or Azure Blob native locking." },
+      ]
+    },
+    {
+      title: "tofu state Commands",
+      items: [
+        { command: "tofu state list", description: "List all resources tracked in state", example: "tofu state list" },
+        { command: "tofu state show RESOURCE", description: "Show all attributes of one resource as HCL", example: "tofu state show docker_container.web" },
+        { command: "tofu state rm RESOURCE", description: "Remove resource from state without destroying it (use carefully)", example: "tofu state rm docker_container.web" },
+        { command: "tofu state mv SOURCE DEST", description: "Rename a resource in state without touching real infrastructure", example: "tofu state mv docker_container.web docker_container.nginx" },
+        { command: "tofu force-unlock LOCK_ID", description: "Release a stuck state lock (use when apply crashed without releasing)", example: "tofu force-unlock 1b2c3d4e-..." },
+      ]
+    },
+    {
+      title: "Remote Backend Patterns",
+      items: [
+        { command: "backend \"s3\" {}", description: "AWS: store state in S3 bucket with DynamoDB table for locking", example: "bucket = \"org-tfstate\", dynamodb_table = \"terraform-lock\"" },
+        { command: "backend \"gcs\" {}", description: "GCP: store state in Cloud Storage bucket (built-in locking)", example: "bucket = \"org-tfstate\", prefix = \"prod/web\"" },
+        { command: "backend \"azurerm\" {}", description: "Azure: store state in Azure Blob Storage container", example: "storage_account_name = \"orgtfstate\", container_name = \"tfstate\"" },
+      ]
+    }
+  ]}
+/>

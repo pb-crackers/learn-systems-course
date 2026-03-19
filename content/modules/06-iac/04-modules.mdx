@@ -1,0 +1,352 @@
+---
+title: "Terraform Modules: Reusable Infrastructure Components"
+description: "Root vs child modules, variable passing, output composition, and the registry — how OpenTofu modules work before writing your first module call"
+module: "Infrastructure as Code"
+moduleSlug: "06-iac"
+lessonSlug: "04-modules"
+order: 4
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["06-iac/03-terraform-state"]
+tags: ["modules", "reusability", "composition", "registry", "root-module", "child-module", "opentofu"]
+---
+
+## Overview
+
+The exercises so far have put everything in one place: a single working directory with `main.tf`, `variables.tf`, and `outputs.tf`. That works for a single container. It does not work when you need to provision a frontend, an API server, a database, and a cache — each with its own configuration. Without modules, you would copy-paste the same resource blocks repeatedly, changing only a few values. Any change to the common pattern means updating every copy.
+
+Modules are OpenTofu's answer to this problem. A module is a directory of `.tf` files with a defined interface — inputs (variables) and outputs. You define it once, call it multiple times with different inputs, and get different infrastructure each time. This lesson explains the mechanism: what root and child modules are, how variable passing works, how outputs compose, and when to use registry modules vs local ones.
+
+## How It Works
+
+### Root Module vs Child Module
+
+Every OpenTofu working directory is a **root module** — the set of `.tf` files in the directory where you run `tofu plan` and `tofu apply`. The root module is your entry point: it defines the terraform block, providers, and calls to other modules.
+
+A **child module** is a directory of `.tf` files that another module calls via a `module` block. The child module does not have a `terraform {}` or `provider {}` block — it inherits the providers from its caller. It has its own `variables.tf` (the input interface) and `outputs.tf` (the output interface).
+
+```
+docker/iac/03-modules/          ← Root module (where you run tofu apply)
+├── main.tf                     ← Calls child modules
+├── terraform.tfstate           ← State is always in the root module
+└── modules/
+    └── web-container/          ← Child module
+        ├── main.tf             ← The implementation
+        ├── variables.tf        ← The input interface
+        └── outputs.tf          ← The output interface
+```
+
+State always lives in the root module. The root module's `terraform.tfstate` tracks all resources created by all modules it calls.
+
+### The module{} Block: Calling a Child Module
+
+You call a child module with a `module` block in the root module's `main.tf`:
+
+```hcl
+module "frontend" {
+  source        = "./modules/web-container"
+  name          = "learn-frontend"
+  image_name    = "nginx:1.25"
+  internal_port = 80
+  external_port = 8081
+}
+```
+
+The block structure: `module "LABEL" { source = "PATH", variable_assignments... }`.
+
+- **LABEL:** A local name for this module call. Used to reference outputs later.
+- **source:** Where to find the module. A local path (`./modules/web-container`), a git URL, or a registry address.
+- **Variable assignments:** Every input variable declared in the child module's `variables.tf` can be assigned here. Omitting a variable with a default uses that default. Omitting a required variable (no default) causes an error.
+
+Call the same module a second time with different inputs:
+
+```hcl
+module "api" {
+  source        = "./modules/web-container"
+  name          = "learn-api"
+  image_name    = "nginx:1.25"
+  internal_port = 80
+  external_port = 8082
+}
+```
+
+OpenTofu runs both module calls. Each creates its own `docker_image` and `docker_container` resources. With two module calls, `tofu plan` shows 4 resources to create (2 images + 2 containers).
+
+### Child Module Structure
+
+The child module looks like a regular OpenTofu configuration, minus the `terraform {}` and `provider {}` blocks:
+
+```hcl
+# modules/web-container/variables.tf
+variable "name" {
+  type        = string
+  description = "Name for the Docker container"
+}
+
+variable "image_name" {
+  type        = string
+  description = "Docker image name and tag to run"
+}
+
+variable "internal_port" {
+  type        = number
+  description = "Port exposed inside the container"
+  default     = 80
+}
+
+variable "external_port" {
+  type        = number
+  description = "Host port to map to the internal port"
+}
+```
+
+```hcl
+# modules/web-container/main.tf
+resource "docker_image" "image" {
+  name         = var.image_name
+  keep_locally = true
+}
+
+resource "docker_container" "container" {
+  name  = var.name
+  image = docker_image.image.image_id
+
+  ports {
+    internal = var.internal_port
+    external = var.external_port
+  }
+}
+```
+
+```hcl
+# modules/web-container/outputs.tf
+output "container_id" {
+  description = "ID of the created Docker container"
+  value       = docker_container.container.id
+}
+
+output "container_name" {
+  description = "Name of the Docker container"
+  value       = docker_container.container.name
+}
+```
+
+The child module's variables are the function parameters. The child module's outputs are the return values.
+
+<Callout type="deep-dive" title="Modules Are Functions for Infrastructure">
+Modules are to OpenTofu what functions are to programming. The module's `variables.tf` is the function signature — it defines what inputs the module accepts. The `main.tf` is the implementation — it creates the infrastructure. The `outputs.tf` is the return value — it exposes results to the caller.
+
+Just like a function can be called multiple times with different arguments, a module can be called multiple times (via separate `module` blocks) with different variable values to produce different infrastructure. And just like a well-designed function hides complexity behind a clean interface, a well-designed module hides resource creation details behind a simple set of inputs.
+</Callout>
+
+### Accessing Module Outputs
+
+In the root module, you access a child module's outputs via `module.LABEL.output_name`:
+
+```hcl
+# In root main.tf — referencing the frontend module's output
+output "frontend_container_id" {
+  value = module.frontend.container_id
+}
+
+output "api_container_id" {
+  value = module.api.container_id
+}
+```
+
+You can also pass one module's output as input to another module — this is module composition:
+
+```hcl
+module "network" {
+  source = "./modules/docker-network"
+  name   = "learn-net"
+}
+
+module "frontend" {
+  source      = "./modules/web-container"
+  name        = "learn-frontend"
+  network_id  = module.network.network_id   # output of network module
+  external_port = 8081
+}
+```
+
+OpenTofu understands dependencies between module calls and creates them in the correct order.
+
+### The terraform{} Block in Root vs Child Modules
+
+The root module has the `terraform {}` block with `required_providers`. Child modules do **not** declare providers — they inherit them from the root module. This is intentional: the root module owns the provider configuration, and child modules use whatever providers the root declares.
+
+If a child module needs a provider the root hasn't declared, OpenTofu will error at `tofu init`. The fix is always to add the provider declaration to the root module's `terraform {}` block.
+
+### Registry Modules vs Local Modules
+
+Local modules (`source = "./modules/name"`) are defined in your repository. They are transparent — you can read every `.tf` file to understand exactly what they create.
+
+Registry modules (`source = "registry.opentofu.org/namespace/module-name/provider"`) are published by the community or vendors. They work the same way but the implementation lives on the registry server, downloaded during `tofu init`.
+
+```hcl
+# Example: a hypothetical registry module
+module "vpc" {
+  source  = "registry.opentofu.org/terraform-aws-modules/vpc/aws"
+  version = "5.5.2"
+
+  name = "my-vpc"
+  cidr = "10.0.0.0/16"
+}
+```
+
+Version constraints for registry modules follow the same syntax as provider versions: `"5.5.2"` for exact, `"~> 5.5"` for patch-only updates, `">= 5.0.0, < 6.0.0"` for a range.
+
+In production codebases, private modules are often stored in git repositories and referenced with git source URLs:
+
+```hcl
+module "vpc" {
+  source = "git::https://github.com/my-org/terraform-modules.git//vpc?ref=v2.1.0"
+}
+```
+
+The `//vpc` selects the `vpc` subdirectory within the repository. The `?ref=v2.1.0` pins to a git tag.
+
+<Callout type="tip" title="Start with Local Modules">
+Start with local modules (`source = "./modules/name"`) before using registry modules. Local modules let you see exactly what is inside — every resource, every variable, every output. Registry modules are convenient for production use but hide the implementation, which makes them harder to debug and learn from.
+
+Once you understand how a module category works (VPC modules, ECS modules, etc.), using registry modules is appropriate. But for learning — always start local.
+</Callout>
+
+### Running tofu init with Modules
+
+When your configuration includes `module` blocks, `tofu init` initializes both providers and modules:
+
+```bash
+tofu init
+
+# Output:
+# Initializing the backend...
+# Initializing modules...
+# - frontend in modules/web-container
+# - api in modules/web-container
+#
+# Initializing provider plugins...
+# - Installing kreuzwerker/docker v3.9.0...
+```
+
+OpenTofu registers each module call (frontend + api both using `web-container`), then downloads providers. A `.terraform/modules/` directory is created alongside `.terraform/providers/`.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Compose Infrastructure with Reusable Modules"
+  difficulty="Intermediate"
+  scenario="Your infrastructure is growing. Instead of copy-pasting container definitions for each service, define a reusable web-container module and call it twice to provision a frontend server and an API server — each on its own port."
+  objective="By the end of this exercise, you will be able to define a child module with variables and outputs, call it multiple times from a root module with different inputs, and access module outputs in the root configuration."
+  steps={[
+    {
+      step: 1,
+      description: "Navigate to the modules exercise directory. Examine the directory structure: the root module and the child module.",
+      command: "cd docker/iac/03-modules && find . -name '*.tf' | sort"
+    },
+    {
+      step: 2,
+      description: "Read the child module's variables.tf — these are the inputs the module accepts (name, image_name, internal_port, external_port).",
+      command: "cat modules/web-container/variables.tf"
+    },
+    {
+      step: 3,
+      description: "Read the child module's main.tf — the implementation that creates docker_image and docker_container resources from the input variables.",
+      command: "cat modules/web-container/main.tf"
+    },
+    {
+      step: 4,
+      description: "Read the root main.tf — it calls the web-container module twice (frontend on port 8081, api on port 8082) with different input values.",
+      command: "cat main.tf"
+    },
+    {
+      step: 5,
+      description: "Initialize OpenTofu. Notice the output shows it is initializing both module calls (frontend and api) before downloading providers.",
+      command: "tofu init"
+    },
+    {
+      step: 6,
+      description: "Preview the changes. The plan should show 4 resources: 2 docker_image resources and 2 docker_container resources (one pair per module call).",
+      command: "tofu plan"
+    },
+    {
+      step: 7,
+      description: "Apply the plan. Both containers will be created. Notice the output values — they come from the module outputs.",
+      command: "tofu apply"
+    },
+    {
+      step: 8,
+      description: "Verify both containers are running and on their respective ports.",
+      command: "docker ps"
+    },
+    {
+      step: 9,
+      description: "Test the frontend (port 8081) and API (port 8082). Both should return the nginx welcome page.",
+      command: "curl localhost:8081 && curl localhost:8082"
+    },
+    {
+      step: 10,
+      description: "Clean up both containers.",
+      command: "tofu destroy"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "tofu-init-modules",
+        label: "tofu init shows it initialized the frontend and api module calls",
+        hint: "Output should include 'Initializing modules... - frontend in modules/web-container - api in modules/web-container'"
+      },
+      {
+        id: "plan-four-resources",
+        label: "tofu plan shows 4 resources to create (2 images + 2 containers)",
+        hint: "Plan output ends with: 'Plan: 4 to add, 0 to change, 0 to destroy.' Look for module.frontend and module.api resource names."
+      },
+      {
+        id: "both-containers",
+        label: "docker ps shows both learn-frontend and learn-api containers running",
+        hint: "Run: docker ps | grep learn — should show learn-frontend (port 8081) and learn-api (port 8082)"
+      },
+      {
+        id: "both-ports",
+        label: "curl localhost:8081 and curl localhost:8082 both return nginx responses",
+        hint: "Both endpoints should return the nginx welcome page HTML"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Module Concepts",
+      items: [
+        { command: "Root module", description: "The working directory where you run tofu apply. Contains terraform{} and provider{} blocks." },
+        { command: "Child module", description: "A subdirectory of .tf files called via a module block. No terraform{} or provider{} — inherits from caller." },
+        { command: "module \"LABEL\" { source = ... }", description: "Calls a child module. Assigns values to the module's input variables.", example: "module \"frontend\" { source = \"./modules/web-container\", name = \"frontend\" }" },
+        { command: "module.LABEL.output_name", description: "Access a module's output value in the calling module", example: "module.frontend.container_id" },
+      ]
+    },
+    {
+      title: "Module Source Paths",
+      items: [
+        { command: "./modules/name", description: "Local path — module in a subdirectory. Best for learning and private modules.", example: "source = \"./modules/web-container\"" },
+        { command: "registry.opentofu.org/ns/module/provider", description: "OpenTofu registry module. Requires version pin.", example: "source = \"registry.opentofu.org/terraform-aws-modules/vpc/aws\", version = \"5.5.2\"" },
+        { command: "git::https://github.com/org/repo.git//path?ref=tag", description: "Git repository module at a specific tag or commit", example: "source = \"git::https://github.com/my-org/modules.git//vpc?ref=v2.1.0\"" },
+      ]
+    },
+    {
+      title: "Module File Convention",
+      items: [
+        { command: "variables.tf (in child)", description: "The module's input interface. Variables without defaults are required.", example: "variable \"name\" { type = string, description = \"Container name\" }" },
+        { command: "main.tf (in child)", description: "The module's implementation. Creates resources using var.* references.", example: "resource \"docker_container\" \"c\" { name = var.name }" },
+        { command: "outputs.tf (in child)", description: "The module's return values. Accessed by callers as module.LABEL.output_name.", example: "output \"container_id\" { value = docker_container.c.id }" },
+      ]
+    }
+  ]}
+/>
