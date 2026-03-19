@@ -1,0 +1,287 @@
+---
+title: "How Networks Work: From Cables to Packets"
+description: "Physical layer fundamentals — how switches forward frames, routers make forwarding decisions, and data moves across networks as packets"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "01-how-networks-work"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 20
+prerequisites: ["01-linux-fundamentals/06-shell-fundamentals"]
+tags: ["networking", "physical-layer", "switches", "routers", "packets", "ethernet", "MAC-address"]
+---
+
+## Overview
+
+Your server is unreachable — is it the network cable, the switch, or a routing problem? Understanding the physical layer tells you where to look first. Before diving into TCP, HTTP, or DNS, you need to understand how bits actually travel from one machine to another — as electrical signals on copper, light pulses on fiber, or radio waves through the air.
+
+This lesson explains the physical foundations: how Ethernet frames carry data between devices, how switches learn which device lives on which port, how routers connect separate networks, and the critical distinction between frames (layer 2) and packets (layer 3).
+
+## How It Works
+
+### Physical Layer: Signals on the Wire
+
+All network communication reduces to bits — ones and zeros — encoded as physical signals:
+
+- **Copper (Ethernet cable):** Voltage differences represent bits. A standard Cat5e or Cat6 cable has 4 twisted pairs of copper wire. Twisting reduces electromagnetic interference between pairs and from external sources.
+- **Fiber optic:** Light pulses represent bits. Single-mode fiber (thin core, laser light) can carry signals kilometers without repeaters. Multi-mode fiber (wider core, LED light) works for shorter distances at lower cost.
+- **Wireless (Wi-Fi):** Radio waves carry bits encoded as variations in radio frequency amplitude or phase. Shared medium — every nearby device can hear every transmission.
+
+**Bandwidth** is how many bits per second a medium can carry. **Latency** is how long a single bit takes to travel from source to destination. A high-bandwidth satellite link can still have high latency (500ms+) because the signal travels 35,000km to orbit and back.
+
+### Ethernet Frames
+
+When two devices communicate on the same local network, they exchange **Ethernet frames**. A frame is the fundamental unit of data at the physical and data-link layers (Layers 1 and 2 of the network model).
+
+```
+Ethernet Frame Structure
+┌──────────────┬──────────────┬───────────┬─────────────────────────────────┬──────────┐
+│  Dst MAC (6B)│  Src MAC (6B)│ EtherType │        Payload (46-1500B)       │  FCS (4B)│
+│ ff:ff:ff:ff: │ aa:bb:cc:dd: │   (2B)    │  (IP packet, ARP request, etc.) │ checksum │
+│ ff:ff        │ ee:ff        │  0x0800   │                                 │          │
+└──────────────┴──────────────┴───────────┴─────────────────────────────────┴──────────┘
+
+EtherType values:
+  0x0800 = IPv4 packet
+  0x0806 = ARP request/reply
+  0x86DD = IPv6 packet
+```
+
+**MAC addresses** are 6-byte hardware identifiers burned into the network interface card (NIC) at manufacture. They are written as colon-separated hex pairs: `aa:bb:cc:dd:ee:ff`. The first 3 bytes identify the manufacturer (OUI — Organizationally Unique Identifier). The last 3 bytes are the device-specific identifier.
+
+MAC addresses are **local** — they are only meaningful within a single network segment. They do not route across the internet. That is what IP addresses are for.
+
+**FCS (Frame Check Sequence)** is a CRC checksum over the frame contents. If a frame is corrupted in transit, the FCS will not match and the receiving device discards the frame silently.
+
+### Switches: Learning and Forwarding
+
+A **switch** is a layer-2 device that connects multiple devices on the same local network. Its job is to forward frames to the correct port — not flood the entire network with every frame.
+
+Switches learn which MAC address lives on which port by **inspecting the source MAC address** of every frame they receive. This builds a **MAC address table** (also called a CAM table):
+
+```
+Switch MAC Address Table
+┌─────────────────────┬──────┬─────────────┐
+│     MAC Address     │ Port │  Age (sec)  │
+├─────────────────────┼──────┼─────────────┤
+│ aa:bb:cc:dd:ee:01   │  1   │      4      │
+│ aa:bb:cc:dd:ee:02   │  2   │     12      │
+│ aa:bb:cc:dd:ee:03   │  4   │      1      │
+└─────────────────────┴──────┴─────────────┘
+```
+
+**Forwarding decision logic:**
+1. Frame arrives on port 3 with src=`ee:01`, dst=`ee:02`
+2. Switch records: `ee:01` is on port 3 (learning)
+3. Switch looks up `ee:02` in the MAC table — found on port 2
+4. Switch forwards the frame out port 2 only (not all ports)
+
+**Unknown destination:** If the destination MAC is not in the table, the switch **floods** — sends the frame out every port except the one it arrived on. The correct device responds, and the switch learns its port.
+
+**Broadcast frames** (destination MAC `ff:ff:ff:ff:ff:ff`) are always flooded — every device on the network receives them. ARP requests are broadcast for this reason.
+
+**Collision domains and broadcast domains:**
+- Each port on a switch is its own **collision domain** — only one device per port, so no collisions. (Old hubs shared one collision domain for all ports.)
+- A switch defines a single **broadcast domain** — every port receives broadcasts. VLANs divide a switch into multiple broadcast domains.
+
+### Routers: Connecting Different Networks
+
+A **router** is a layer-3 device that connects different IP networks and makes forwarding decisions based on IP addresses, not MAC addresses.
+
+```
+Two networks connected by a router
+
+  Network A: 192.168.1.0/24          Network B: 10.0.0.0/24
+  ┌─────────────────────┐            ┌─────────────────────┐
+  │  Host A1            │            │  Host B1            │
+  │  192.168.1.10       │            │  10.0.0.10          │
+  │  GW: 192.168.1.1    │            │  GW: 10.0.0.1       │
+  └──────────┬──────────┘            └──────────┬──────────┘
+             │                                  │
+  ┌──────────┴──────────┐            ┌──────────┴──────────┐
+  │  Switch A           │            │  Switch B           │
+  └──────────┬──────────┘            └──────────┬──────────┘
+             │                                  │
+             └───────────┬──────────────────────┘
+                    ┌────┴────┐
+                    │ Router  │
+                    │ .1.1    │ eth0: 192.168.1.1
+                    │ .0.1    │ eth1: 10.0.0.1
+                    └─────────┘
+```
+
+The router has an interface in each network. When Host A1 wants to reach Host B1:
+1. Host A1 sees that B1's IP (`10.0.0.10`) is in a different subnet
+2. Host A1 sends the packet to its **default gateway** (`192.168.1.1`) — the router's eth0 interface
+3. The router reads the IP packet's destination (`10.0.0.10`) and looks it up in its **routing table**
+4. The routing table says: "10.0.0.0/24 is directly connected on eth1"
+5. The router sends the frame out eth1 toward B1
+
+**Routing table** example:
+```
+Destination      Gateway         Interface
+10.0.0.0/24      directly conn.  eth1
+192.168.1.0/24   directly conn.  eth0
+0.0.0.0/0        203.0.113.1     eth2  ← default route (internet)
+```
+
+The **default route** (`0.0.0.0/0`) matches any destination not explicitly listed — traffic is forwarded to the upstream router (your ISP's gateway).
+
+### Packets vs Frames: The Encapsulation Relationship
+
+The key distinction: **frames are layer 2** (use MAC addresses, live on one local network segment), **packets are layer 3** (use IP addresses, can cross multiple networks).
+
+A packet is encapsulated inside a frame for transmission across each network hop:
+
+```
+Encapsulation: Packet inside Frame
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Ethernet Frame                               │
+│  ┌──────────┬──────────┬───────┐  ┌─────────────────────────┐  ┌───┐│
+│  │ Dst MAC  │ Src MAC  │ 0x0800│  │       IP Packet         │  │FCS││
+│  │ (6 bytes)│ (6 bytes)│       │  │  ┌──────────────────┐   │  │   ││
+│  └──────────┴──────────┴───────┘  │  │  IP Header       │   │  └───┘│
+│                                   │  │  src: 192.168.1.10│  │       │
+│                                   │  │  dst: 10.0.0.10   │  │       │
+│                                   │  ├──────────────────┤   │       │
+│                                   │  │  TCP Segment     │   │       │
+│                                   │  │  (or UDP, ICMP)  │   │       │
+│                                   │  └──────────────────┘   │       │
+│                                   └─────────────────────────┘       │
+└─────────────────────────────────────────────────────────────────────┘
+
+At each router hop:
+  - The outer Ethernet frame is stripped (consumed by the router)
+  - The IP packet is read to determine next hop
+  - A NEW Ethernet frame is created for the next network segment
+  - The IP packet (unchanged) goes inside the new frame
+```
+
+This is why the IP packet's source and destination don't change as it crosses routers — the MAC addresses in the frame change at every hop, but the IP addresses stay constant end-to-end.
+
+<Callout type="deep-dive" title="ARP: Mapping IP Addresses to MAC Addresses">
+Before a device can send an Ethernet frame to an IP address on the same subnet, it needs to know the destination's MAC address. This mapping is handled by **ARP (Address Resolution Protocol)**.
+
+**ARP process:**
+1. Host A (192.168.1.10) wants to send to Host B (192.168.1.20) on the same /24 subnet
+2. Host A broadcasts an ARP request: "Who has 192.168.1.20? Tell 192.168.1.10"
+3. Host B sees the broadcast, responds with a unicast ARP reply: "192.168.1.20 is at aa:bb:cc:dd:ee:02"
+4. Host A caches this mapping in its **ARP table** (also called the neighbor table in modern Linux)
+5. Host A can now send Ethernet frames directly to Host B's MAC address
+
+The ARP cache has a TTL (typically a few minutes). Entries expire and are re-resolved. You can see the ARP table with `ip neigh show` on Linux.
+
+**Gratuitous ARP:** A device announces its own IP-to-MAC mapping unsolicited. Used when a device boots, gets a new IP, or when a virtual machine migrates — ensures all neighbors update their caches.
+</Callout>
+
+<Callout type="tip" title="Docker Bridge Networks ARE Virtual Switches">
+In Docker, when you create a bridge network (`docker network create mynet`), Docker creates a Linux bridge interface on the host. This bridge operates exactly like a physical switch — it has a MAC address table, it learns which container is on which virtual port, and it forwards frames between containers using the same logic described above.
+
+When you reach Phase 4 (Docker), you will run `ip link show` on the host and see `docker0` and `br-xxxxxxxx` interfaces. Those ARE the switches for your containers. The mental model is identical.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Inspect Your Network Interfaces and ARP Table"
+  difficulty="Foundation"
+  scenario="You are setting up network monitoring for a new server and need to understand how the server communicates on the local network. Before you can analyze network traffic, you need to know the server's MAC and IP addresses, how it reaches other networks, and which IP-to-MAC mappings it has already resolved."
+  objective="By the end of this exercise, you will be able to find MAC and IP addresses with ip addr, inspect the routing table with ip route, and examine the ARP neighbor table with ip neigh — the same commands used in real network troubleshooting."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container. We use the Linux lab image from Phase 2 which has iproute2 installed.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "List all network interfaces and their IP and MAC addresses. Look for the 'link/ether' line (MAC) and 'inet' line (IP) for each interface.",
+      command: "ip addr show"
+    },
+    {
+      step: 3,
+      description: "Show just the primary interface in a compact format. The -4 flag filters for IPv4 only.",
+      command: "ip -4 addr show eth0"
+    },
+    {
+      step: 4,
+      description: "Inspect the routing table. The 'default via' line shows the default gateway — the router that handles traffic to destinations not in the routing table.",
+      command: "ip route show"
+    },
+    {
+      step: 5,
+      description: "Show the ARP neighbor table — the IP-to-MAC mappings the kernel has cached. These are entries discovered via ARP for hosts on the same local subnet.",
+      command: "ip neigh show"
+    },
+    {
+      step: 6,
+      description: "Trigger an ARP resolution by pinging the gateway. After the ping, the gateway's MAC should appear in the neighbor table.",
+      command: "ping -c 1 $(ip route show default | awk '{print $3}') && ip neigh show"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "mac-address",
+        label: "You found the MAC address of the container's network interface",
+        hint: "Run: ip addr show eth0 — look for 'link/ether xx:xx:xx:xx:xx:xx'"
+      },
+      {
+        id: "ip-subnet",
+        label: "You identified the IP address and subnet (CIDR notation) of the interface",
+        hint: "The 'inet' line shows the IP with CIDR prefix — e.g., '172.17.0.2/16' means IP 172.17.0.2, subnet mask /16"
+      },
+      {
+        id: "default-gateway",
+        label: "You identified the default gateway from the routing table",
+        hint: "Run: ip route show — look for the 'default via X.X.X.X' line. That IP is the router the host uses for all non-local traffic."
+      },
+      {
+        id: "arp-neighbor",
+        label: "You can see at least one ARP neighbor entry after pinging the gateway",
+        hint: "Run: ip neigh show — each line shows an IP address, the interface, and the resolved MAC address. State 'REACHABLE' means recently confirmed."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Network Interface Commands",
+      items: [
+        { command: "ip addr show", description: "List all network interfaces with IP and MAC addresses", example: "ip addr show eth0" },
+        { command: "ip -4 addr show", description: "Show only IPv4 addresses", example: "ip -4 addr show" },
+        { command: "ip link show", description: "Show interface state (UP/DOWN) and MAC addresses without IP info", example: "ip link show eth0" },
+      ]
+    },
+    {
+      title: "Routing and ARP",
+      items: [
+        { command: "ip route show", description: "Display the IP routing table — where packets go for each destination", example: "ip route show" },
+        { command: "ip route get <ip>", description: "Show which route the kernel would use to reach a specific IP", example: "ip route get 8.8.8.8" },
+        { command: "ip neigh show", description: "Display the ARP/neighbor table — IP to MAC mappings", example: "ip neigh show" },
+        { command: "ip neigh flush all", description: "Clear the ARP cache (requires root) — forces fresh ARP resolution", example: "sudo ip neigh flush all" },
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "MAC address", description: "6-byte hardware identifier for a network interface, local to one network segment" },
+        { command: "Ethernet frame", description: "Layer 2 unit: dst MAC + src MAC + EtherType + payload (IP packet) + FCS checksum" },
+        { command: "Switch", description: "Layer 2 device that forwards frames based on MAC address table entries" },
+        { command: "Router", description: "Layer 3 device that forwards packets between different IP networks using a routing table" },
+        { command: "Default gateway", description: "The router IP a host sends packets to when the destination is not on the local subnet" },
+        { command: "ARP", description: "Address Resolution Protocol — maps IP addresses to MAC addresses on the local subnet" },
+        { command: "Broadcast domain", description: "The set of devices that receive a broadcast frame — one per switch (or VLAN)" },
+        { command: "Packet", description: "Layer 3 unit containing source and destination IP addresses — crosses router hops unchanged" },
+        { command: "Frame", description: "Layer 2 unit wrapping a packet for one network hop — MAC addresses change at each router" },
+      ]
+    }
+  ]}
+/>

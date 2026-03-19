@@ -1,0 +1,373 @@
+---
+title: "The TCP/IP Stack: How Data Travels the Internet"
+description: "Four layers of the TCP/IP model — how data is encapsulated, addressed, routed, and delivered reliably across networks"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "02-tcp-ip-stack"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["02-networking/01-how-networks-work"]
+tags: ["tcp-ip", "layers", "encapsulation", "IP-addressing", "subnets", "TCP", "UDP", "ports"]
+---
+
+## Overview
+
+Your API is timing out — is it a DNS problem, a routing issue, or is TCP retransmission burning time? Understanding the TCP/IP stack tells you which layer to investigate. The stack is not just theory — every network tool you will use (curl, ss, tcpdump, ping) operates at a specific layer, and knowing which layer explains what the tool can and cannot see.
+
+This lesson explains the four layers of the TCP/IP model, how data is encapsulated as it moves down the stack, how IP addressing and subnets determine whether two hosts are on the same network, and how TCP delivers data reliably while UDP delivers it fast.
+
+## How It Works
+
+### The Four Layers
+
+The TCP/IP model organizes networking into four distinct layers. Each layer has a specific job and communicates only with the layers immediately above and below it.
+
+```
+TCP/IP Four-Layer Model
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Application Layer (Layer 4)                      │
+│  What your program sees — application-specific protocols            │
+│  Examples: HTTP, HTTPS, DNS, SSH, SMTP, FTP, WebSocket             │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Transport Layer (Layer 3)                         │
+│  End-to-end delivery between processes — ports identify the service │
+│  Protocols: TCP (reliable), UDP (fast)                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Internet Layer (Layer 2)                          │
+│  Host-to-host routing across networks — IP addresses                │
+│  Protocols: IP (IPv4/IPv6), ICMP (ping), BGP, OSPF                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                    Link Layer (Layer 1)                              │
+│  Physical transmission on one network segment — MAC addresses       │
+│  Protocols: Ethernet, Wi-Fi (802.11), ARP                          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Each layer adds its own header (and sometimes trailer) when sending data down the stack. This is **encapsulation**. When receiving, each layer strips its header and passes the payload up.
+
+### Encapsulation: How Data Gets Wrapped
+
+When your web browser fetches a page, the data travels down the stack on the sending side and back up the stack on the receiving side:
+
+```
+Encapsulation Flow (sending)
+
+Application data: "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        │
+        ▼  Transport layer adds TCP header
+┌──────────────┬──────────────────────────────────────────────────────┐
+│  TCP Header  │  Application Data                                    │
+│ src_port:    │  "GET / HTTP/1.1..."                                  │
+│ 54321        │                                                      │
+│ dst_port: 80 │                          ← TCP Segment               │
+│ seq: 1000    │                                                      │
+│ ack: 0       │                                                      │
+└──────────────┴──────────────────────────────────────────────────────┘
+        │
+        ▼  Internet layer adds IP header
+┌───────────┬──────────────┬──────────────────────────────────────────┐
+│ IP Header │  TCP Header  │  Application Data                        │
+│ src:      │ src_port:    │  "GET / HTTP/1.1..."  ← IP Packet        │
+│ 10.0.0.5  │ 54321        │                                          │
+│ dst:      │ dst_port: 80 │                                          │
+│ 93.184.   │              │                                          │
+│ 216.34    │              │                                          │
+└───────────┴──────────────┴──────────────────────────────────────────┘
+        │
+        ▼  Link layer adds Ethernet header + FCS
+┌──────────┬───────────┬──────────────┬───────────────────────┬─────┐
+│ Eth Hdr  │ IP Header │  TCP Header  │  Application Data     │ FCS │
+│ src MAC  │ src IP    │ src_port:    │  "GET / HTTP/1.1..."  │     │
+│ dst MAC  │ dst IP    │ 54321        │     ← Ethernet Frame  │     │
+└──────────┴───────────┴──────────────┴───────────────────────┴─────┘
+```
+
+On the receiving side, each layer strips its header and passes the payload up. The web server's application never sees the IP header or the Ethernet frame — those are transparent to the HTTP layer.
+
+### IP Addressing and Subnets
+
+An **IPv4 address** is a 32-bit number written as four decimal octets separated by dots: `192.168.1.100`. Each octet is 0-255 (`192` = `11000000` in binary).
+
+**Subnet masks** define which portion of an IP address identifies the network and which identifies the host:
+
+```
+IP address:   192.168.1.100
+Subnet mask:  255.255.255.0   (or /24 in CIDR notation)
+
+Binary breakdown:
+  Address:    11000000.10101000.00000001.01100100
+  Mask:       11111111.11111111.11111111.00000000
+              ├──────── network ────────┤ ├─host─┤
+
+Network:      192.168.1.0
+Host range:   192.168.1.1 to 192.168.1.254
+Broadcast:    192.168.1.255
+```
+
+**CIDR notation** (`/24`) counts the number of 1-bits in the subnet mask. Common values:
+
+| CIDR | Subnet Mask     | Hosts | Typical Use |
+|------|-----------------|-------|-------------|
+| /8   | 255.0.0.0       | 16.7M | Large private networks (10.x.x.x) |
+| /16  | 255.255.0.0     | 65K   | Enterprise networks (172.16.x.x) |
+| /24  | 255.255.255.0   | 254   | Typical office/home subnet |
+| /30  | 255.255.255.252 | 2     | Point-to-point router links |
+
+**Same subnet or not?** To determine if two IPs are on the same subnet, apply the subnet mask to both addresses:
+
+```
+Is 192.168.1.100/24 on the same subnet as 192.168.1.200/24?
+  192.168.1.100  AND  255.255.255.0  =  192.168.1.0  ✓ same network
+  192.168.1.200  AND  255.255.255.0  =  192.168.1.0  ✓ same network
+  → YES, same subnet → can communicate directly via layer 2
+
+Is 192.168.1.100/24 on the same subnet as 10.0.0.1/24?
+  192.168.1.100  AND  255.255.255.0  =  192.168.1.0
+  10.0.0.1       AND  255.255.255.0  =  10.0.0.0
+  → NO, different subnets → must go via router
+```
+
+**Private address ranges** (RFC 1918 — not routable on the public internet):
+- `10.0.0.0/8` — largest block, used in data centers and cloud VPCs
+- `172.16.0.0/12` — Docker's default bridge network uses `172.17.0.0/16` from this range
+- `192.168.0.0/16` — typical home router subnet
+
+### TCP: The Reliable Protocol
+
+**TCP (Transmission Control Protocol)** provides reliable, ordered, connection-oriented data delivery. Before any data is exchanged, TCP establishes a connection via the **three-way handshake**:
+
+```
+TCP Three-Way Handshake
+                    Client                    Server
+                      │                         │
+          SYN ────────►│  seq=1000               │
+          (I want      │  "I want to connect,    │
+          to connect)  │   my seq starts at 1000"│
+                       │                         │
+                       │◄──────── SYN-ACK        │  seq=5000, ack=1001
+                       │  "OK, connect accepted, │
+                       │   my seq starts at 5000,│
+                       │   I got your byte 1000" │
+                       │                         │
+          ACK ─────────►  ack=5001               │
+          (Confirmed)  │  "Got your byte 5000"   │
+                       │                         │
+          DATA ────────►  "GET / HTTP/1.1..."    │
+                       │                         │
+```
+
+After the handshake, both sides have established **sequence numbers** — a 32-bit counter that tracks how many bytes have been sent. This enables:
+
+- **Acknowledgments:** The receiver confirms each byte it receives. `ACK=5001` means "I've received everything up to byte 5000, send me byte 5001 next."
+- **Retransmission:** If the sender doesn't receive an ACK within a timeout period, it retransmits the unacknowledged data. This is why TCP is reliable — data will eventually be delivered or the connection will fail.
+- **Ordered delivery:** Segments can arrive out of order (different routing paths). TCP buffers them and delivers them in order to the application.
+- **Flow control (windowing):** The receiver advertises a **window size** — how many bytes it can buffer. The sender won't send more than the window allows, preventing buffer overflow at the receiver.
+
+**Connection teardown** is a four-way exchange:
+```
+Client sends FIN → Server acknowledges → Server sends FIN → Client acknowledges
+```
+After teardown, the connection enters TIME_WAIT for 2x MSL (Maximum Segment Lifetime, typically 60-120 seconds) to handle any delayed packets from the closed connection.
+
+<Callout type="deep-dive" title="TCP Congestion Control">
+Beyond flow control (receiver-side), TCP implements **congestion control** to avoid overwhelming the network itself (not just the receiver).
+
+**Slow start:** A new TCP connection starts by sending a small number of segments (initially 1 MSS — Maximum Segment Size, usually 1460 bytes for Ethernet). Each ACK increases the congestion window exponentially until either packet loss is detected or a threshold (ssthresh) is reached.
+
+**Congestion avoidance:** After reaching ssthresh, the window grows linearly (one MSS per RTT). When packet loss is detected (timeout or three duplicate ACKs), the algorithm interprets this as network congestion and reduces the window dramatically.
+
+**Why this matters in production:** A freshly established TCP connection has a small congestion window. Your first HTTP request after a connection is established will be slow while TCP "ramps up." HTTP/2 and QUIC address this with connection reuse and different congestion strategies. This is why connection pool reuse matters in high-throughput services.
+</Callout>
+
+### UDP: The Fast Protocol
+
+**UDP (User Datagram Protocol)** is the opposite of TCP: no handshake, no acknowledgments, no ordering, no retransmission. The sender fires off datagrams and doesn't track whether they arrived.
+
+```
+UDP vs TCP comparison:
+
+TCP:                          UDP:
+  3-way handshake               No setup
+  Acknowledgments               No confirmation
+  Retransmission on loss        No retry
+  Ordered delivery              No ordering
+  Flow control                  No throttling
+  ~20 byte header               8 byte header
+  Connection state in kernel    Stateless
+```
+
+**When UDP is the right choice:**
+- **DNS queries:** Small request/response. If the query is lost, just retry. TCP overhead would double the latency.
+- **Video streaming and gaming:** Old data is worse than no data. A dropped video frame is better than a delayed one that disrupts playback. UDP lets the application decide whether to retransmit.
+- **NTP (Network Time Protocol):** A lost time sync packet is harmless — the next one arrives in seconds.
+- **QUIC (HTTP/3):** UDP is used as the foundation for QUIC, which implements its own reliability and ordering at the application layer with better performance than TCP (no head-of-line blocking).
+
+### Ports: Multiplexing Connections
+
+IP addresses identify hosts. **Ports** identify specific processes (services) on those hosts. The transport layer uses source and destination ports to route incoming data to the right process.
+
+```
+Port-based multiplexing on one host
+
+  Host: 192.168.1.10
+  ┌─────────────────────────────────────────┐
+  │                                         │
+  │  Web server process  → port 80, 443     │
+  │  SSH daemon          → port 22          │
+  │  Postgres            → port 5432        │
+  │  Redis               → port 6379        │
+  │                                         │
+  └─────────────────────────────────────────┘
+
+Incoming packet: src=203.0.113.5:54321  dst=192.168.1.10:443
+OS routes this to the web server process based on dst port 443.
+```
+
+**Well-known ports** (0-1023) require root to bind:
+
+| Port | Protocol |
+|------|----------|
+| 22   | SSH      |
+| 25   | SMTP     |
+| 53   | DNS      |
+| 80   | HTTP     |
+| 443  | HTTPS    |
+| 5432 | PostgreSQL |
+| 6379 | Redis    |
+
+**Ephemeral ports** (typically 32768-60999 on Linux) are assigned by the OS to the client side of a connection. When your browser connects to port 443, the OS picks an ephemeral source port for the connection.
+
+A unique connection is identified by a 5-tuple: `(protocol, src_ip, src_port, dst_ip, dst_port)`. Two connections from the same client to the same server differ only in their ephemeral source port.
+
+<Callout type="tip" title="ss -tlnp: Seeing the Transport Layer">
+The `ss` command (socket statistics) shows you exactly which ports are listening and which process owns them — you are looking directly at the transport layer.
+
+```bash
+ss -tlnp
+# -t: TCP sockets
+# -l: listening sockets only
+# -n: show port numbers (not names)
+# -p: show process name and PID
+```
+
+When you troubleshoot "why can't I connect to port 8080?", `ss -tlnp` tells you whether anything is actually listening there. You will use this command extensively in the troubleshooting lesson.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Inspect the TCP/IP Stack in a Running Container"
+  difficulty="Foundation"
+  scenario="You are debugging why two containers on the same Docker network cannot communicate. You need to inspect their IP addresses, determine whether they are on the same subnet, and examine which ports are actually listening — the same workflow you will use in real container debugging scenarios."
+  objective="By the end of this exercise, you will be able to identify IP addresses and subnet masks, determine subnet membership, and inspect TCP listening ports with ss — the standard toolkit for container network debugging."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Find the container's IP address and subnet. Note the CIDR notation (e.g., /16 or /24) — this tells you the subnet size.",
+      command: "ip addr show eth0"
+    },
+    {
+      step: 3,
+      description: "Show the full routing table. Identify the directly-connected network and the default gateway.",
+      command: "ip route show"
+    },
+    {
+      step: 4,
+      description: "Use ip route get to ask the kernel exactly how it would route traffic to a specific IP. Compare routing to an IP on the same subnet vs a remote IP.",
+      command: "ip route get 8.8.8.8 && ip route get $(ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | sed 's/\\..$/.1/')"
+    },
+    {
+      step: 5,
+      description: "List all listening TCP ports. The -t flag is TCP, -l is listening, -n is numeric ports, -p shows the process.",
+      command: "ss -tlnp"
+    },
+    {
+      step: 6,
+      description: "Read the raw kernel TCP socket table. Each line is a socket. The local_address and rem_address are in hex (host-endian IP, little-endian port). This is what ss parses for you.",
+      command: "cat /proc/net/tcp | head -5"
+    },
+    {
+      step: 7,
+      description: "Start a simple netcat listener on port 8080 in the background, then verify it appears in ss output.",
+      command: "nc -lk 8080 &>/dev/null & sleep 1 && ss -tlnp | grep 8080"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "ip-subnet",
+        label: "You identified the container's IP address and subnet in CIDR notation",
+        hint: "Run: ip addr show eth0 — look for 'inet X.X.X.X/YY'. The /YY is the CIDR prefix length."
+      },
+      {
+        id: "same-subnet",
+        label: "You can determine whether two IPs are on the same subnet using the prefix length",
+        hint: "For /16: the first two octets must match. For /24: the first three must match. Example: 172.17.0.2/16 and 172.17.0.3/16 share the 172.17.0.0/16 network."
+      },
+      {
+        id: "listening-ports",
+        label: "You listed listening TCP ports with ss -tlnp",
+        hint: "Run: ss -tlnp — each line shows a listening socket. LISTEN state means the process is waiting for incoming connections."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "TCP/IP Layers",
+      items: [
+        { command: "Application", description: "HTTP, HTTPS, DNS, SSH, SMTP — protocol spoken by the program" },
+        { command: "Transport", description: "TCP (reliable) or UDP (fast) — source/destination port numbers" },
+        { command: "Internet", description: "IP — source/destination IP addresses, routing between networks" },
+        { command: "Link", description: "Ethernet, Wi-Fi — source/destination MAC addresses, one network segment" },
+      ]
+    },
+    {
+      title: "Common Port Numbers",
+      items: [
+        { command: "22", description: "SSH — secure remote shell", example: "ssh user@host" },
+        { command: "53", description: "DNS — name resolution (UDP for queries, TCP for zone transfers)", example: "dig example.com" },
+        { command: "80", description: "HTTP — unencrypted web traffic", example: "curl http://example.com/" },
+        { command: "443", description: "HTTPS — TLS-encrypted web traffic", example: "curl https://example.com/" },
+        { command: "5432", description: "PostgreSQL database", example: "psql -h host -p 5432" },
+        { command: "6379", description: "Redis in-memory store", example: "redis-cli -p 6379" },
+      ]
+    },
+    {
+      title: "TCP vs UDP",
+      items: [
+        { command: "TCP", description: "Reliable, ordered, connection-oriented. Use for: HTTP, SSH, database connections, anything where data integrity matters." },
+        { command: "UDP", description: "Fast, stateless, no guarantees. Use for: DNS queries, video/audio streaming, gaming, NTP, QUIC/HTTP3." },
+      ]
+    },
+    {
+      title: "CIDR Subnet Examples",
+      items: [
+        { command: "10.0.0.0/8", description: "16.7M hosts — large cloud VPCs, corporate networks", example: "10.0.0.1 to 10.255.255.254" },
+        { command: "172.17.0.0/16", description: "65K hosts — Docker default bridge network", example: "172.17.0.1 to 172.17.255.254" },
+        { command: "192.168.1.0/24", description: "254 hosts — home/office subnet", example: "192.168.1.1 to 192.168.1.254" },
+        { command: "10.0.0.0/30", description: "2 hosts — point-to-point router links", example: "10.0.0.1 and 10.0.0.2" },
+      ]
+    },
+    {
+      title: "Socket Inspection",
+      items: [
+        { command: "ss -tlnp", description: "List listening TCP ports with process names", example: "ss -tlnp" },
+        { command: "ss -tunp", description: "List all TCP and UDP connections", example: "ss -tunp" },
+        { command: "ss -s", description: "Socket statistics summary — total sockets by state", example: "ss -s" },
+      ]
+    }
+  ]}
+/>
