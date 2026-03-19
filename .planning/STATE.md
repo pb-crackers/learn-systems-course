@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-infrastructure-as-code-cloud-03-PLAN.md
-last_updated: "2026-03-19T14:00:59.409Z"
+stopped_at: Completed 06-infrastructure-as-code-cloud-04-PLAN.md
+last_updated: "2026-03-19T14:11:13.100Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 24
-  completed_plans: 22
+  completed_plans: 24
   percent: 25
 ---
 
@@ -71,6 +71,8 @@ Progress: [███░░░░░░░] 25%
 | Phase 05-system-administration-ci-cd P02 | 10min | 2 tasks | 16 files |
 | Phase 06-infrastructure-as-code-cloud P01 | 5 | 2 tasks | 4 files |
 | Phase 06-infrastructure-as-code-cloud P03 | 7min | 2 tasks | 5 files |
+| Phase 06-infrastructure-as-code-cloud P04 | 5min | 2 tasks | 5 files |
+| Phase 06-infrastructure-as-code-cloud P02 | 6min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -132,6 +134,9 @@ Recent decisions affecting current work:
 - [Phase 06-infrastructure-as-code-cloud]: CLD-01-02 Foundation, CLD-03-05 Intermediate difficulty — matches CONTEXT.md locked decision for cloud module
 - [Phase 06-infrastructure-as-code-cloud]: Object storage has no Docker equivalent — the gap is explicit in lesson 4 as a cloud-native concept (what cloud adds over local infra)
 - [Phase 06-infrastructure-as-code-cloud]: IAM policy JSON shown side-by-side with chmod command — explicit syntax comparison for strongest conceptual bridge
+- [Phase 06-infrastructure-as-code-cloud]: compose.yml uses 4-service pattern (loadbalancer + app1 + app2 + persistent volume) for richer cloud mapping
+- [Phase 06-infrastructure-as-code-cloud]: kreuzwerker/docker v3.9.0 pinned (not ~> 3.0) because v4.0.0-beta2 exists in registry with breaking changes
+- [Phase 06-infrastructure-as-code-cloud]: registry.opentofu.org/kreuzwerker/docker source used to avoid GPG key issues with registry.terraform.io
 
 ### Pending Todos
 
@@ -145,6 +150,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T14:00:59.405Z
-Stopped at: Completed 06-infrastructure-as-code-cloud-03-PLAN.md
+Last session: 2026-03-19T14:11:13.097Z
+Stopped at: Completed 06-infrastructure-as-code-cloud-04-PLAN.md
 Resume file: None

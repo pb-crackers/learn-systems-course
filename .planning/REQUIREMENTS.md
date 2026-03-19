@@ -93,8 +93,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **IAC-02**: Lesson on Terraform/OpenTofu basics — HCL syntax, providers, resources, variables
 - [x] **IAC-03**: Lesson on Terraform state — local state, remote backends, state locking
 - [x] **IAC-04**: Lesson on Terraform modules — reusability, composition, registry
-- [ ] **IAC-05**: Hands-on exercises with local Docker provider (no cloud cost)
-- [ ] **IAC-06**: Module cheat sheet with Terraform/OpenTofu commands and patterns
+- [x] **IAC-05**: Hands-on exercises with local Docker provider (no cloud cost)
+- [x] **IAC-06**: Module cheat sheet with Terraform/OpenTofu commands and patterns
 
 ### Module 7: Cloud Fundamentals
 
@@ -216,8 +216,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | IAC-02 | Phase 6 | Complete |
 | IAC-03 | Phase 6 | Complete |
 | IAC-04 | Phase 6 | Complete |
-| IAC-05 | Phase 6 | Pending |
-| IAC-06 | Phase 6 | Pending |
+| IAC-05 | Phase 6 | Complete |
+| IAC-06 | Phase 6 | Complete |
 | CLD-01 | Phase 6 | Complete |
 | CLD-02 | Phase 6 | Complete |
 | CLD-03 | Phase 6 | Complete |
