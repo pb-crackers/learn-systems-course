@@ -1,0 +1,244 @@
+# Requirements: Learn Systems
+
+**Defined:** 2026-03-18
+**Core Value:** Every lesson must be hands-on and interactive with thorough explanations — the learner practices real skills and understands how machines actually work. Delivered as a modern, production-ready Next.js web application.
+
+## v1 Requirements
+
+Requirements for initial release. Each maps to roadmap phases.
+
+### Application Foundation
+
+- [ ] **APP-01**: Next.js App Router application with TypeScript, Tailwind CSS, and shadcn/ui
+- [ ] **APP-02**: Modern, polished responsive design using shadcn/ui and 21st.dev components
+- [ ] **APP-03**: Course navigation with sidebar showing all modules and lessons with progress indicators
+- [ ] **APP-04**: Progress tracking persisted in localStorage (lesson completion, exercise completion)
+- [ ] **APP-05**: Dark mode support with system preference detection
+- [ ] **APP-06**: Mobile-responsive layout that works on desktop and tablet
+- [ ] **APP-07**: Search functionality across all course content
+- [ ] **APP-08**: Syntax-highlighted code blocks with copy-to-clipboard functionality
+
+### Content Framework
+
+- [ ] **CONT-01**: MDX-based lesson content with rich formatting, diagrams, and interactive elements
+- [ ] **CONT-02**: Each lesson has thorough "How It Works" explanation sections before exercises
+- [ ] **CONT-03**: Each lesson has explicit prerequisites listed and linked
+- [ ] **CONT-04**: Interactive terminal/code components embedded in lessons for try-it-yourself moments
+- [ ] **CONT-05**: Exercise sections with clear objectives, steps, and verification criteria
+- [ ] **CONT-06**: Quick reference/cheat sheet section per module
+- [ ] **CONT-07**: Progressive difficulty labels (Foundation / Intermediate / Challenge) on exercises
+- [ ] **CONT-08**: Real-world scenario descriptions for every exercise (not toy examples)
+
+### Module 1: Linux Fundamentals
+
+- [ ] **LNX-01**: Lesson on how computers work — CPU, memory, storage, I/O (prerequisite context)
+- [ ] **LNX-02**: Lesson on what an operating system does — kernel, userspace, system calls
+- [ ] **LNX-03**: Lesson on the Linux filesystem — hierarchy, mount points, inodes, everything is a file
+- [ ] **LNX-04**: Lesson on file permissions and ownership — users, groups, chmod, chown, sticky bits
+- [ ] **LNX-05**: Lesson on processes — PID, fork/exec, process states, signals, ps, top, kill
+- [ ] **LNX-06**: Lesson on shell fundamentals — bash, environment variables, PATH, pipes, redirects
+- [ ] **LNX-07**: Lesson on shell scripting — variables, conditionals, loops, functions, error handling
+- [ ] **LNX-08**: Lesson on text processing — grep, sed, awk, sort, uniq, cut, xargs
+- [ ] **LNX-09**: Lesson on package management — apt/yum, repositories, dependencies
+- [ ] **LNX-10**: Hands-on exercises for each Linux lesson with Docker-based lab environments
+- [ ] **LNX-11**: Module cheat sheet with essential Linux commands and concepts
+
+### Module 2: Networking Foundations
+
+- [ ] **NET-01**: Lesson on how networks work — physical layer, switches, routers, packets
+- [ ] **NET-02**: Lesson on the TCP/IP stack — layers, encapsulation, IP addressing, subnets
+- [ ] **NET-03**: Lesson on DNS — resolution process, record types, caching, troubleshooting with dig/nslookup
+- [ ] **NET-04**: Lesson on HTTP/HTTPS — request/response cycle, methods, headers, TLS handshake
+- [ ] **NET-05**: Lesson on SSH — key-based auth, tunneling, config files, agent forwarding
+- [ ] **NET-06**: Lesson on firewalls — iptables, ufw, security groups concepts, netfilter
+- [ ] **NET-07**: Lesson on network troubleshooting — ping, traceroute, tcpdump, netstat/ss, curl
+- [ ] **NET-08**: Hands-on exercises for each networking lesson with multi-container lab environments
+- [ ] **NET-09**: Module cheat sheet with networking commands and concepts
+
+### Module 3: System Administration
+
+- [ ] **SYS-01**: Lesson on user and group management — useradd, /etc/passwd, /etc/shadow, sudo
+- [ ] **SYS-02**: Lesson on systemd — units, services, targets, journald, service lifecycle
+- [ ] **SYS-03**: Lesson on logging — syslog, journald, log rotation, centralized logging concepts
+- [ ] **SYS-04**: Lesson on disk management — fdisk, mount, fstab, LVM basics, df, du
+- [ ] **SYS-05**: Lesson on process management and scheduling — cron, systemd timers, at, nice/renice
+- [ ] **SYS-06**: Lesson on system monitoring — top, htop, vmstat, iostat, resource bottlenecks
+- [ ] **SYS-07**: Hands-on exercises for each sysadmin lesson
+- [ ] **SYS-08**: Module cheat sheet with sysadmin commands and concepts
+
+### Module 4: Containerization with Docker
+
+- [ ] **DOC-01**: Lesson on what containers are — namespaces, cgroups, how containers actually work under the hood
+- [ ] **DOC-02**: Lesson on Docker images — layers, Dockerfile, build process, registries
+- [ ] **DOC-03**: Lesson on Docker containers — lifecycle, exec, logs, resource limits
+- [ ] **DOC-04**: Lesson on Docker volumes — bind mounts, named volumes, data persistence
+- [ ] **DOC-05**: Lesson on Docker networking — bridge, host, overlay, DNS between containers
+- [ ] **DOC-06**: Lesson on Docker Compose — multi-service apps, depends_on, environment variables, profiles
+- [ ] **DOC-07**: Lesson on Dockerfile best practices — multi-stage builds, layer caching, security
+- [ ] **DOC-08**: Hands-on exercises for each Docker lesson with real application scenarios
+- [ ] **DOC-09**: Module cheat sheet with Docker commands and concepts
+
+### Module 5: CI/CD Pipelines
+
+- [ ] **CICD-01**: Lesson on CI/CD concepts — what it is, why it matters, build/test/deploy lifecycle
+- [ ] **CICD-02**: Lesson on GitHub Actions — workflows, triggers, jobs, steps, artifacts
+- [ ] **CICD-03**: Lesson on building and testing in pipelines — Docker builds, test automation, linting
+- [ ] **CICD-04**: Lesson on deployment strategies — blue/green, rolling, canary concepts
+- [ ] **CICD-05**: Hands-on exercises building real CI/CD pipelines
+- [ ] **CICD-06**: Module cheat sheet with CI/CD patterns and GitHub Actions syntax
+
+### Module 6: Infrastructure as Code
+
+- [ ] **IAC-01**: Lesson on IaC concepts — why declarative infra, state management, drift
+- [ ] **IAC-02**: Lesson on Terraform/OpenTofu basics — HCL syntax, providers, resources, variables
+- [ ] **IAC-03**: Lesson on Terraform state — local state, remote backends, state locking
+- [ ] **IAC-04**: Lesson on Terraform modules — reusability, composition, registry
+- [ ] **IAC-05**: Hands-on exercises with local Docker provider (no cloud cost)
+- [ ] **IAC-06**: Module cheat sheet with Terraform/OpenTofu commands and patterns
+
+### Module 7: Cloud Fundamentals
+
+- [ ] **CLD-01**: Lesson on cloud computing concepts — IaaS/PaaS/SaaS, regions, availability zones
+- [ ] **CLD-02**: Lesson on compute — VMs, containers, serverless (mapped to prior Docker knowledge)
+- [ ] **CLD-03**: Lesson on cloud networking — VPCs, subnets, load balancers (mapped to prior networking knowledge)
+- [ ] **CLD-04**: Lesson on cloud storage — object, block, file storage types and use cases
+- [ ] **CLD-05**: Lesson on IAM — policies, roles, least privilege (mapped to prior Linux permissions knowledge)
+- [ ] **CLD-06**: Hands-on exercises with conceptual mapping to local Docker equivalents
+- [ ] **CLD-07**: Module cheat sheet with cloud concepts and service mappings
+
+### Module 8: Monitoring & Observability
+
+- [ ] **MON-01**: Lesson on observability concepts — metrics, logs, traces (three pillars)
+- [ ] **MON-02**: Lesson on Prometheus — metrics collection, PromQL basics, alerting rules
+- [ ] **MON-03**: Lesson on Grafana — dashboards, data sources, visualization
+- [ ] **MON-04**: Lesson on log aggregation — centralized logging, ELK/Loki concepts
+- [ ] **MON-05**: Lesson on incident response — alerting, runbooks, postmortems
+- [ ] **MON-06**: Hands-on exercises with Docker Compose monitoring stack
+- [ ] **MON-07**: Module cheat sheet with monitoring tools and concepts
+
+### Capstone Projects
+
+- [ ] **CAP-01**: Foundation capstone — deploy a Dockerized web app, diagnose network issues, automate with shell scripts
+- [ ] **CAP-02**: Advanced capstone — full pipeline: Docker app + CI/CD + IaC + monitoring with intentional failure scenario
+
+## v2 Requirements
+
+### Advanced Topics
+
+- **ADV-01**: Kubernetes basics — pods, deployments, services, configmaps
+- **ADV-02**: Configuration management with Ansible — playbooks, inventory, idempotency
+- **ADV-03**: Security hardening module — SSH hardening, secrets management, vulnerability scanning
+- **ADV-04**: Performance tuning — kernel parameters, resource limits, profiling
+
+### Enhanced Interactivity
+
+- **INT-01**: Embedded web-based terminal emulator for in-browser exercises
+- **INT-02**: Interactive quizzes after each lesson
+- **INT-03**: Animated diagrams for network packet flow, container lifecycle, etc.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Video content | Text and code-based only; videos go stale fast with tool UI changes |
+| Certification exam prep | Focus on practical skills, not memorization |
+| Multi-user authentication | Single-learner local app; no backend needed |
+| Advanced Kubernetes (Helm, operators, multi-cluster) | Complexity cliff; basics sufficient for v1 |
+| Cloud-heavy labs with real cost | Local-first constraint; Docker/VM equivalents used |
+| Backend API/database | Static content via Next.js; progress in localStorage |
+| Gamification (badges, points) | Adds platform complexity for marginal value |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| APP-01 | Phase 1 | Pending |
+| APP-02 | Phase 1 | Pending |
+| APP-03 | Phase 1 | Pending |
+| APP-04 | Phase 1 | Pending |
+| APP-05 | Phase 1 | Pending |
+| APP-06 | Phase 1 | Pending |
+| APP-07 | Phase 1 | Pending |
+| APP-08 | Phase 1 | Pending |
+| CONT-01 | Phase 2 | Pending |
+| CONT-02 | Phase 2 | Pending |
+| CONT-03 | Phase 2 | Pending |
+| CONT-04 | Phase 2 | Pending |
+| CONT-05 | Phase 2 | Pending |
+| CONT-06 | Phase 2 | Pending |
+| CONT-07 | Phase 2 | Pending |
+| CONT-08 | Phase 2 | Pending |
+| LNX-01 | Phase 3 | Pending |
+| LNX-02 | Phase 3 | Pending |
+| LNX-03 | Phase 3 | Pending |
+| LNX-04 | Phase 3 | Pending |
+| LNX-05 | Phase 3 | Pending |
+| LNX-06 | Phase 3 | Pending |
+| LNX-07 | Phase 3 | Pending |
+| LNX-08 | Phase 3 | Pending |
+| LNX-09 | Phase 3 | Pending |
+| LNX-10 | Phase 3 | Pending |
+| LNX-11 | Phase 3 | Pending |
+| NET-01 | Phase 4 | Pending |
+| NET-02 | Phase 4 | Pending |
+| NET-03 | Phase 4 | Pending |
+| NET-04 | Phase 4 | Pending |
+| NET-05 | Phase 4 | Pending |
+| NET-06 | Phase 4 | Pending |
+| NET-07 | Phase 4 | Pending |
+| NET-08 | Phase 4 | Pending |
+| NET-09 | Phase 4 | Pending |
+| SYS-01 | Phase 5 | Pending |
+| SYS-02 | Phase 5 | Pending |
+| SYS-03 | Phase 5 | Pending |
+| SYS-04 | Phase 5 | Pending |
+| SYS-05 | Phase 5 | Pending |
+| SYS-06 | Phase 5 | Pending |
+| SYS-07 | Phase 5 | Pending |
+| SYS-08 | Phase 5 | Pending |
+| DOC-01 | Phase 6 | Pending |
+| DOC-02 | Phase 6 | Pending |
+| DOC-03 | Phase 6 | Pending |
+| DOC-04 | Phase 6 | Pending |
+| DOC-05 | Phase 6 | Pending |
+| DOC-06 | Phase 6 | Pending |
+| DOC-07 | Phase 6 | Pending |
+| DOC-08 | Phase 6 | Pending |
+| DOC-09 | Phase 6 | Pending |
+| CICD-01 | Phase 7 | Pending |
+| CICD-02 | Phase 7 | Pending |
+| CICD-03 | Phase 7 | Pending |
+| CICD-04 | Phase 7 | Pending |
+| CICD-05 | Phase 7 | Pending |
+| CICD-06 | Phase 7 | Pending |
+| IAC-01 | Phase 7 | Pending |
+| IAC-02 | Phase 7 | Pending |
+| IAC-03 | Phase 7 | Pending |
+| IAC-04 | Phase 7 | Pending |
+| IAC-05 | Phase 7 | Pending |
+| IAC-06 | Phase 7 | Pending |
+| CLD-01 | Phase 7 | Pending |
+| CLD-02 | Phase 7 | Pending |
+| CLD-03 | Phase 7 | Pending |
+| CLD-04 | Phase 7 | Pending |
+| CLD-05 | Phase 7 | Pending |
+| CLD-06 | Phase 7 | Pending |
+| CLD-07 | Phase 7 | Pending |
+| MON-01 | Phase 7 | Pending |
+| MON-02 | Phase 7 | Pending |
+| MON-03 | Phase 7 | Pending |
+| MON-04 | Phase 7 | Pending |
+| MON-05 | Phase 7 | Pending |
+| MON-06 | Phase 7 | Pending |
+| MON-07 | Phase 7 | Pending |
+| CAP-01 | Phase 6 | Pending |
+| CAP-02 | Phase 7 | Pending |
+
+**Coverage:**
+- v1 requirements: 80 total
+- Mapped to phases: 80
+- Unmapped: 0 ✓
+
+---
+*Requirements defined: 2026-03-18*
+*Last updated: 2026-03-18 after initial definition*
