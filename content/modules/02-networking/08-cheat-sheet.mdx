@@ -1,0 +1,203 @@
+---
+title: "Networking Foundations Cheat Sheet"
+description: "Quick reference for all networking commands, protocols, and concepts covered in this module"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "08-cheat-sheet"
+order: 8
+difficulty: "Foundation"
+estimatedMinutes: 5
+prerequisites: []
+tags: ["cheat-sheet", "reference", "networking", "commands"]
+---
+
+## Overview
+
+This is your quick reference for all networking commands and concepts covered in this module. Bookmark this page — you'll come back to it often.
+
+## Physical Networking
+
+<QuickReference
+  sections={[
+    {
+      title: "Physical Networking (Lesson 1)",
+      items: [
+        { command: "ip addr show", description: "List all network interfaces with IP and MAC addresses", example: "ip addr show eth0" },
+        { command: "ip link show", description: "Show interface state (UP/DOWN) and MAC addresses", example: "ip link show eth0" },
+        { command: "ip route show", description: "Display the IP routing table — where packets go for each destination", example: "ip route show" },
+        { command: "ip route get <ip>", description: "Show which route the kernel would use to reach a specific IP", example: "ip route get 8.8.8.8" },
+        { command: "ip neigh show", description: "Display the ARP/neighbor table — IP to MAC mappings", example: "ip neigh show" },
+        { command: "MAC address", description: "6-byte hardware identifier (aa:bb:cc:dd:ee:ff) — local to one network segment, does not route across the internet" },
+        { command: "Switch", description: "Layer 2 device that forwards Ethernet frames based on a MAC address table; each port is its own collision domain" },
+        { command: "Router", description: "Layer 3 device that forwards IP packets between networks using a routing table and default gateway" },
+        { command: "ARP", description: "Address Resolution Protocol — maps IP addresses to MAC addresses on the local subnet via broadcast request/unicast reply" },
+        { command: "Broadcast domain", description: "The set of devices that receive a broadcast frame — one per switch (or VLAN)" },
+      ]
+    }
+  ]}
+/>
+
+## TCP/IP Stack
+
+<QuickReference
+  sections={[
+    {
+      title: "TCP/IP Stack (Lesson 2)",
+      items: [
+        { command: "Application", description: "Layer 4 (TCP/IP model): HTTP, HTTPS, DNS, SSH, SMTP — the protocol spoken by the program" },
+        { command: "Transport", description: "Layer 3: TCP (reliable, ordered, connected) or UDP (fast, stateless, no guarantees) — identified by port numbers" },
+        { command: "Internet", description: "Layer 2: IP — source/destination IP addresses, routing packets between networks" },
+        { command: "Link", description: "Layer 1: Ethernet, Wi-Fi — source/destination MAC addresses, one network segment hop" },
+        { command: "TCP", description: "Reliable, ordered, connection-oriented. 3-way handshake (SYN/SYN-ACK/ACK) before data. Use for: HTTP, SSH, databases.", example: "22 SSH, 80 HTTP, 443 HTTPS, 5432 PostgreSQL" },
+        { command: "UDP", description: "Fast, stateless, no guarantees. No handshake, no retransmission. Use for: DNS queries, video/audio, NTP, QUIC/HTTP3.", example: "53 DNS, 123 NTP" },
+        { command: "ss -tlnp", description: "List listening TCP sockets with process names — the go-to command for transport layer inspection", example: "ss -tlnp | grep :8080" },
+        { command: "10.0.0.0/8", description: "16.7M hosts — large cloud VPCs, corporate networks", example: "10.0.0.1 to 10.255.255.254" },
+        { command: "172.17.0.0/16", description: "65K hosts — Docker default bridge network", example: "172.17.0.1 to 172.17.255.254" },
+        { command: "192.168.1.0/24", description: "254 hosts — home/office subnet", example: "192.168.1.1 to 192.168.1.254" },
+      ]
+    }
+  ]}
+/>
+
+## DNS
+
+<QuickReference
+  sections={[
+    {
+      title: "DNS (Lesson 3)",
+      items: [
+        { command: "dig <domain>", description: "Full DNS lookup — shows question, answer, authority, additional sections", example: "dig example.com" },
+        { command: "dig +short <domain>", description: "Return just the answer (IP address) — useful in scripts", example: "dig +short example.com" },
+        { command: "dig +trace <domain>", description: "Trace the full resolution chain from root to authoritative — best DNS debugging tool", example: "dig +trace example.com" },
+        { command: "dig -x <ip>", description: "Reverse DNS lookup — queries the PTR record for an IP address", example: "dig -x 93.184.216.34" },
+        { command: "dig @<server> <domain>", description: "Query a specific DNS server (bypass /etc/resolv.conf)", example: "dig @8.8.8.8 example.com" },
+        { command: "A", description: "Maps hostname to IPv4 address", example: "app.example.com → 93.184.216.34" },
+        { command: "AAAA", description: "Maps hostname to IPv6 address", example: "app.example.com → 2606:2800::34" },
+        { command: "CNAME", description: "Alias — points one name to another name (resolver follows the chain)", example: "www.example.com → app.example.com" },
+        { command: "MX", description: "Mail exchange — where to deliver email for the domain (with priority number)", example: "example.com → 10 mail.example.com" },
+        { command: "NS", description: "Nameserver — which servers are authoritative for this zone", example: "example.com → ns1.registrar.com" },
+        { command: "PTR", description: "Pointer — reverse DNS, maps IP to hostname (written backwards in in-addr.arpa)", example: "34.216.184.93.in-addr.arpa → app.example.com" },
+        { command: "TXT", description: "Text record — SPF, DKIM, domain ownership verification", example: "v=spf1 include:_spf.google.com ~all" },
+        { command: "TTL", description: "Time To Live in seconds — how long resolvers cache the answer before re-querying. Lower TTL = faster propagation, more queries." },
+      ]
+    }
+  ]}
+/>
+
+## HTTP/HTTPS
+
+<QuickReference
+  sections={[
+    {
+      title: "HTTP/HTTPS (Lesson 4)",
+      items: [
+        { command: "GET", description: "Read a resource. Safe and idempotent. No request body.", example: "GET /api/users HTTP/1.1" },
+        { command: "POST", description: "Create a new resource. Not idempotent — each call creates a new item.", example: "POST /api/users HTTP/1.1" },
+        { command: "PUT", description: "Replace a resource entirely. Idempotent.", example: "PUT /api/users/42 HTTP/1.1" },
+        { command: "PATCH", description: "Partially update a resource.", example: "PATCH /api/users/42 HTTP/1.1" },
+        { command: "DELETE", description: "Remove a resource. Idempotent.", example: "DELETE /api/users/42 HTTP/1.1" },
+        { command: "200 OK", description: "Standard success. Body contains the resource." },
+        { command: "201 Created", description: "Resource created (POST success). Location header has new URL." },
+        { command: "301 Moved Permanently", description: "Permanent redirect — update bookmarks/links." },
+        { command: "302 Found", description: "Temporary redirect — keep using the original URL." },
+        { command: "400 Bad Request", description: "Malformed request — fix the client." },
+        { command: "401 Unauthorized", description: "Not authenticated — provide credentials first." },
+        { command: "403 Forbidden", description: "Authenticated but not allowed — check permissions." },
+        { command: "404 Not Found", description: "Resource does not exist at this URL." },
+        { command: "500 Internal Server Error", description: "Generic server crash — check server logs." },
+        { command: "502 Bad Gateway", description: "Proxy reached backend but got invalid response — backend is up but failing." },
+        { command: "503 Service Unavailable", description: "Server down or overloaded." },
+        { command: "curl -v <url>", description: "Verbose — show request and response headers", example: "curl -v http://api.example.com/" },
+        { command: "curl -I <url>", description: "HEAD request — response headers only, no body", example: "curl -I https://example.com/" },
+        { command: "curl -X POST -d '<data>'", description: "Send POST request with body data", example: "curl -X POST -d '{\"key\":\"val\"}' http://api.example.com/" },
+        { command: "curl -k <url>", description: "Skip TLS certificate verification (for self-signed certs, lab only)", example: "curl -k https://localhost:8443/" },
+        { command: "TLS handshake", description: "ClientHello → ServerHello + Certificate → Key Exchange → Finished. Asymmetric encryption to share secret; then symmetric (AES-GCM) for data." },
+      ]
+    }
+  ]}
+/>
+
+## SSH
+
+<QuickReference
+  sections={[
+    {
+      title: "SSH (Lesson 5)",
+      items: [
+        { command: "ssh-keygen -t ed25519 -C '<comment>'", description: "Generate an Ed25519 key pair (current best practice)", example: "ssh-keygen -t ed25519 -C 'deploy@prod'" },
+        { command: "ssh-copy-id -i <pubkey> user@host", description: "Append public key to remote authorized_keys", example: "ssh-copy-id -i ~/.ssh/id_ed25519.pub user@server" },
+        { command: "ssh-keygen -R <hostname>", description: "Remove a host from known_hosts (after server rebuild)", example: "ssh-keygen -R myserver.example.com" },
+        { command: "Host <alias>", description: "SSH config entry. Define HostName, User, IdentityFile, Port, ProxyJump under each Host block." },
+        { command: "ProxyJump <alias>", description: "Connect through a bastion host without exposing your key on it (replaces agent forwarding)", example: "ProxyJump bastion" },
+        { command: "ssh -L <local-port>:<remote-host>:<remote-port> user@server", description: "Local port forwarding: access remote service via local port", example: "ssh -L 5432:db.internal:5432 user@bastion" },
+        { command: "ssh -R <remote-port>:localhost:<local-port> user@server", description: "Remote port forwarding: expose local service on remote port", example: "ssh -R 8080:localhost:3000 user@server" },
+        { command: "ssh -D <local-port> user@server", description: "Dynamic forwarding: SOCKS5 proxy via SSH server", example: "ssh -D 1080 user@proxy-server" },
+        { command: "ssh -N -f <tunnel-args>", description: "-N: no shell (tunnel only). -f: run in background.", example: "ssh -N -f -L 5432:db:5432 user@bastion" },
+        { command: "ssh -A", description: "Agent forwarding: share your local key agent. Caution: trust the remote server fully. Prefer ProxyJump instead.", example: "ssh -A user@bastion" },
+        { command: "ssh -v / -vv / -vvv", description: "Verbose output — diagnose connection issues", example: "ssh -vv user@server" },
+      ]
+    }
+  ]}
+/>
+
+## Firewalls
+
+<QuickReference
+  sections={[
+    {
+      title: "Firewalls (Lesson 6)",
+      items: [
+        { command: "iptables -L <chain> -n -v --line-numbers", description: "List rules with counters and line numbers. -n = no DNS lookup", example: "iptables -L INPUT -n -v --line-numbers" },
+        { command: "iptables -A <chain> <match> -j <target>", description: "Append a rule to the end of a chain", example: "iptables -A INPUT -p tcp --dport 80 -j ACCEPT" },
+        { command: "iptables -I <chain> <num> <match> -j <target>", description: "Insert a rule at a specific position (1 = first)", example: "iptables -I INPUT 1 -p tcp --dport 22 -j ACCEPT" },
+        { command: "iptables -D <chain> <num>", description: "Delete a rule by line number", example: "iptables -D INPUT 3" },
+        { command: "iptables -P <chain> DROP", description: "Set default policy to DROP — add ACCEPT rules BEFORE this", example: "iptables -P INPUT DROP" },
+        { command: "iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT", description: "Allow return traffic for established connections (always add this first)" },
+        { command: "ufw enable / ufw disable", description: "Enable or disable the firewall" },
+        { command: "ufw status verbose", description: "Show current status and all rules" },
+        { command: "ufw allow <port>/<proto>", description: "Allow traffic on a port", example: "ufw allow 22/tcp" },
+        { command: "ufw deny <port>/<proto>", description: "Block traffic on a port", example: "ufw deny 23/tcp" },
+        { command: "PREROUTING", description: "First netfilter hook — before routing decision. Used for DNAT (redirect incoming to a different port/IP)" },
+        { command: "INPUT", description: "Packets destined for this machine. Where you write service-hardening rules." },
+        { command: "FORWARD", description: "Packets passing through this machine. Used on routers/gateways." },
+        { command: "OUTPUT", description: "Packets originating from this machine. Controls what this machine can send." },
+        { command: "POSTROUTING", description: "Last hook — after routing decision. Used for SNAT/masquerade (rewrite source IP)." },
+      ]
+    }
+  ]}
+/>
+
+## Network Troubleshooting
+
+<QuickReference
+  sections={[
+    {
+      title: "Network Troubleshooting (Lesson 7)",
+      items: [
+        { command: "1. ping -c 3 <host>", description: "Layer 3: can I reach the host? Confirms IP routing works.", example: "ping -c 3 app-server" },
+        { command: "2. traceroute <host>", description: "Layer 3: where does the path break? Each hop reveals its address via ICMP Time Exceeded.", example: "traceroute -I app-server" },
+        { command: "3. ss -tlnp | grep <port>", description: "Layer 4: is the service listening on the expected port?", example: "ss -tlnp | grep ':8080 '" },
+        { command: "4. curl -v http://<host>:<port>/", description: "Layer 7: does the application respond correctly?", example: "curl -v --connect-timeout 5 http://app-server/health" },
+        { command: "5. tcpdump -i eth0 port <N> -A -c 10", description: "Packet level: is traffic actually arriving? Always use a filter.", example: "tcpdump -i eth0 port 80 -A -c 10 -n" },
+        { command: "ping -c <N>", description: "Send exactly N packets then stop", example: "ping -c 5 server.example.com" },
+        { command: "ping -i <sec>", description: "Set interval between packets (default 1s)", example: "ping -i 0.2 server.example.com" },
+        { command: "Flags [S]", description: "tcpdump: SYN — connection attempt. If no reply: firewall DROP or host unreachable." },
+        { command: "Flags [R]", description: "tcpdump: RST — connection reset. Port is closed (nothing listening)." },
+        { command: "Flags [S.]", description: "tcpdump: SYN-ACK — server accepted connection. Handshake succeeded." },
+        { command: "curl --connect-timeout <sec>", description: "Fail fast if host not reachable — don't wait the full TCP timeout", example: "curl --connect-timeout 5 http://app-server/" },
+        { command: "Connection refused", description: "curl: nothing listening on that port — check ss on the server" },
+        { command: "Could not resolve host", description: "curl: DNS failure — check dig, check /etc/resolv.conf" },
+        { command: "Connection timed out", description: "curl: firewall DROP — packets arrive but get silently dropped" },
+      ]
+    }
+  ]}
+/>
+
+<Callout type="tip" title="What's Next: Docker Networking">
+Everything you learned in this module — bridge networks, container DNS, IP routing, port
+mapping, firewall rules — is exactly what Docker networking builds on. When you run
+`docker network create mynet`, Docker creates a Linux bridge interface. When containers
+resolve each other by service name, that's the same DNS mechanism you explored in the DNS
+lesson. When you publish a port with `-p 8080:80`, that's iptables NAT rules under the
+hood. The Docker module will feel familiar because you already understand the primitives.
+</Callout>
