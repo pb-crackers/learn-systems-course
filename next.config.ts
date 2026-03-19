@@ -1,7 +1,23 @@
-import type { NextConfig } from "next";
+import createMDX from '@next/mdx'
+import remarkGfm from 'remark-gfm'
+import rehypePrettyCode from 'rehype-pretty-code'
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: [remarkGfm],
+    rehypePlugins: [
+      [rehypePrettyCode, {
+        theme: 'one-dark-pro',
+        keepBackground: false,
+      }],
+    ],
+  },
+})
 
-export default nextConfig;
+const nextConfig = {
+  pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],
+  // Disable Turbopack for builds: rehype-pretty-code is incompatible with Turbopack
+  // Use `next dev --no-turbopack` for development as well
+}
+
+export default withMDX(nextConfig)
