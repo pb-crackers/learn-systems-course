@@ -50,13 +50,13 @@ Plans:
   3. Learner can run the exercise verification and receive explicit PASS/FAIL feedback telling them whether they succeeded — no guessing required
   4. Learner can reference the module cheat sheet and find all essential Linux commands and concepts from the module in one place
   5. Progress indicators in the sidebar update correctly when Linux lessons and exercises are marked complete
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Module 1 lesson content — CPU/OS/filesystem/permissions/processes (LNX-01 through LNX-05)
-- [ ] 02-02: Module 1 lesson content — shell/scripting/text tools/packages (LNX-06 through LNX-09)
-- [ ] 02-03: Docker lab environments and verified exercises for all Linux lessons (LNX-10)
-- [ ] 02-04: Module cheat sheet and progress integration (LNX-11)
+- [ ] 02-01-PLAN.md — Lessons 1-5 (computers, OS, filesystem, permissions, processes) + integration seam updates for sidebar/search (Wave 1, parallel with 02-02)
+- [ ] 02-02-PLAN.md — Lessons 6-9 (shell, scripting, text processing, packages) (Wave 1, parallel with 02-01)
+- [ ] 02-03-PLAN.md — Docker lab infrastructure: Dockerfile, 9 setup scripts, 9 verify scripts with PASS/FAIL output (Wave 2)
+- [ ] 02-04-PLAN.md — Module cheat sheet with QuickReference sections for all 9 lesson topics (Wave 2)
 
 ### Phase 3: Networking Foundations
 **Goal**: Learners can complete all Networking Foundations lessons with multi-container lab environments and understand how Docker networking (covered next) builds on these primitives
@@ -166,3 +166,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Roadmap created: 2026-03-18*
 *Requirements coverage: 80/80 v1 requirements mapped*
 *Phase 1 planned: 2026-03-18 — 4 plans, 3 waves*
+*Phase 2 planned: 2026-03-19 — 4 plans, 2 waves*
