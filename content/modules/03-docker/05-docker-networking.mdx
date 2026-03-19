@@ -1,0 +1,302 @@
+---
+title: "Docker Networking: Container-to-Container Communication"
+description: "Bridge networks, Docker's embedded DNS, and port publishing — how containers find and talk to each other"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "05-docker-networking"
+order: 5
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["03-docker/03-docker-containers", "02-networking/02-tcp-ip-stack"]
+tags: ["docker", "networking", "bridge", "DNS", "docker-network", "port-publishing", "container-dns"]
+---
+
+## Overview
+
+Your containers need to talk to each other — but you cannot hardcode IP addresses. Container IPs are assigned dynamically by Docker and change every time a container is recreated. If your API container is at `172.18.0.3` today, it might be `172.18.0.4` tomorrow. Hardcoding IPs breaks everything.
+
+Docker networking solves this with a custom DNS system: containers on the same network can resolve each other by **service name**. When your web container needs to call the API, it connects to `http://api:3000` — and Docker's embedded DNS server resolves `api` to the current container's IP automatically.
+
+This lesson bridges directly to the networking fundamentals from Phase 2. The same concepts — bridges, DNS resolution, IP routing — apply here. Docker just handles the plumbing.
+
+## How It Works
+
+### Docker Network Drivers
+
+Docker supports several network drivers, each with a different isolation model:
+
+| Driver | Description | Use Case |
+|--------|-------------|----------|
+| `bridge` | Software bridge on the host, containers get private IPs | Default for single-host container communication |
+| `host` | Container shares the host's network namespace, no isolation | Performance-critical apps where network overhead matters |
+| `none` | No network interface (except loopback) | Maximum isolation — container cannot reach anything |
+| `overlay` | Multi-host networking for Docker Swarm clusters | Distributed deployments across multiple Docker hosts |
+
+For single-host development and most production deployments, `bridge` is what you will use. The `host` driver is occasionally useful for performance-critical services but sacrifices isolation.
+
+<Callout type="deep-dive" title="Bridge Networks Are Virtual Linux Switches">
+In the networking module, you learned that a switch forwards Ethernet frames based on a MAC address table. When Docker creates a bridge network, it creates a **Linux bridge interface** on the host — effectively a virtual switch running in the kernel.
+
+Run `ip link show` on your host after creating a Docker network and you will see entries like `docker0` (the default bridge) and `br-xxxxxxxx` (custom bridges). These ARE the virtual switches for your containers. Each container gets a virtual Ethernet pair (`veth`): one end lives in the container, the other connects to the bridge on the host. The bridge routes frames between containers exactly as a physical switch would route frames between hosts.
+</Callout>
+
+### Default Bridge vs Custom Bridge
+
+Docker provides a default bridge network named `bridge` that all containers join unless you specify otherwise. **The default bridge has a critical limitation: containers cannot resolve each other by name.** They must use IP addresses.
+
+Custom bridge networks enable **container name DNS resolution**. This single difference makes custom bridges necessary for multi-container applications.
+
+```
+Default Bridge Network (docker0)
+┌──────────────────────────────────────────────┐
+│  container: app1             container: app2  │
+│  IP: 172.17.0.2              IP: 172.17.0.3   │
+│  ─────────────────────────────────────────── │
+│  No DNS: app2 cannot be resolved by name      │
+│  Must use: curl http://172.17.0.3:3000        │
+└──────────────────────────────────────────────┘
+
+Custom Bridge Network (br-abc123)
+┌──────────────────────────────────────────────┐
+│  container: api              container: web   │
+│  IP: 172.18.0.2              IP: 172.18.0.3   │
+│  ─────────────────────────────────────────── │
+│  DNS enabled: web resolves "api" → 172.18.0.2 │
+│  Works: curl http://api:3000/health           │
+└──────────────────────────────────────────────┘
+```
+
+<TerminalBlock
+  title="Default bridge — no name resolution"
+  lines={[
+    { type: 'comment', content: 'Start two containers on the default bridge (no --network flag)' },
+    { type: 'command', content: 'docker run -d --name alpha node:20-alpine sleep infinity' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'command', content: 'docker run -d --name beta node:20-alpine sleep infinity' },
+    { type: 'output', content: 'b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'Try to ping alpha from beta by name — fails' },
+    { type: 'command', content: 'docker exec beta ping -c 1 alpha 2>&1 | head -3' },
+    { type: 'output', content: 'ping: bad address "alpha"' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f alpha beta' },
+  ]}
+/>
+
+<TerminalBlock
+  title="Custom bridge — name resolution works"
+  lines={[
+    { type: 'comment', content: 'Create a custom bridge network' },
+    { type: 'command', content: 'docker network create mynet' },
+    { type: 'output', content: 'c3d4e5f6a7b8...' },
+    { type: 'comment', content: 'Start containers on the custom network' },
+    { type: 'command', content: 'docker run -d --name api --network mynet node:20-alpine sleep infinity' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'command', content: 'docker run -d --name web --network mynet node:20-alpine sleep infinity' },
+    { type: 'output', content: 'b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'Ping api from web by name — succeeds' },
+    { type: 'command', content: 'docker exec web ping -c 1 api' },
+    { type: 'output', content: 'PING api (172.18.0.2): 56 data bytes' },
+    { type: 'output', content: '64 bytes from 172.18.0.2: seq=0 ttl=64 time=0.134 ms' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f api web && docker network rm mynet' },
+  ]}
+/>
+
+### Container DNS Resolution
+
+Docker embeds a DNS server inside each custom bridge network at the fixed IP `127.0.0.11`. When a container on a custom network performs a DNS lookup (e.g., `curl http://api:3000`), the lookup goes to `127.0.0.11` first. Docker's DNS responds with the current IP of the container named `api`.
+
+In the DNS lesson from Phase 3, you learned about resolution chains — stub resolvers, recursive resolvers, authoritative servers. Docker's embedded DNS is a **local resolver** sitting at `127.0.0.11`. It is authoritative for container names on the same network and forwards everything else upstream.
+
+<TerminalBlock
+  title="Inspect Docker's embedded DNS"
+  lines={[
+    { type: 'command', content: 'docker network create testnet && docker run -d --name myapp --network testnet node:20-alpine sleep infinity' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'comment', content: "Check the container's /etc/resolv.conf — DNS is 127.0.0.11" },
+    { type: 'command', content: 'docker exec myapp cat /etc/resolv.conf' },
+    { type: 'output', content: 'search testnet' },
+    { type: 'output', content: 'nameserver 127.0.0.11' },
+    { type: 'output', content: 'options ndots:0' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f myapp && docker network rm testnet' },
+  ]}
+/>
+
+### Port Publishing
+
+Containers on a bridge network have private IPs not accessible from the host. To expose a container's port to the host (and the outside world), you must **publish** it with `-p`:
+
+```bash
+# Map host port 8080 to container port 3000
+docker run -p 8080:3000 myimage
+
+# Map to a specific host IP (useful when host has multiple interfaces)
+docker run -p 127.0.0.1:8080:3000 myimage
+
+# Assign a random host port
+docker run -P myimage
+```
+
+`EXPOSE` in a Dockerfile is documentation only. It does not publish any port. The `-p` flag at `docker run` time is what actually opens the host port.
+
+<Callout type="tip" title="Use -P for Quick Local Testing">
+`docker run -P myimage` publishes all EXPOSEd ports to random high-numbered host ports. Run `docker ps` to see the assigned ports. Useful for quickly spinning up a container when you do not care which host port it lands on.
+</Callout>
+
+### Network Isolation
+
+Containers on different networks cannot communicate, even if they are on the same Docker host. This is the primary security mechanism for multi-service applications — your database container should not be reachable by anyone except your API container.
+
+```
+Network Isolation
+┌──────────────────────┐    ┌──────────────────────┐
+│  frontend-net        │    │  backend-net          │
+│  ┌──────┐ ┌──────┐   │    │  ┌──────┐ ┌──────┐   │
+│  │ web  │ │ api  │   │    │  │ api  │ │ db   │   │
+│  └──────┘ └──────┘   │    │  └──────┘ └──────┘   │
+│  web can reach api   │    │  api can reach db     │
+└──────────────────────┘    └──────────────────────┘
+                  web cannot reach db directly
+```
+
+A container can be connected to **multiple networks simultaneously**. In the diagram above, the API container is on both `frontend-net` (to receive requests from `web`) and `backend-net` (to query `db`). This is the standard multi-tier architecture pattern in Docker Compose.
+
+<TerminalBlock
+  title="Network isolation — different networks cannot talk"
+  lines={[
+    { type: 'command', content: 'docker network create net-a && docker network create net-b' },
+    { type: 'comment', content: 'Each container is on a different network' },
+    { type: 'command', content: 'docker run -d --name container-a --network net-a node:20-alpine sleep infinity' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'command', content: 'docker run -d --name container-b --network net-b node:20-alpine sleep infinity' },
+    { type: 'output', content: 'b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'container-a cannot reach container-b — different networks' },
+    { type: 'command', content: 'docker exec container-a ping -c 1 container-b 2>&1 | head -2' },
+    { type: 'output', content: 'ping: bad address "container-b"' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f container-a container-b && docker network rm net-a net-b' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Connect Frontend and API Services with Custom Networking"
+  difficulty="Intermediate"
+  scenario="You are setting up a two-service application: a Node.js API and an nginx frontend that proxies to it. The services need to communicate by service name — not by IP address. You will create a custom bridge network, start both services on it, verify DNS resolution works, and confirm that containers on the default bridge cannot resolve names."
+  objective="By the end of this exercise, you will be able to create custom Docker networks, connect containers to them, demonstrate container-to-container DNS resolution by name, and use docker network inspect to analyze network topology."
+  steps={[
+    {
+      step: 1,
+      description: "Create a custom bridge network named 'appnet'.",
+      command: "docker network create appnet"
+    },
+    {
+      step: 2,
+      description: "Start the API container on the custom network. Use the progressive app image approach — run directly from node:20-alpine with an inline server.",
+      command: "docker run -d --name api --network appnet -p 3000:3000 node:20-alpine sh -c 'node -e \"const e=require(\\\"http\\\"),s=e.createServer((_,r)=>{r.writeHead(200,{\\\"Content-Type\\\":\\\"application/json\\\"});r.end(JSON.stringify({status:\\\"healthy\\\",service:\\\"api\\\"}))});s.listen(3000,()=>console.log(\\\"API up\\\"))\"'"
+    },
+    {
+      step: 3,
+      description: "Start an alpine container on the same custom network. This simulates the frontend service.",
+      command: "docker run -d --name web --network appnet alpine sleep infinity"
+    },
+    {
+      step: 4,
+      description: "From inside the web container, resolve the api container by name using curl. The DNS name 'api' should resolve to the API container's IP.",
+      command: "docker exec web sh -c 'apk add --no-cache curl -q && curl -s http://api:3000/'"
+    },
+    {
+      step: 5,
+      description: "Now start two containers on the DEFAULT bridge (no --network flag) and confirm name resolution fails.",
+      command: "docker run -d --name plain1 alpine sleep infinity && docker run -d --name plain2 alpine sleep infinity && docker exec plain2 ping -c 1 plain1 2>&1 | head -3"
+    },
+    {
+      step: 6,
+      description: "Inspect the custom network to see both connected containers and their IP addresses.",
+      command: "docker network inspect appnet"
+    },
+    {
+      step: 7,
+      description: "Check the DNS resolver inside the web container.",
+      command: "docker exec web cat /etc/resolv.conf"
+    },
+    {
+      step: 8,
+      description: "Clean up all containers and networks.",
+      command: "docker rm -f api web plain1 plain2 && docker network rm appnet"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "net-01",
+        label: "Custom network 'appnet' was created successfully",
+        hint: "Run: docker network ls — you should see a network named 'appnet' with Driver 'bridge'."
+      },
+      {
+        id: "net-02",
+        label: "The 'web' container can curl 'http://api:3000/' and get a JSON response",
+        hint: "Run: docker exec web curl -s http://api:3000/ — the response should contain {\"status\":\"healthy\",\"service\":\"api\"}. If curl is not installed, run: docker exec web apk add curl first."
+      },
+      {
+        id: "net-03",
+        label: "Containers on the default bridge CANNOT resolve each other by name",
+        hint: "Run: docker exec plain2 ping -c 1 plain1 — you should see 'bad address \"plain1\"'. This confirms the default bridge does not have embedded DNS."
+      },
+      {
+        id: "net-04",
+        label: "docker network inspect shows both 'api' and 'web' containers in the Containers section",
+        hint: "Run: docker network inspect appnet — look for the 'Containers' key. Both containers should appear with their names, IPv4 addresses, and MAC addresses."
+      },
+      {
+        id: "net-05",
+        label: "The /etc/resolv.conf inside the web container shows nameserver 127.0.0.11",
+        hint: "Run: docker exec web cat /etc/resolv.conf — the nameserver line should read '127.0.0.11'. This is Docker's embedded DNS resolver."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Network Commands",
+      items: [
+        { command: "docker network create <name>", description: "Create a custom bridge network", example: "docker network create mynet" },
+        { command: "docker network ls", description: "List all networks", example: "docker network ls" },
+        { command: "docker network inspect <name>", description: "Show network details including connected containers", example: "docker network inspect mynet" },
+        { command: "docker network connect <net> <container>", description: "Connect a running container to an additional network", example: "docker network connect mynet api" },
+        { command: "docker network disconnect <net> <container>", description: "Disconnect a container from a network", example: "docker network disconnect mynet api" },
+        { command: "docker network rm <name>", description: "Remove a network (no containers may be connected)", example: "docker network rm mynet" },
+        { command: "docker network prune", description: "Remove all unused networks", example: "docker network prune" }
+      ]
+    },
+    {
+      title: "Run Flags for Networking",
+      items: [
+        { command: "--network <name>", description: "Connect container to a specific network", example: "docker run --network mynet myimage" },
+        { command: "--name <name>", description: "Assign a name — becomes the DNS hostname on custom networks", example: "docker run --name api myimage" },
+        { command: "-p <host>:<container>", description: "Publish container port to host", example: "docker run -p 8080:3000 myimage" },
+        { command: "-p <ip>:<host>:<container>", description: "Publish to a specific host IP only", example: "docker run -p 127.0.0.1:8080:3000 myimage" },
+        { command: "-P", description: "Publish all EXPOSE'd ports to random host ports", example: "docker run -P myimage" }
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "Bridge network", description: "Virtual switch on the host — containers get private IPs and can communicate through the bridge" },
+        { command: "Custom bridge", description: "User-created bridge network — enables container DNS resolution by name (unlike the default bridge)" },
+        { command: "Docker DNS (127.0.0.11)", description: "Embedded DNS resolver on custom networks — resolves container names to current IPs automatically" },
+        { command: "Port publishing (-p)", description: "Maps a host port to a container port — required to make a container port accessible from outside Docker" },
+        { command: "EXPOSE", description: "Dockerfile instruction — documentation only, does NOT publish ports. -p flag at runtime is required." },
+        { command: "Network isolation", description: "Containers on different networks cannot communicate — use separate networks for security boundaries" }
+      ]
+    }
+  ]}
+/>

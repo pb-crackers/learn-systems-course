@@ -1,0 +1,272 @@
+---
+title: "Docker Volumes: Data Persistence Across Container Restarts"
+description: "Bind mounts and named volumes — how Docker manages data persistence and when to use each storage strategy"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "04-docker-volumes"
+order: 4
+difficulty: "Intermediate"
+estimatedMinutes: 20
+prerequisites: ["03-docker/03-docker-containers"]
+tags: ["docker", "volumes", "bind-mount", "named-volume", "persistence", "overlay-fs"]
+---
+
+## Overview
+
+Your database container restarted and all the data is gone. This is the most jarring lesson new Docker users learn the hard way — container filesystems are ephemeral. Everything written inside a container lives in the container's writable layer, and when the container is removed, that layer disappears with it.
+
+This lesson explains the three ways Docker handles data: the temporary writable layer (why data disappears), bind mounts (for development workflows), and named volumes (for production persistence). You will also learn when to choose each strategy and how they connect to the overlay filesystem you encountered in the container internals lesson.
+
+## How It Works
+
+### Container Filesystem Ephemerality
+
+When Docker creates a container, it builds a layered filesystem using the overlay FS driver — the same Linux kernel feature covered in the container internals lesson. The image layers are read-only. Docker adds a thin writable layer on top for the running container.
+
+Any file you create, modify, or delete inside a container lives in this writable layer:
+
+```
+Overlay FS: Container Filesystem Stack
+┌────────────────────────────────┐
+│  Container Writable Layer      │  ← ephemeral: deleted with the container
+│  (your /app/data, logs, etc.)  │
+├────────────────────────────────┤
+│  Image Layer 3 (COPY app.js)   │  ← read-only
+├────────────────────────────────┤
+│  Image Layer 2 (RUN npm ci)    │  ← read-only
+├────────────────────────────────┤
+│  Image Layer 1 (FROM node:20)  │  ← read-only
+└────────────────────────────────┘
+```
+
+When you run `docker rm` (or `docker run --rm`), the writable layer is discarded. The next container created from the same image starts with a clean writable layer. This is intentional — it is what makes containers reproducible — but it means you cannot store state in the container itself.
+
+<TerminalBlock
+  title="Data disappears without a volume"
+  lines={[
+    { type: 'comment', content: 'Write a file inside a container' },
+    { type: 'command', content: 'docker run --name demo node:20-alpine sh -c "echo hello > /tmp/data.txt && cat /tmp/data.txt"' },
+    { type: 'output', content: 'hello' },
+    { type: 'comment', content: 'Remove the container' },
+    { type: 'command', content: 'docker rm demo' },
+    { type: 'output', content: 'demo' },
+    { type: 'comment', content: 'Start a fresh container — the file is gone' },
+    { type: 'command', content: 'docker run --rm node:20-alpine sh -c "cat /tmp/data.txt 2>&1 || echo file not found"' },
+    { type: 'output', content: 'file not found' },
+  ]}
+/>
+
+### Bind Mounts
+
+A bind mount connects a directory on the **host filesystem** directly into the container. The host path and the container path point to the same underlying storage — changes made from either side are immediately visible to the other.
+
+```bash
+# Syntax: -v /host/absolute/path:/container/path
+docker run -v /home/user/myapp:/app myimage
+```
+
+This is what makes bind mounts ideal for **development workflows**: you edit source files on your host with your editor, and the running container immediately sees the changes without a rebuild.
+
+<TerminalBlock
+  title="Bind mount for development"
+  lines={[
+    { type: 'comment', content: 'Mount the local docker/app directory into the container' },
+    { type: 'command', content: 'docker run -d --name devapp -v $(pwd)/docker/app:/app -p 3000:3000 node:20-alpine sh -c "cd /app && npm install && node app.js"' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'comment', content: 'Edit app.js on the host — the container immediately uses the new version' },
+    { type: 'command', content: 'curl http://localhost:3000/' },
+    { type: 'output', content: '{"message":"Hello from the Docker app!","version":"1.0.0"}' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f devapp' },
+  ]}
+/>
+
+<Callout type="warning" title="Bind Mounts Give the Container Full Host Path Access">
+When you bind-mount a directory, the container process has the same access to that path as the user who started Docker. If you mount `/home/user` and the container runs as root, it can read and write everything in your home directory. Keep bind mounts scoped to project directories, never to sensitive paths like `/`, `/etc`, or your SSH keys directory.
+</Callout>
+
+### Named Volumes
+
+Named volumes are Docker-managed storage objects. Instead of pointing to a host path, you give the volume a name and Docker handles where the data lives. On Linux, named volumes are typically stored under `/var/lib/docker/volumes/<name>/_data`.
+
+```bash
+# Create a named volume
+docker volume create mydata
+
+# Mount a named volume (Docker creates it automatically if it doesn't exist)
+docker run -v mydata:/app/data myimage
+```
+
+The key distinction: the data in a named volume **outlives the container**. You can remove and recreate the container, and the same volume mounts with all the data intact.
+
+<TerminalBlock
+  title="Named volume persists across container restarts"
+  lines={[
+    { type: 'comment', content: 'Create a named volume' },
+    { type: 'command', content: 'docker volume create appdata' },
+    { type: 'output', content: 'appdata' },
+    { type: 'comment', content: 'Run the app and write data to the volume path' },
+    { type: 'command', content: 'docker run --rm --name writer -v appdata:/app/data node:20-alpine sh -c "echo persistent > /app/data/state.txt"' },
+    { type: 'comment', content: 'Run a new container with the same volume — data is there' },
+    { type: 'command', content: 'docker run --rm -v appdata:/app/data node:20-alpine cat /app/data/state.txt' },
+    { type: 'output', content: 'persistent' },
+    { type: 'comment', content: 'Inspect the volume to see where Docker stores it' },
+    { type: 'command', content: 'docker volume inspect appdata' },
+    { type: 'output', content: '[' },
+    { type: 'output', content: '    {' },
+    { type: 'output', content: '        "Name": "appdata",' },
+    { type: 'output', content: '        "Driver": "local",' },
+    { type: 'output', content: '        "Mountpoint": "/var/lib/docker/volumes/appdata/_data",' },
+    { type: 'output', content: '        ...' },
+    { type: 'output', content: '    }' },
+    { type: 'output', content: ']' },
+  ]}
+/>
+
+### Bind Mount vs Named Volume: Choosing the Right Strategy
+
+| Property | Bind Mount | Named Volume |
+|----------|-----------|--------------|
+| Storage location | Host path you specify | Docker-managed (e.g., `/var/lib/docker/volumes/`) |
+| Portability | Not portable — path must exist on host | Portable — works on any Docker host |
+| Development workflow | Excellent — edit on host, run in container | Poor — data not directly accessible from host IDE |
+| Backup | Manual — backup the host path | Manual — backup volume or use `docker cp` |
+| Performance (macOS/Windows) | Slower due to filesystem translation | Faster — less cross-boundary translation |
+| Use case | Source code during development | Database files, uploads, persistent state |
+| Security | Container has full access to host path | Scoped to Docker's storage — more isolated |
+
+**Rule of thumb:**
+- Development: bind mount your source code directory
+- Production data (databases, file uploads, logs): named volumes
+
+### tmpfs Mounts
+
+A third option exists for sensitive data that should never touch disk. `tmpfs` mounts store data in the host's memory only — they disappear when the container stops and are never written to disk. Useful for secrets, session tokens, or temporary credentials.
+
+```bash
+docker run --tmpfs /app/secrets:rw,size=64m myimage
+```
+
+<Callout type="deep-dive" title="How Overlay FS Handles the Writable Layer">
+Docker's overlay filesystem uses two key directories: a `lowerdir` (the read-only image layers) and an `upperdir` (the writable container layer). When a container writes to a file that exists in a lower layer, the overlay driver performs a **copy-on-write**: it copies the file from the lower layer into the upper layer, then modifies the copy. The original in the lower layer is untouched. When the container is removed, only the `upperdir` is deleted — the image layers (lowerdir) remain intact for future containers.
+
+Named volumes and bind mounts **bypass this mechanism entirely**. Their data goes directly to the host filesystem, not through the overlay driver. That is why they persist across container deletions — the data was never in the writable layer to begin with.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Persist Application State Across Container Restarts"
+  difficulty="Intermediate"
+  scenario="You are running a Node.js application that stores request counts in a local file. Without a volume, every time the container restarts the count resets to zero. Your task is to set up named volume persistence so the count survives restarts, then wire up a bind mount for local development so you can edit the app code on your host and see changes immediately without rebuilding."
+  objective="By the end of this exercise, you will be able to demonstrate data loss without a volume, configure a named volume for persistence, use a bind mount for development workflows, and inspect volumes with docker volume commands."
+  steps={[
+    {
+      step: 1,
+      description: "Run the progressive app without any volume. Confirm the container starts and the root endpoint responds.",
+      command: "docker run -d --name novolume -p 3000:3000 node:20-alpine sh -c 'cd /tmp && npm init -y && npm install express && node -e \"const e=require(\\\"express\\\"),a=e();a.get(\\\"/\\\",(_,r)=>r.json({msg:\\\"no volume\\\"}));a.listen(3000)\"'"
+    },
+    {
+      step: 2,
+      description: "Remove the container. Any state it had is gone. This demonstrates the ephemerality of the container writable layer.",
+      command: "docker rm -f novolume"
+    },
+    {
+      step: 3,
+      description: "Build the exercise app image from the docker/app directory. The Dockerfile.basic will be created in lesson 2 — for now use node:20-alpine directly with a volume mount.",
+      command: "docker volume create appstate && docker run -d --name withvolume -v appstate:/app/data -p 3000:3000 node:20-alpine sh -c 'mkdir -p /app/data && echo 0 > /app/data/count.txt && node -e \"const e=require(\\\"express\\\"),a=e(),fs=require(\\\"fs\\\");a.get(\\\"/\\\",(_,r)=>{let n=parseInt(fs.readFileSync(\\\"/app/data/count.txt\\\")||0)+1;fs.writeFileSync(\\\"/app/data/count.txt\\\",n.toString());r.json({visits:n})});a.listen(3000)\"'"
+    },
+    {
+      step: 4,
+      description: "Make a few requests to increment the counter, then remove and recreate the container with the same volume. The counter continues from where it left off.",
+      command: "curl http://localhost:3000/ && curl http://localhost:3000/ && docker rm -f withvolume"
+    },
+    {
+      step: 5,
+      description: "Start a new container mounting the same named volume. Check that the counter value persisted.",
+      command: "docker run --rm -v appstate:/app/data node:20-alpine cat /app/data/count.txt"
+    },
+    {
+      step: 6,
+      description: "Use a bind mount to serve the docker/app directory from your host. Edit app.js on your host while the container is running and restart node to see the change.",
+      command: "docker run -d --name devapp -v $(pwd)/docker/app:/app -w /app -p 3001:3000 node:20-alpine sh -c 'npm install && node app.js'"
+    },
+    {
+      step: 7,
+      description: "Inspect the named volume to see its Docker-managed storage location.",
+      command: "docker volume inspect appstate"
+    },
+    {
+      step: 8,
+      description: "List all volumes and clean up.",
+      command: "docker volume ls && docker rm -f devapp && docker volume rm appstate"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "vol-01",
+        label: "Data written without a volume was lost when the container was removed",
+        hint: "Run a container, write a file inside it, remove the container with docker rm, start a new container from the same image and confirm the file is gone."
+      },
+      {
+        id: "vol-02",
+        label: "Counter value persisted in the named volume after removing and recreating the container",
+        hint: "Run: docker run --rm -v appstate:/app/data node:20-alpine cat /app/data/count.txt — the number should match what was there before you removed the container."
+      },
+      {
+        id: "vol-03",
+        label: "Bind mount reflected changes made to app.js on the host",
+        hint: "With the devapp container running, edit docker/app/app.js on your host (e.g., change the message string). Restart the node process inside the container and curl the endpoint — the new message should appear."
+      },
+      {
+        id: "vol-04",
+        label: "docker volume ls shows the named volume you created",
+        hint: "Run: docker volume ls — the DRIVER column should show 'local' and the VOLUME NAME column should show 'appstate'."
+      },
+      {
+        id: "vol-05",
+        label: "docker volume inspect shows the Mountpoint path on the host",
+        hint: "Run: docker volume inspect appstate — look for the 'Mountpoint' field. On Linux this is /var/lib/docker/volumes/appstate/_data. On macOS Docker Desktop, the path is inside the VM."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Volume Commands",
+      items: [
+        { command: "docker volume create <name>", description: "Create a named volume", example: "docker volume create mydata" },
+        { command: "docker volume ls", description: "List all named volumes", example: "docker volume ls" },
+        { command: "docker volume inspect <name>", description: "Show volume details including host mountpoint", example: "docker volume inspect mydata" },
+        { command: "docker volume rm <name>", description: "Remove a named volume (must not be in use)", example: "docker volume rm mydata" },
+        { command: "docker volume prune", description: "Remove all unused named volumes", example: "docker volume prune" }
+      ]
+    },
+    {
+      title: "Run Flags for Storage",
+      items: [
+        { command: "-v <name>:/container/path", description: "Mount a named volume", example: "docker run -v mydata:/app/data myimage" },
+        { command: "-v /host/path:/container/path", description: "Bind mount a host directory", example: "docker run -v $(pwd)/src:/app/src myimage" },
+        { command: "--mount type=volume,source=<name>,target=/path", description: "Verbose mount syntax — same as -v for named volumes but more explicit", example: "docker run --mount type=volume,source=mydata,target=/data myimage" },
+        { command: "--tmpfs /container/path", description: "In-memory filesystem — never written to disk", example: "docker run --tmpfs /tmp myimage" }
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "Writable layer", description: "Ephemeral container-specific storage on top of read-only image layers — deleted with docker rm" },
+        { command: "Named volume", description: "Docker-managed persistent storage object identified by name — survives container deletion" },
+        { command: "Bind mount", description: "Direct mapping from a host path into the container — container and host share the same underlying files" },
+        { command: "tmpfs mount", description: "Memory-only storage — never written to disk, disappears when container stops" },
+        { command: "Copy-on-write", description: "Overlay FS mechanism: when a container modifies an image file, it copies it to the writable layer first" }
+      ]
+    }
+  ]}
+/>
