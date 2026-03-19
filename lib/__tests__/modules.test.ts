@@ -45,7 +45,13 @@ describe('getModuleBySlug', () => {
 })
 
 describe('getAllLessonPaths', () => {
-  it('returns an array (empty in Phase 1)', () => {
+  it('returns lesson paths for all modules', () => {
     expect(Array.isArray(getAllLessonPaths())).toBe(true)
+  })
+
+  it('docker module has 9 lessons', () => {
+    const paths = getAllLessonPaths()
+    const dockerPaths = paths.filter(p => p.moduleSlug === '03-docker')
+    expect(dockerPaths).toHaveLength(9)
   })
 })
