@@ -41,7 +41,6 @@ Build the Next.js application shell with full course navigation, localStorage pr
 - Code blocks: syntax highlighting + line numbers + copy button + filename/language header
 - Terminal mockup component showing expected command/output pairs (styled like a real terminal)
 - Exercise verification: checklist display with pass/fail indicators and expandable hints
-- Mermaid diagrams rendered inline for architecture and data flow concepts
 - Callout components for tips, warnings, and "under the hood" deep dives
 
 ### Search
@@ -116,6 +115,7 @@ No external specs — requirements are fully captured in decisions above and in 
 - Embedded web-based terminal emulator (INT-01, v2) — for now, terminal mockup components showing expected command/output pairs
 - Interactive quizzes (INT-02, v2)
 - Animated diagrams (INT-03, v2)
+- Mermaid diagrams rendered inline — requires rehype-mermaid + Playwright/chromium at build time; deferred to Phase 2+ when actual diagram content is authored (see next.config.ts note in Plan 01-01)
 
 </deferred>
 
