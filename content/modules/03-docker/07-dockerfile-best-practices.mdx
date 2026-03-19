@@ -1,0 +1,351 @@
+---
+title: "Dockerfile Best Practices: From Working to Production-Ready"
+description: "Multi-stage builds, layer caching, non-root users, .dockerignore, and HEALTHCHECK — the practices that separate a working Dockerfile from a production-ready one"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "07-dockerfile-best-practices"
+order: 7
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["03-docker/02-docker-images", "03-docker/03-docker-containers"]
+tags: ["docker", "dockerfile", "multi-stage", "non-root", "HEALTHCHECK", "dockerignore", "layer-caching", "alpine", "security", "optimization"]
+---
+
+## Overview
+
+Your Docker image is 1.1GB and runs as root — that is a production incident waiting to happen. A 1.1GB image takes minutes to pull in CI, costs money in registry storage, and the root user inside means a vulnerability in your app potentially gives an attacker root access to the host.
+
+This lesson teaches the practices that close the gap between "it works on my machine" and "production-ready". You will refactor the progressive app's `Dockerfile.basic` into `Dockerfile.optimized` — taking it from 1.1GB to ~150MB, adding a non-root user, a health check, and a proper `.dockerignore`. Every change is explained mechanically, not just prescribed.
+
+## How It Works
+
+### Multi-Stage Builds
+
+A single-stage Dockerfile installs everything needed to **build** the app and keeps it all in the final image — compilers, dev dependencies, build cache, source code. For a compiled language this is especially wasteful: the C compiler needed to build a binary has no place in the image that runs that binary.
+
+Multi-stage builds introduce **named stages** with `AS <name>`. You can copy specific files from a stage into a later one. The intermediate stages are never in the final image.
+
+```dockerfile
+# Stage 1: Build — install and compile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+# (build step would go here for TypeScript, webpack, etc.)
+
+# Stage 2: Runtime — only what's needed to run
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app .  # pull just the output from builder
+CMD ["node", "app.js"]
+```
+
+The final image starts from a clean `node:20-alpine` base. Only the files explicitly `COPY --from=builder`'d make it in.
+
+**Before and after** for the progressive app:
+
+<TerminalBlock
+  title="Before: Single-stage build with full node:20"
+  lines={[
+    { type: 'comment', content: 'Build from Dockerfile.basic — full node:20 base image, ~1.1GB' },
+    { type: 'command', content: 'docker build --no-cache -t app:basic -f docker/app/Dockerfile.basic docker/app/' },
+    { type: 'output', content: '[+] Building 45.2s (8/8) FINISHED' },
+    { type: 'command', content: 'docker images app:basic' },
+    { type: 'output', content: 'REPOSITORY   TAG     IMAGE ID       CREATED         SIZE' },
+    { type: 'output', content: 'app          basic   a1b2c3d4e5f6   3 seconds ago   1.12GB' },
+  ]}
+/>
+
+<TerminalBlock
+  title="After: Multi-stage build with node:20-alpine"
+  lines={[
+    { type: 'comment', content: 'Build from Dockerfile.optimized — multi-stage, Alpine base, ~150MB' },
+    { type: 'command', content: 'docker build --no-cache -t app:optimized -f docker/app/Dockerfile.optimized docker/app/' },
+    { type: 'output', content: '[+] Building 38.1s (12/12) FINISHED' },
+    { type: 'command', content: 'docker images app:optimized' },
+    { type: 'output', content: 'REPOSITORY   TAG        IMAGE ID       CREATED         SIZE' },
+    { type: 'output', content: 'app          optimized  b2c3d4e5f6a7   2 seconds ago   142MB' },
+  ]}
+/>
+
+<Callout type="warning" title="Use --no-cache for Fair Size Comparisons">
+Docker aggressively reuses cached layers from previous builds. When comparing image sizes, always build with `docker build --no-cache`. Without it, Docker may reuse cached layers from earlier builds and you will not get accurate timings or size readings. Also run `docker image prune` to remove dangling images from previous test builds before comparing.
+</Callout>
+
+### Layer Caching
+
+Every `RUN`, `COPY`, and `ADD` instruction creates a new layer. Docker caches each layer keyed by the instruction and its inputs. If the inputs haven't changed since the last build, Docker reuses the cached layer — making subsequent builds fast.
+
+**The rule:** Order instructions from least-frequently-changed to most-frequently-changed.
+
+```dockerfile
+# WRONG: cache-busting order
+COPY . .              # invalidated on every code change
+RUN npm install       # re-runs on every code change, even if no new packages
+
+# RIGHT: cache-friendly order
+COPY package*.json ./ # only changes when you add/remove packages
+RUN npm ci --omit=dev # cached as long as package-lock.json hasn't changed
+COPY . .              # invalidated by code changes — but npm install is already cached
+```
+
+With the correct order, changing `app.js` only invalidates the final `COPY . .` layer. The `npm ci` layer is reused from cache, saving 10-30 seconds per build.
+
+<TerminalBlock
+  title="Layer caching in action — second build reuses cache"
+  lines={[
+    { type: 'comment', content: 'First build — no cache, all layers run' },
+    { type: 'command', content: 'docker build -t app:cached -f docker/app/Dockerfile.optimized docker/app/' },
+    { type: 'output', content: '[+] Building 38.1s (12/12) FINISHED' },
+    { type: 'comment', content: 'Edit app.js on host, then rebuild — only last COPY invalidated' },
+    { type: 'command', content: 'docker build -t app:cached -f docker/app/Dockerfile.optimized docker/app/' },
+    { type: 'output', content: '[+] Building 1.4s (12/12) FINISHED' },
+    { type: 'output', content: ' => CACHED [builder 3/5] RUN npm ci --omit=dev         0.0s' },
+    { type: 'output', content: ' => [builder 4/5] COPY . .                              0.1s' },
+  ]}
+/>
+
+### .dockerignore
+
+When you run `docker build`, Docker sends the entire **build context** (the directory you specify) to the Docker daemon. If that directory contains `node_modules`, `.git`, test files, and local secrets, they are all transferred — even if your Dockerfile never copies them.
+
+`.dockerignore` works exactly like `.gitignore`, but for the build context:
+
+```
+# docker/app/.dockerignore
+node_modules        # don't send local node_modules — npm ci installs fresh ones inside
+.git               # git history is not needed in the image
+.env               # never send secrets to the build context
+*.test.js          # test files don't belong in production images
+coverage/          # test coverage reports
+npm-debug.log
+```
+
+<TerminalBlock
+  title="Build context size with and without .dockerignore"
+  lines={[
+    { type: 'comment', content: 'Without .dockerignore — node_modules included in context' },
+    { type: 'command', content: 'docker build -t app:nodockignore docker/app/' },
+    { type: 'output', content: '[+] Building ...' },
+    { type: 'output', content: 'Sending build context to Docker daemon  45.2MB' },
+    { type: 'comment', content: 'With .dockerignore — node_modules excluded from context' },
+    { type: 'command', content: 'docker build -t app:withignore docker/app/' },
+    { type: 'output', content: '[+] Building ...' },
+    { type: 'output', content: 'Sending build context to Docker daemon  12.3kB' },
+  ]}
+/>
+
+### Security — Non-Root USER
+
+By default, Docker containers run as `root` (UID 0). This is convenient but dangerous. If an attacker exploits a vulnerability in your application and escapes the container namespace, they arrive on the host with root privileges.
+
+The fix is straightforward: create a system user and switch to it before running the application.
+
+```dockerfile
+# Create a system group and user with no login shell
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Transfer ownership of the app directory to the new user
+RUN chown -R appuser:appgroup /app
+
+# All subsequent instructions (including CMD) run as appuser
+USER appuser
+```
+
+Verify your running container is not root:
+
+<TerminalBlock
+  title="Verify non-root user in the container"
+  lines={[
+    { type: 'command', content: 'docker run --rm app:optimized id' },
+    { type: 'output', content: 'uid=100(appuser) gid=101(appgroup) groups=101(appgroup)' },
+    { type: 'comment', content: 'Compare to the basic image — runs as root' },
+    { type: 'command', content: 'docker run --rm app:basic id' },
+    { type: 'output', content: 'uid=0(root) gid=0(root) groups=0(root)' },
+  ]}
+/>
+
+<Callout type="warning" title="Never Run Production Containers as Root">
+Running containers as root is the single most common Docker security mistake. Many container breakout vulnerabilities have minimal impact when the container runs as a non-privileged user — the attacker's blast radius is limited to the container's assigned UID. For any production workload, always add a `USER` instruction.
+</Callout>
+
+### HEALTHCHECK Instruction
+
+A Dockerfile `HEALTHCHECK` defines how Docker knows whether the container is actually working — not just that the process is running.
+
+```dockerfile
+# Check every 30 seconds; fail after 3 seconds; unhealthy after 3 failures
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
+```
+
+With a `HEALTHCHECK`, `docker ps` shows `(healthy)` or `(unhealthy)` in the STATUS column:
+
+<TerminalBlock
+  title="HEALTHCHECK status in docker ps"
+  lines={[
+    { type: 'command', content: 'docker run -d --name healthapp -p 3000:3000 app:optimized' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'comment', content: 'Wait 30 seconds for first health check, then check status' },
+    { type: 'command', content: 'docker ps' },
+    { type: 'output', content: 'CONTAINER ID  IMAGE          STATUS                    PORTS' },
+    { type: 'output', content: 'a1b2c3d4e5f6  app:optimized  Up 32 seconds (healthy)   0.0.0.0:3000->3000/tcp' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker rm -f healthapp' },
+  ]}
+/>
+
+The `HEALTHCHECK` in `Dockerfile.optimized` uses `wget` instead of `curl` because Alpine includes `wget` by default. `curl` is not pre-installed on Alpine.
+
+### Minimal Base Images
+
+The base image you choose accounts for the majority of the final image size. Use the smallest image that provides what you need:
+
+| Image | Size | When to Use |
+|-------|------|-------------|
+| `node:20` | ~1.1GB | Never in production — full Debian with all build tools |
+| `node:20-slim` | ~250MB | Debian-based, stripped of build tools — a middle ground |
+| `node:20-alpine` | ~140MB | Alpine Linux — smallest option, suitable for most Node.js apps |
+| `scratch` | 0B | Starting from nothing — for statically compiled binaries only |
+
+Alpine uses the **musl libc** instead of glibc. Most Node.js apps work fine on Alpine. Some native npm packages that link against glibc may require debugging — if you encounter issues, `node:20-slim` is a safer alternative with minimal size increase.
+
+<Callout type="deep-dive" title="Counting Layers with docker image inspect">
+Multi-stage builds reduce both image size and layer count. Each `RUN`, `COPY`, and `ADD` instruction adds a layer. You can count them:
+
+```bash
+docker image inspect app:basic --format '{{len .RootFS.Layers}}'
+# 8
+
+docker image inspect app:optimized --format '{{len .RootFS.Layers}}'
+# 6
+```
+
+Fewer layers means faster pulls and pushes. Fewer layers also means fewer cached intermediate states that an attacker could potentially inspect. The RESEARCH notes that multi-stage builds produce a cleaner layer graph — the builder stage layers never appear in the final image.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Optimize the Progressive App Dockerfile for Production"
+  difficulty="Intermediate"
+  scenario="The Node.js app you have been working with throughout this module is running from Dockerfile.basic — a 1.1GB image running as root with no health check. Before it goes anywhere near production, you need to optimize it. You will build both images, compare their sizes and layer counts, verify the non-root user, and confirm the HEALTHCHECK is working."
+  objective="By the end of this exercise, you will be able to build a multi-stage Dockerfile, compare image sizes before and after optimization, verify a non-root container user, and observe HEALTHCHECK status in docker ps output."
+  steps={[
+    {
+      step: 1,
+      description: "Build the basic image from Dockerfile.basic using --no-cache for an accurate comparison. Note the size in the output.",
+      command: "docker build --no-cache -t app:basic -f docker/app/Dockerfile.basic docker/app/"
+    },
+    {
+      step: 2,
+      description: "Build the optimized image from Dockerfile.optimized using --no-cache. Note the build time difference.",
+      command: "docker build --no-cache -t app:optimized -f docker/app/Dockerfile.optimized docker/app/"
+    },
+    {
+      step: 3,
+      description: "Compare the two image sizes side by side.",
+      command: "docker images | grep '^app'"
+    },
+    {
+      step: 4,
+      description: "Verify the optimized image runs as a non-root user. The uid should NOT be 0.",
+      command: "docker run --rm app:optimized id"
+    },
+    {
+      step: 5,
+      description: "Verify the basic image runs as root for comparison.",
+      command: "docker run --rm app:basic id"
+    },
+    {
+      step: 6,
+      description: "Run the optimized container and wait 30-40 seconds for the first HEALTHCHECK to run. Then check the status.",
+      command: "docker run -d --name prodapp -p 3000:3000 app:optimized && sleep 35 && docker ps"
+    },
+    {
+      step: 7,
+      description: "Compare layer counts between the two images.",
+      command: "echo Basic: $(docker image inspect app:basic --format '{{len .RootFS.Layers}}') layers && echo Optimized: $(docker image inspect app:optimized --format '{{len .RootFS.Layers}}') layers"
+    },
+    {
+      step: 8,
+      description: "Clean up all test images and containers.",
+      command: "docker rm -f prodapp && docker image prune -f && docker rmi app:basic app:optimized"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "bp-01",
+        label: "The optimized image is under 200MB",
+        hint: "Run: docker images app:optimized — the SIZE column should show something like 142MB. If it is over 200MB, check that your Dockerfile.optimized uses FROM node:20-alpine (not node:20)."
+      },
+      {
+        id: "bp-02",
+        label: "The basic image is over 1GB",
+        hint: "Run: docker images app:basic — the SIZE column should show ~1.12GB. This is the full node:20 Debian image with all build tools included."
+      },
+      {
+        id: "bp-03",
+        label: "docker run --rm app:optimized id shows a non-root UID",
+        hint: "The output should be something like 'uid=100(appuser) gid=101(appgroup)'. If it shows uid=0(root), your Dockerfile.optimized is missing the USER instruction — add USER appuser after the chown command."
+      },
+      {
+        id: "bp-04",
+        label: "docker ps shows (healthy) for the running optimized container after 30+ seconds",
+        hint: "Run: docker ps — look in the STATUS column. It should show 'Up X seconds (healthy)'. If it shows '(health: starting)', wait another 30 seconds. If it shows '(unhealthy)', check that the /health endpoint responds: curl http://localhost:3000/health"
+      },
+      {
+        id: "bp-05",
+        label: "The optimized image has fewer or equal layers compared to the basic image",
+        hint: "Run: docker image inspect app:optimized --format '{{len .RootFS.Layers}}' and compare to docker image inspect app:basic --format '{{len .RootFS.Layers}}'. Multi-stage builds start fresh in the final stage, so layer count resets."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Dockerfile Best Practices Checklist",
+      items: [
+        { command: "Use Alpine base images", description: "node:20-alpine instead of node:20 — ~140MB vs ~1.1GB", example: "FROM node:20-alpine" },
+        { command: "Multi-stage builds", description: "Separate build stage from runtime stage — copy only the output", example: "FROM node:20-alpine AS builder ... FROM node:20-alpine" },
+        { command: "Copy package files first", description: "COPY package*.json before COPY . . — enables npm install caching", example: "COPY package*.json ./" },
+        { command: "Use npm ci", description: "Reproducible installs from package-lock.json — prefer over npm install in builds", example: "RUN npm ci --omit=dev" },
+        { command: "Add .dockerignore", description: "Exclude node_modules, .git, .env from build context", example: "node_modules\n.git\n.env" },
+        { command: "Non-root USER", description: "Create a system user and switch to it — never run production containers as root", example: "RUN adduser -S appuser && USER appuser" },
+        { command: "Add HEALTHCHECK", description: "Define a health probe — docker ps shows (healthy)/(unhealthy)", example: "HEALTHCHECK CMD wget -qO- http://localhost:3000/health || exit 1" },
+        { command: "Use CMD exec form", description: "CMD [\"node\", \"app.js\"] not CMD node app.js — node becomes PID 1 and receives signals", example: "CMD [\"node\", \"app.js\"]" }
+      ]
+    },
+    {
+      title: "Dockerfile Instruction Reference",
+      items: [
+        { command: "FROM <image> AS <name>", description: "Start a build stage — AS name allows COPY --from=name in later stages", example: "FROM node:20-alpine AS builder" },
+        { command: "WORKDIR /path", description: "Set working directory for RUN, COPY, CMD — creates the directory if needed", example: "WORKDIR /app" },
+        { command: "COPY <src> <dst>", description: "Copy files from build context into the image layer", example: "COPY package*.json ./" },
+        { command: "COPY --from=<stage>", description: "Copy files from a previous build stage — key for multi-stage", example: "COPY --from=builder /app ." },
+        { command: "RUN <command>", description: "Execute a shell command and commit the result as a new layer", example: "RUN npm ci --omit=dev" },
+        { command: "USER <name>", description: "Switch the running user for subsequent instructions and CMD", example: "USER appuser" },
+        { command: "EXPOSE <port>", description: "Document the port the app listens on — does NOT publish it", example: "EXPOSE 3000" },
+        { command: "HEALTHCHECK CMD <cmd>", description: "Define how Docker tests container health — exit 0 = healthy", example: "HEALTHCHECK CMD wget -qO- http://localhost/health || exit 1" },
+        { command: "CMD [\"exec\", \"form\"]", description: "Default command to run — exec form (JSON array) makes it PID 1", example: "CMD [\"node\", \"app.js\"]" }
+      ]
+    },
+    {
+      title: "Key Commands for Image Analysis",
+      items: [
+        { command: "docker images", description: "List images with size", example: "docker images | grep myapp" },
+        { command: "docker image inspect --format '{{len .RootFS.Layers}}'", description: "Count image layers", example: "docker image inspect myapp --format '{{len .RootFS.Layers}}'" },
+        { command: "docker history <image>", description: "Show layer history with sizes — identify which instructions added the most bytes", example: "docker history app:basic" },
+        { command: "docker image prune", description: "Remove dangling images (untagged build artifacts)", example: "docker image prune -f" }
+      ]
+    }
+  ]}
+/>

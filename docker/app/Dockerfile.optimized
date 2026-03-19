@@ -1,0 +1,75 @@
+# ==============================================================================
+# Stage 1: Builder
+# ==============================================================================
+# WHY MULTI-STAGE: The full node:20 image contains build tools, npm cache,
+# and source files that the running app doesn't need. Multi-stage builds let
+# us copy only the production output into a clean, minimal final image.
+# The builder stage is never in the final image — its layers are discarded.
+FROM node:20-alpine AS builder
+
+# Set working directory for all subsequent instructions in this stage
+WORKDIR /app
+
+# Copy only the package files first.
+# WHY: Docker builds images layer by layer. If package.json hasn't changed,
+# Docker reuses the cached 'npm ci' layer — even if app.js changed.
+# Copying package.json before COPY . . means a code-only change only
+# invalidates layers from COPY . . onward, not the expensive install step.
+COPY package*.json ./
+
+# Install ONLY production dependencies (no devDependencies).
+# npm ci is preferred over npm install in CI/build contexts:
+# - Installs exact versions from package-lock.json
+# - Fails if package-lock.json is out of sync with package.json
+# - Faster than npm install because it skips dependency resolution
+RUN npm ci --omit=dev
+
+# Copy the rest of the application source code after installing dependencies.
+# This layer is invalidated only when source files change — not on every build.
+COPY . .
+
+# ==============================================================================
+# Stage 2: Final runtime image
+# ==============================================================================
+# Start from a fresh Alpine image — the builder stage layers are NOT included.
+# WHY ALPINE: node:20-alpine is ~150MB vs ~1.1GB for node:20 (full Debian).
+# Alpine uses musl libc and busybox — sufficient for running Node.js apps.
+FROM node:20-alpine
+
+WORKDIR /app
+
+# WHY NON-ROOT USER: Running as root inside a container is a security risk.
+# If the application has a vulnerability and an attacker escapes the container,
+# they should not have root access to the host. Non-root is the production standard.
+# addgroup/adduser flags:
+#   -S: system user/group (no login shell, no password, lower UID range)
+#   -G: assign user to this group
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copy the installed node_modules and app source from the builder stage.
+# Only the files needed to run the app are copied — no build tools, no npm cache.
+COPY --from=builder /app .
+
+# Ensure the app directory is owned by the non-root user we created above.
+# This is required when running as appuser — the process needs write access
+# to /app (e.g., for any log files or data written in the working directory).
+RUN chown -R appuser:appgroup /app
+
+# Switch to the non-root user for all subsequent instructions and at runtime.
+# Any command, including the final CMD, runs as appuser — not root.
+USER appuser
+
+# Document the port the app listens on (informational — does not publish it).
+EXPOSE 3000
+
+# WHY HEALTHCHECK IN DOCKERFILE: A Dockerfile HEALTHCHECK provides a default
+# health probe that works even when the container is run standalone (not via Compose).
+# Compose can override this with its own healthcheck: block, but having a default
+# means docker run and docker ps always show a health status.
+# wget is used instead of curl because Alpine includes wget but not curl by default.
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health || exit 1
+
+# Run node directly as PID 1 (not npm start) — receives SIGTERM directly,
+# enabling graceful shutdown without signal forwarding hacks.
+CMD ["node", "app.js"]

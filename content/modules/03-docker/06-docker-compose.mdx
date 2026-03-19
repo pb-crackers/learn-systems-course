@@ -1,0 +1,347 @@
+---
+title: "Docker Compose: Declarative Multi-Service Applications"
+description: "Define, run, and manage multi-container applications with a single compose.yml file — services, dependencies, environment, and named volumes"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "06-docker-compose"
+order: 6
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["03-docker/04-docker-volumes", "03-docker/05-docker-networking"]
+tags: ["docker", "docker-compose", "compose", "multi-service", "depends-on", "healthcheck", "environment", "named-volumes", "profiles"]
+---
+
+## Overview
+
+Running five `docker run` commands with the right flags every time is a recipe for errors. One missed `--network`, one wrong environment variable, one forgotten `-v` flag — and the application behaves differently than it did yesterday, and nobody knows why.
+
+Docker Compose solves this by capturing the entire multi-service configuration declaratively in a `compose.yml` file. The file is version-controlled alongside your application code. `docker compose up` starts everything; `docker compose down` stops and removes it. The configuration is the single source of truth.
+
+This lesson builds on what you learned about volumes (lesson 4) and networking (lesson 5). Compose is not a new technology — it is a declarative interface over the same `docker run`, `docker network create`, and `docker volume create` commands you already know.
+
+## How It Works
+
+### What Is Docker Compose
+
+Docker Compose reads a `compose.yml` file and translates it into Docker API calls. Everything in `compose.yml` maps directly to flags you have already used on the `docker run` command line.
+
+<Callout type="tip" title="compose.yml vs docker-compose.yml">
+The preferred filename for Compose v2 is `compose.yml` (no hyphen, no `docker-` prefix). Older projects use `docker-compose.yml` — Docker still recognizes it, but `compose.yml` is the current standard. This course uses `compose.yml` throughout.
+</Callout>
+
+Essential Compose commands:
+
+<TerminalBlock
+  title="Core Compose commands"
+  lines={[
+    { type: 'comment', content: 'Start all services in detached mode (background)' },
+    { type: 'command', content: 'docker compose up -d' },
+    { type: 'output', content: '[+] Running 3/3' },
+    { type: 'output', content: ' ✔ Network myapp_default  Created' },
+    { type: 'output', content: ' ✔ Container myapp-db-1   Started' },
+    { type: 'output', content: ' ✔ Container myapp-api-1  Started' },
+    { type: 'comment', content: 'Check service status' },
+    { type: 'command', content: 'docker compose ps' },
+    { type: 'output', content: 'NAME          IMAGE     COMMAND  SERVICE  STATUS    PORTS' },
+    { type: 'output', content: 'myapp-api-1   myapp     ...      api      running   0.0.0.0:3000->3000/tcp' },
+    { type: 'output', content: 'myapp-db-1    postgres  ...      db       running' },
+    { type: 'comment', content: 'Follow logs from all services' },
+    { type: 'command', content: 'docker compose logs -f' },
+    { type: 'comment', content: 'Stop and remove containers and networks (volumes preserved)' },
+    { type: 'command', content: 'docker compose down' },
+    { type: 'comment', content: 'Stop and remove everything including volumes' },
+    { type: 'command', content: 'docker compose down -v' },
+  ]}
+/>
+
+### Service Definition
+
+Each entry in the `services:` block is one container. The keys under a service correspond directly to `docker run` flags:
+
+```yaml
+# compose.yml
+services:
+  api:
+    build: ./docker/app          # docker build ./docker/app
+    image: myapp:v1              # or use an existing image instead of build
+    ports:
+      - "3000:3000"              # -p 3000:3000
+    environment:
+      - NODE_ENV=production      # -e NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - appdata:/app/data        # -v appdata:/app/data
+    networks:
+      - backend                  # --network backend
+    restart: unless-stopped      # --restart unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    networks:
+      - backend
+
+networks:
+  backend:                       # docker network create <project>_backend
+
+volumes:
+  appdata:                       # docker volume create <project>_appdata
+```
+
+The `services:`, `networks:`, and `volumes:` blocks at the top level of `compose.yml` each manage a different Docker object type. Service-level `volumes:` and `networks:` keys reference the top-level declarations.
+
+### depends_on and Healthchecks
+
+`depends_on` controls the **start order** of services. Without it, Compose starts all services simultaneously — which can cause an API container to crash because its database is not yet accepting connections.
+
+**Critical distinction:** `depends_on` with just a service name only waits for the container to **start**, not for it to be **ready**. The database process inside the container might still be initializing when the API tries to connect.
+
+To wait for actual readiness, combine `depends_on` with a `condition` and a `healthcheck`:
+
+```yaml
+services:
+  api:
+    build: ./docker/app
+    depends_on:
+      db:
+        condition: service_healthy   # waits until db is healthy
+    ports:
+      - "3000:3000"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: secret
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s       # run healthcheck every 10 seconds
+      timeout: 5s         # consider failed after 5 seconds
+      retries: 5          # mark unhealthy after 5 consecutive failures
+      start_period: 30s   # grace period before first healthcheck
+```
+
+`docker compose ps` shows the health status. A service is `(healthy)` only after the healthcheck command returns exit code 0.
+
+<TerminalBlock
+  title="Service health status in docker compose ps"
+  lines={[
+    { type: 'command', content: 'docker compose ps' },
+    { type: 'output', content: 'NAME          SERVICE  STATUS              PORTS' },
+    { type: 'output', content: 'myapp-api-1   api      running (healthy)   0.0.0.0:3000->3000/tcp' },
+    { type: 'output', content: 'myapp-db-1    db       running (healthy)' },
+  ]}
+/>
+
+<Callout type="warning" title="depends_on Without condition Does Not Wait for Readiness">
+`depends_on: db` (without a `condition`) only waits for the `db` container to START — the Docker daemon started the container process. It does not wait for PostgreSQL, MySQL, or any service inside the container to be ready to accept connections. Always use `condition: service_healthy` with a `healthcheck` when your service needs a dependency to be functionally ready before starting.
+</Callout>
+
+### Environment Variables
+
+Compose offers three ways to provide environment variables to services:
+
+**Inline `environment:` block** — values in `compose.yml` directly:
+```yaml
+environment:
+  - NODE_ENV=production
+  - DATABASE_URL=postgres://localhost/mydb
+```
+
+**`env_file:` reference** — read from a separate file (one `KEY=VALUE` per line):
+```yaml
+env_file:
+  - .env.production
+```
+
+**Variable substitution** — reference shell environment or `.env` file in the project directory:
+```yaml
+environment:
+  - DATABASE_URL=${DATABASE_URL:-postgres://localhost/mydb}
+```
+
+<Callout type="warning" title=".env File Is Not the Same as env_file">
+Docker Compose automatically loads a file named `.env` in the same directory as `compose.yml` for **variable substitution** (the `${VAR}` syntax). The `env_file:` key in a service definition loads a file directly as environment variables **inside the container**. These are different mechanisms. A value in `.env` is used to expand `${VAR}` in `compose.yml` but is not automatically injected into the container unless you also reference it in the `environment:` block.
+</Callout>
+
+### Named Volumes in Compose
+
+Named volumes in Compose require two declarations: the top-level `volumes:` block registers the volume, and each service's `volumes:` key mounts it.
+
+```yaml
+services:
+  api:
+    volumes:
+      - appdata:/app/data    # mount the named volume
+
+volumes:
+  appdata:                   # declare it — Compose creates it on first up
+```
+
+The **data persistence behavior** across Compose lifecycle commands is critical to understand:
+
+| Command | Containers | Networks | Named Volumes |
+|---------|-----------|----------|---------------|
+| `docker compose down` | Removed | Removed | **Preserved** |
+| `docker compose down -v` | Removed | Removed | **Removed** |
+| `docker compose stop` | Stopped (not removed) | Preserved | Preserved |
+| `docker compose restart` | Restarted | Preserved | Preserved |
+
+Data in named volumes survives `docker compose down` — you can bring the stack back up and pick up where you left off. Use `docker compose down -v` only when you want a completely clean slate.
+
+### Profiles
+
+Profiles let you group optional services that are not started by default. This is useful for debug utilities, admin tools, or test harnesses that you do not want running in normal operation.
+
+```yaml
+services:
+  api:
+    build: ./docker/app           # always started
+
+  debug-shell:
+    image: node:20-alpine
+    profiles:
+      - debug                     # only started when --profile debug is used
+    command: sh
+    stdin_open: true
+    tty: true
+```
+
+```bash
+# Normal start — debug-shell is excluded
+docker compose up -d
+
+# Start with debug profile — debug-shell is included
+docker compose --profile debug up -d
+```
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Define and Run a Multi-Service Stack with Dependencies"
+  difficulty="Intermediate"
+  scenario="You are deploying a two-service application: the Node.js API from the previous lessons and an nginx reverse proxy in front of it. The nginx service must not start before the API is healthy. You will write a compose.yml, configure healthchecks and depends_on, add a named volume for API state, and verify that data survives a docker compose down and up cycle."
+  objective="By the end of this exercise, you will be able to write a Docker Compose file with service definitions, healthchecks, depends_on with condition, environment variables, and named volumes — and understand what each compose lifecycle command does to containers versus volumes."
+  steps={[
+    {
+      step: 1,
+      description: "Create a compose.yml in the docker/app directory with an 'api' service using the node:20-alpine image. Add a healthcheck that curls /health every 10 seconds. Map port 3000 to the host.",
+      command: "cat docker/app/compose.yml"
+    },
+    {
+      step: 2,
+      description: "Add an 'nginx' service to compose.yml using image nginx:alpine. Add depends_on with condition: service_healthy pointing to the api service. This ensures nginx only starts after the API passes its healthcheck.",
+      command: "cat docker/app/compose.yml"
+    },
+    {
+      step: 3,
+      description: "Add a named volume 'apistate' to persist data at /app/data in the api service. Declare it in the top-level volumes: block.",
+      command: "cat docker/app/compose.yml"
+    },
+    {
+      step: 4,
+      description: "Start the stack in detached mode. Watch the startup order — db starts first, then api once healthy.",
+      command: "docker compose -f docker/app/compose.yml up -d"
+    },
+    {
+      step: 5,
+      description: "Check service status. The api service should show (healthy) in the STATUS column.",
+      command: "docker compose -f docker/app/compose.yml ps"
+    },
+    {
+      step: 6,
+      description: "Confirm the API is responding through the published port.",
+      command: "curl http://localhost:3000/health"
+    },
+    {
+      step: 7,
+      description: "Stop and remove the stack (without -v — volumes are preserved). Then bring it back up and verify the named volume persisted.",
+      command: "docker compose -f docker/app/compose.yml down && docker compose -f docker/app/compose.yml up -d && docker compose -f docker/app/compose.yml ps"
+    },
+    {
+      step: 8,
+      description: "Clean up everything including volumes.",
+      command: "docker compose -f docker/app/compose.yml down -v"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "cmp-01",
+        label: "compose.yml has at least 2 services defined under the services: key",
+        hint: "Open your compose.yml file. You should see 'services:' at the top level with at least 'api:' and 'nginx:' (or similar) as indented keys underneath."
+      },
+      {
+        id: "cmp-02",
+        label: "The api service has a healthcheck defined",
+        hint: "Your api service should have a 'healthcheck:' key with 'test:', 'interval:', 'timeout:', and 'retries:' sub-keys. The test should curl or wget /health."
+      },
+      {
+        id: "cmp-03",
+        label: "The nginx service uses depends_on with condition: service_healthy",
+        hint: "Your nginx service should have: depends_on: { api: { condition: service_healthy } }. Run docker compose up -d and watch the logs — nginx should only start after the api healthcheck passes."
+      },
+      {
+        id: "cmp-04",
+        label: "docker compose ps shows both services with Status 'running (healthy)'",
+        hint: "Run: docker compose ps — both services should show 'running' in the STATUS column. The api service should specifically show '(healthy)' once the healthcheck has passed."
+      },
+      {
+        id: "cmp-05",
+        label: "Named volume data persists after docker compose down and docker compose up",
+        hint: "Write a file to /app/data inside the api container: docker compose exec api sh -c 'echo test > /app/data/persist.txt'. Then run docker compose down (without -v) and docker compose up -d. Run docker compose exec api cat /app/data/persist.txt — the file should still be there."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Essential Compose Commands",
+      items: [
+        { command: "docker compose up -d", description: "Start all services in background (detached)", example: "docker compose up -d" },
+        { command: "docker compose down", description: "Stop and remove containers and networks (volumes preserved)", example: "docker compose down" },
+        { command: "docker compose down -v", description: "Stop and remove containers, networks, AND volumes", example: "docker compose down -v" },
+        { command: "docker compose ps", description: "Show service status and health", example: "docker compose ps" },
+        { command: "docker compose logs -f <service>", description: "Follow logs from a service (or all if no service specified)", example: "docker compose logs -f api" },
+        { command: "docker compose exec <service> <cmd>", description: "Run a command in a running service container", example: "docker compose exec api sh" },
+        { command: "docker compose build", description: "Build or rebuild service images", example: "docker compose build api" },
+        { command: "docker compose restart <service>", description: "Restart one or all services", example: "docker compose restart api" },
+        { command: "docker compose --profile <name> up -d", description: "Start services including the specified profile", example: "docker compose --profile debug up -d" }
+      ]
+    },
+    {
+      title: "compose.yml Structure",
+      items: [
+        { command: "services:", description: "Top-level block — each key is a service (container)" },
+        { command: "  image: <name>", description: "Use an existing image for this service" },
+        { command: "  build: <path>", description: "Build an image from a Dockerfile at this path" },
+        { command: "  ports: [\"host:container\"]", description: "Publish ports to the host" },
+        { command: "  environment: [KEY=VALUE]", description: "Set environment variables in the container" },
+        { command: "  env_file: [.env.file]", description: "Load environment from a file" },
+        { command: "  volumes: [name:/path]", description: "Mount named or bind-mount volumes" },
+        { command: "  networks: [netname]", description: "Connect to specific networks" },
+        { command: "  depends_on:", description: "Control service start order" },
+        { command: "  healthcheck:", description: "Define a command to test service health" },
+        { command: "  profiles: [name]", description: "Only start this service when --profile name is used" },
+        { command: "networks:", description: "Top-level block — declare custom networks" },
+        { command: "volumes:", description: "Top-level block — declare named volumes" }
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "compose.yml", description: "Declarative configuration file for multi-service apps (preferred over docker-compose.yml)" },
+        { command: "depends_on (service_healthy)", description: "Waits for dependency's healthcheck to pass before starting — not just container start" },
+        { command: "healthcheck", description: "Command run inside container to test readiness — determines (healthy)/(unhealthy) status" },
+        { command: "Volume persistence", description: "Named volumes survive 'docker compose down' but are removed by 'docker compose down -v'" },
+        { command: "Profile", description: "Label that marks optional services — excluded from 'up' unless --profile flag is passed" }
+      ]
+    }
+  ]}
+/>
