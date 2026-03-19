@@ -140,12 +140,12 @@ Plans:
   3. Learner can configure an alerting rule in Prometheus and trace the alert path from metric threshold to notification
   4. Learner can complete the advanced capstone: a Dockerized application with a CI/CD pipeline, infrastructure provisioned with OpenTofu, monitoring with Prometheus/Grafana, and an intentional failure scenario they must diagnose and resolve without guidance
   5. Learner can reference the monitoring cheat sheet for Prometheus, Grafana, and log aggregation tools
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: Module 8 lesson content — observability concepts/Prometheus/Grafana/log aggregation/incident response (MON-01 through MON-05)
-- [ ] 07-02: Monitoring Docker Compose stack exercises and cheat sheet (MON-06, MON-07)
-- [ ] 07-03: Advanced capstone project — full pipeline with intentional failure scenario (CAP-02)
+- [ ] 07-01-PLAN.md — Monitoring lessons 1-5 (observability concepts, Prometheus, Grafana, log aggregation, incident response) (Wave 1, parallel with 07-02)
+- [ ] 07-02-PLAN.md — Docker Compose monitoring stack, Loki example, cheat sheet, Vitest assertion (Wave 1, parallel with 07-01)
+- [ ] 07-03-PLAN.md — Advanced capstone project with memory leak failure scenario, IaC, CI workflow (Wave 2)
 
 ## Progress
 
@@ -171,3 +171,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Phase 4 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 5 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 6 planned: 2026-03-19 — 4 plans, 2 waves*
+*Phase 7 planned: 2026-03-19 — 3 plans, 2 waves*
