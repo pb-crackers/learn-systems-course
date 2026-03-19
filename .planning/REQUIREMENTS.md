@@ -21,13 +21,13 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Content Framework
 
 - [x] **CONT-01**: MDX-based lesson content with rich formatting, diagrams, and interactive elements
-- [ ] **CONT-02**: Each lesson has thorough "How It Works" explanation sections before exercises
-- [ ] **CONT-03**: Each lesson has explicit prerequisites listed and linked
-- [ ] **CONT-04**: Interactive terminal/code components embedded in lessons for try-it-yourself moments
-- [ ] **CONT-05**: Exercise sections with clear objectives, steps, and verification criteria
-- [ ] **CONT-06**: Quick reference/cheat sheet section per module
-- [ ] **CONT-07**: Progressive difficulty labels (Foundation / Intermediate / Challenge) on exercises
-- [ ] **CONT-08**: Real-world scenario descriptions for every exercise (not toy examples)
+- [x] **CONT-02**: Each lesson has thorough "How It Works" explanation sections before exercises
+- [x] **CONT-03**: Each lesson has explicit prerequisites listed and linked
+- [x] **CONT-04**: Interactive terminal/code components embedded in lessons for try-it-yourself moments
+- [x] **CONT-05**: Exercise sections with clear objectives, steps, and verification criteria
+- [x] **CONT-06**: Quick reference/cheat sheet section per module
+- [x] **CONT-07**: Progressive difficulty labels (Foundation / Intermediate / Challenge) on exercises
+- [x] **CONT-08**: Real-world scenario descriptions for every exercise (not toy examples)
 
 ### Module 1: Linux Fundamentals
 
@@ -161,13 +161,13 @@ Requirements for initial release. Each maps to roadmap phases.
 | APP-07 | Phase 1 | Complete |
 | APP-08 | Phase 1 | Complete |
 | CONT-01 | Phase 1 | Complete |
-| CONT-02 | Phase 1 | Pending |
-| CONT-03 | Phase 1 | Pending |
-| CONT-04 | Phase 1 | Pending |
-| CONT-05 | Phase 1 | Pending |
-| CONT-06 | Phase 1 | Pending |
-| CONT-07 | Phase 1 | Pending |
-| CONT-08 | Phase 1 | Pending |
+| CONT-02 | Phase 1 | Complete |
+| CONT-03 | Phase 1 | Complete |
+| CONT-04 | Phase 1 | Complete |
+| CONT-05 | Phase 1 | Complete |
+| CONT-06 | Phase 1 | Complete |
+| CONT-07 | Phase 1 | Complete |
+| CONT-08 | Phase 1 | Complete |
 | LNX-01 | Phase 2 | Pending |
 | LNX-02 | Phase 2 | Pending |
 | LNX-03 | Phase 2 | Pending |

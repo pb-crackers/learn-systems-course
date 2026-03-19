@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-app-foundation-02-PLAN.md
-last_updated: "2026-03-19T03:09:17.579Z"
+stopped_at: Completed 01-app-foundation-04-PLAN.md
+last_updated: "2026-03-19T03:16:18.545Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 25
 ---
 
@@ -52,6 +52,7 @@ Progress: [███░░░░░░░] 25%
 *Updated after each plan completion*
 | Phase 01-app-foundation P03 | 18min | 2 tasks | 14 files |
 | Phase 01-app-foundation P02 | 20min | 3 tasks | 16 files |
+| Phase 01-app-foundation P04 | 14min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [Phase 01-app-foundation]: Islands architecture for sidebar: Sidebar is a server component passing static Module[] to SidebarClient client component for interactivity without extra server round-trips
 - [Phase 01-app-foundation]: SheetTrigger without asChild: @base-ui/react (shadcn base-nova) does not support Radix-style asChild; SheetTrigger uses className prop directly for styling
 - [Phase 01-app-foundation]: Two-click confirmation for Reset Progress: first click enters confirming=true state (3s auto-cancel), second click calls resetProgress() — prevents accidental data loss
+- [Phase 01-app-foundation]: CodeBlock copy uses data-copy-target attribute on pre element to extract text without traversing rehype-pretty-code nested span structure
+- [Phase 01-app-foundation]: ExerciseCard/VerificationChecklist use local useState — not ProgressContext. ProgressContext tracks lesson/exercise completion at a higher level
+- [Phase 01-app-foundation]: TableOfContents renders null when fewer than 3 headings — prevents unnecessary sidebar chrome on short lessons
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:09:17.576Z
-Stopped at: Completed 01-app-foundation-02-PLAN.md
+Last session: 2026-03-19T03:16:18.543Z
+Stopped at: Completed 01-app-foundation-04-PLAN.md
 Resume file: None
