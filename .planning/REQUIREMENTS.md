@@ -48,10 +48,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **NET-01**: Lesson on how networks work — physical layer, switches, routers, packets
 - [x] **NET-02**: Lesson on the TCP/IP stack — layers, encapsulation, IP addressing, subnets
 - [x] **NET-03**: Lesson on DNS — resolution process, record types, caching, troubleshooting with dig/nslookup
-- [ ] **NET-04**: Lesson on HTTP/HTTPS — request/response cycle, methods, headers, TLS handshake
-- [ ] **NET-05**: Lesson on SSH — key-based auth, tunneling, config files, agent forwarding
-- [ ] **NET-06**: Lesson on firewalls — iptables, ufw, security groups concepts, netfilter
-- [ ] **NET-07**: Lesson on network troubleshooting — ping, traceroute, tcpdump, netstat/ss, curl
+- [x] **NET-04**: Lesson on HTTP/HTTPS — request/response cycle, methods, headers, TLS handshake
+- [x] **NET-05**: Lesson on SSH — key-based auth, tunneling, config files, agent forwarding
+- [x] **NET-06**: Lesson on firewalls — iptables, ufw, security groups concepts, netfilter
+- [x] **NET-07**: Lesson on network troubleshooting — ping, traceroute, tcpdump, netstat/ss, curl
 - [ ] **NET-08**: Hands-on exercises for each networking lesson with multi-container lab environments
 - [ ] **NET-09**: Module cheat sheet with networking commands and concepts
 
@@ -182,10 +182,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | NET-01 | Phase 3 | Complete |
 | NET-02 | Phase 3 | Complete |
 | NET-03 | Phase 3 | Complete |
-| NET-04 | Phase 3 | Pending |
-| NET-05 | Phase 3 | Pending |
-| NET-06 | Phase 3 | Pending |
-| NET-07 | Phase 3 | Pending |
+| NET-04 | Phase 3 | Complete |
+| NET-05 | Phase 3 | Complete |
+| NET-06 | Phase 3 | Complete |
+| NET-07 | Phase 3 | Complete |
 | NET-08 | Phase 3 | Pending |
 | NET-09 | Phase 3 | Pending |
 | DOC-01 | Phase 4 | Pending |
