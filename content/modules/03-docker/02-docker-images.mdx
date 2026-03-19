@@ -1,0 +1,344 @@
+---
+title: "Docker Images: Layers, Dockerfiles, and the Build Process"
+description: "How Docker images are built from layered instructions — FROM, COPY, RUN, CMD explained with layer caching, the build process, and Docker Hub registries"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "02-docker-images"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["03-docker/01-what-are-containers"]
+tags: ["docker", "images", "dockerfile", "layers", "build", "registry", "docker-hub"]
+---
+
+## Overview
+
+You need to ship your app — but every developer's machine is different. One runs Node.js 18, another 20. One is on macOS ARM, another on Ubuntu x86. When you deploy, the server has its own environment. The classic "it works on my machine" problem.
+
+Docker images solve this by packaging your application and its entire runtime environment into a single, portable, reproducible artifact. An image is a complete snapshot of a filesystem — OS libraries, runtime, dependencies, application code, and configuration — frozen at build time. When you run a container from an image, you always get exactly the same environment, regardless of the host machine.
+
+This lesson explains how images are built from layers, how to write Dockerfiles, and how the `docker build` process works.
+
+## How It Works
+
+### Image Layers: Copy-on-Write Filesystems
+
+A Docker image is not a single large file — it is a **stack of read-only layers**. Each layer stores only the filesystem changes from the previous layer. This design enables sharing: two images that share a common base (e.g., both start `FROM node:20`) share those layers on disk. Pulling a second `node:20`-based image only downloads the layers that differ.
+
+```
+Image Layer Stack (from bottom to top)
+──────────────────────────────────────────────────────────────────────
+
+  Layer 4: /app/app.js  (COPY . .)
+           ID: sha256:d4e5f6...         ← changes: app source code only
+
+  Layer 3: /app/node_modules/          (RUN npm install)
+           ID: sha256:c3d4e5...         ← changes: ~150MB of dependencies
+
+  Layer 2: /app/package.json           (COPY package.json .)
+           ID: sha256:b2c3d4...         ← changes: one file
+
+  Layer 1: /usr /bin /lib /etc ...     (FROM node:20)
+           ID: sha256:a1b2c3...         ← changes: entire OS + Node.js runtime (~1.1GB)
+
+  Each layer stores only its diff from the layer below.
+  Layers are content-addressed by their SHA256 hash.
+```
+
+You can inspect the layer IDs of any image with `docker image inspect`:
+
+<TerminalBlock
+  title="Inspect image layers"
+  lines={[
+    { type: 'comment', content: 'Build the image from the progressive app Dockerfile (from docker/app/)' },
+    { type: 'command', content: 'docker build -t myapp:v1 -f docker/app/Dockerfile.basic docker/app/' },
+    { type: 'output', content: '[+] Building 42.3s (8/8) FINISHED' },
+    { type: 'comment', content: 'Inspect the layer IDs — one per Dockerfile instruction that changes the filesystem' },
+    { type: 'command', content: 'docker image inspect myapp:v1 --format "{{range .RootFS.Layers}}{{println .}}{{end}}"' },
+    { type: 'output', content: 'sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' },
+    { type: 'output', content: 'sha256:b2c3d4e5f6a7b2c3d4e5f6a7b2c3d4e5f6a7b2c3d4e5f6a7b2c3d4e5f6a7b2c3' },
+    { type: 'output', content: 'sha256:c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4e5f6a7b8c3d4' },
+    { type: 'output', content: 'sha256:d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5f6a7b8c9d4e5' },
+    { type: 'comment', content: 'Count layers: 4 instructions that changed the filesystem = 4 layers' },
+    { type: 'command', content: 'docker image inspect myapp:v1 --format "{{len .RootFS.Layers}} layers"' },
+    { type: 'output', content: '4 layers' },
+  ]}
+/>
+
+### Dockerfile Instructions: What Each One Does
+
+A Dockerfile is a text file containing a sequence of instructions. Each instruction either creates a new layer (if it modifies the filesystem) or sets image metadata (no new layer).
+
+**Instructions that create layers:**
+
+| Instruction | What It Does | Layer Created |
+|-------------|-------------|--------------|
+| `FROM` | Sets the base image | Imports all base image layers |
+| `RUN` | Executes a shell command | Stores filesystem changes from the command |
+| `COPY` | Copies files from build context | Stores the copied files |
+| `ADD` | Like COPY but also handles URLs and tar archives | Stores the added files |
+
+**Instructions that set metadata (no new layer):**
+
+| Instruction | What It Does |
+|-------------|-------------|
+| `WORKDIR` | Sets working directory for subsequent instructions |
+| `ENV` | Sets environment variables in the container |
+| `EXPOSE` | Documents which port the app uses |
+| `CMD` | Default command to run when the container starts |
+| `ENTRYPOINT` | Sets the executable; CMD provides default arguments |
+
+<Callout type="warning" title="EXPOSE Does NOT Publish Ports">
+`EXPOSE 3000` in a Dockerfile is **documentation only**. It tells Docker (and humans) that the app inside listens on port 3000, but it does not make the port accessible from the host. To publish a port, you use the `-p` flag at run time:
+
+```
+docker run -p 3000:3000 myapp:v1
+         ↑host port ↑container port
+```
+
+This is one of the most common Docker confusions. You can run `docker run myapp:v1` without `-p` and the container starts fine — but nothing on the host can reach port 3000.
+</Callout>
+
+Here is the progressive app's `Dockerfile.basic` with each instruction explained:
+
+```dockerfile filename="docker/app/Dockerfile.basic"
+# FROM sets the base image — every subsequent instruction builds on top of this
+FROM node:20
+
+# WORKDIR creates the directory if it doesn't exist and sets it as the
+# working directory for all subsequent COPY, RUN, CMD instructions
+WORKDIR /app
+
+# COPY package.json FIRST — before copying app source
+# This is a layer caching strategy: if package.json hasn't changed,
+# Docker reuses the cached RUN npm install layer
+COPY package.json .
+
+# RUN executes inside the build container — creates a layer with node_modules
+RUN npm install
+
+# COPY the rest of the source code
+# This is a separate layer from package.json — so changing app.js only
+# invalidates this layer and not the npm install layer above
+COPY . .
+
+# EXPOSE is documentation — it does not publish the port
+EXPOSE 3000
+
+# CMD is the default command — uses exec form (JSON array) to avoid
+# spawning a shell, so node receives signals (SIGTERM) directly
+CMD ["node", "app.js"]
+```
+
+### The Build Process: Layer Caching
+
+When you run `docker build`, Docker processes each instruction top-to-bottom. It shows the step number and what it's doing:
+
+<TerminalBlock
+  title="docker build output — first build (cold cache)"
+  lines={[
+    { type: 'command', content: 'docker build -t myapp:v1 -f docker/app/Dockerfile.basic docker/app/' },
+    { type: 'output', content: '[+] Building 42.3s (8/8) FINISHED' },
+    { type: 'output', content: ' => [internal] load build definition from Dockerfile.basic' },
+    { type: 'output', content: ' => [internal] load .dockerignore' },
+    { type: 'output', content: ' => [internal] load metadata for docker.io/library/node:20' },
+    { type: 'output', content: ' => [1/4] FROM docker.io/library/node:20' },
+    { type: 'output', content: ' => [2/4] WORKDIR /app' },
+    { type: 'output', content: ' => [3/4] COPY package.json .' },
+    { type: 'output', content: ' => [4/4] RUN npm install' },
+    { type: 'output', content: ' => [5/4] COPY . .' },
+    { type: 'output', content: ' => exporting to image' },
+    { type: 'output', content: ' => => writing image sha256:d4e5f6...' },
+    { type: 'output', content: ' => => naming to docker.io/library/myapp:v1' },
+  ]}
+/>
+
+<TerminalBlock
+  title="docker build output — second build after changing app.js only"
+  lines={[
+    { type: 'command', content: 'docker build -t myapp:v2 -f docker/app/Dockerfile.basic docker/app/' },
+    { type: 'output', content: '[+] Building 1.2s (8/8) FINISHED' },
+    { type: 'output', content: ' => [internal] load build definition from Dockerfile.basic' },
+    { type: 'output', content: ' => [internal] load .dockerignore' },
+    { type: 'output', content: ' => [internal] load metadata for docker.io/library/node:20' },
+    { type: 'output', content: ' => CACHED [1/4] FROM docker.io/library/node:20' },
+    { type: 'output', content: ' => CACHED [2/4] WORKDIR /app' },
+    { type: 'output', content: ' => CACHED [3/4] COPY package.json .' },
+    { type: 'output', content: ' => CACHED [4/4] RUN npm install' },
+    { type: 'output', content: ' => [5/4] COPY . .                  ← cache miss: app.js changed' },
+    { type: 'output', content: ' => exporting to image' },
+    { type: 'comment', content: 'Only the last COPY ran — npm install reused from cache. 1.2s vs 42.3s!' },
+  ]}
+/>
+
+**Layer cache invalidation rules:**
+1. If an instruction's content changes, that layer and ALL subsequent layers are rebuilt
+2. `COPY` and `ADD` compare file checksums — any change in the copied files busts the cache
+3. `RUN` instructions only rebuild if their command string changes or a previous layer changed
+
+This is why `COPY package.json .` comes before `COPY . .` — `package.json` changes rarely, so `npm install` is cached most of the time. If you copied everything first (`COPY . .`) and then ran `npm install`, every code change would re-run the full `npm install`.
+
+**Build context** is the directory you pass to `docker build` (the last argument). Docker sends the entire build context to the build engine. Large build contexts slow down builds. Use `.dockerignore` to exclude `node_modules`, `.git`, and other large directories.
+
+<Callout type="deep-dive" title="The .dockerignore File">
+`docker/app/.dockerignore` prevents files from being included in the build context. This matters for two reasons:
+
+1. **Speed**: Docker must read every file in the build context. A `node_modules` directory with 10,000 files takes significant time to scan even if you COPY it explicitly.
+
+2. **Correctness**: If you don't exclude `node_modules` from the context, and you do `COPY . .`, you might inadvertently copy your LOCAL `node_modules` into the image instead of running a clean `npm install`. Your local modules may differ from what you get with a fresh install (platform-specific binaries, different package lock).
+
+The `.dockerignore` syntax is identical to `.gitignore`. Always include at minimum: `node_modules`, `.git`, `.env`.
+</Callout>
+
+### Registries: Docker Hub and Tagging
+
+Images are stored in and pulled from **registries**. Docker Hub (`docker.io`) is the default public registry. Images are identified by a naming convention:
+
+```
+registry/repository:tag
+──────── ──────────────── ────
+│        │               └─ version label (default: "latest")
+│        └─ image name (e.g., "node", "ubuntu", "myapp")
+└─ registry hostname (default: docker.io)
+
+Examples:
+  node:20                → docker.io/library/node:20
+  ubuntu:22.04           → docker.io/library/ubuntu:22.04
+  myapp:v1               → docker.io/<your-username>/myapp:v1
+  registry.example.com/myapp:v1  → private registry
+```
+
+<TerminalBlock
+  title="Common image registry commands"
+  lines={[
+    { type: 'comment', content: 'Pull an image from Docker Hub (happens automatically on docker run too)' },
+    { type: 'command', content: 'docker pull node:20-alpine' },
+    { type: 'output', content: '20-alpine: Pulling from library/node' },
+    { type: 'output', content: 'Digest: sha256:a1b2c3d4...' },
+    { type: 'comment', content: 'List images stored locally' },
+    { type: 'command', content: 'docker images' },
+    { type: 'output', content: 'REPOSITORY   TAG        IMAGE ID       CREATED        SIZE' },
+    { type: 'output', content: 'myapp        v1         d4e5f6a7b8c9   2 minutes ago  1.12GB' },
+    { type: 'output', content: 'node         20         a1b2c3d4e5f6   3 days ago     1.10GB' },
+    { type: 'output', content: 'node         20-alpine  b2c3d4e5f6a7   3 days ago     135MB' },
+    { type: 'comment', content: 'Tag the image for a registry (your username/repo:version)' },
+    { type: 'command', content: 'docker tag myapp:v1 yourusername/myapp:v1' },
+    { type: 'comment', content: 'Remove an image from local cache' },
+    { type: 'command', content: 'docker rmi myapp:v1' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Containerize the Team's Node.js API"
+  difficulty="Foundation"
+  scenario="Your team just onboarded two new developers. The senior engineer asks you to make the Node.js API runnable with a single docker run command — no Node.js installation required on the developer's machine. You will build the image from the provided Dockerfile, run it, inspect its layers, and observe how the build cache saves time on rebuilds."
+  objective="By the end of this exercise, you will be able to build a Docker image from a Dockerfile, run a container from that image, inspect layers, and understand how layer caching speeds up rebuilds."
+  steps={[
+    {
+      step: 1,
+      description: "Build the image using the progressive app's Dockerfile.basic. The -t flag tags the image. The -f flag specifies the Dockerfile path. The final argument is the build context (directory to send to Docker).",
+      command: "docker build -t myapp:v1 -f docker/app/Dockerfile.basic docker/app/"
+    },
+    {
+      step: 2,
+      description: "List local images and note the size. The full node:20 base image makes the final image about 1.1GB — you will address this in the Dockerfile best practices lesson.",
+      command: "docker images myapp"
+    },
+    {
+      step: 3,
+      description: "Run the image as a container. The -d flag runs it in the background (detached). The -p flag publishes port 3000 to the host. The --name flag gives it a human-readable name.",
+      command: "docker run -d -p 3000:3000 --name myapp myapp:v1"
+    },
+    {
+      step: 4,
+      description: "Verify the app is running by sending a request to the root endpoint.",
+      command: "curl http://localhost:3000/"
+    },
+    {
+      step: 5,
+      description: "Inspect the image layers. Count them — you should see 4 layers corresponding to the Dockerfile instructions that modified the filesystem.",
+      command: "docker image inspect myapp:v1 --format \"{{len .RootFS.Layers}} layers\""
+    },
+    {
+      step: 6,
+      description: "Now observe the build cache in action. Edit docker/app/app.js to change the message in the GET / response (any small change). Then rebuild — notice which steps say CACHED and which re-run.",
+      command: "docker build -t myapp:v2 -f docker/app/Dockerfile.basic docker/app/"
+    },
+    {
+      step: 7,
+      description: "Clean up: stop and remove the running container, then remove both image versions.",
+      command: "docker rm -f myapp && docker rmi myapp:v1 myapp:v2"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "image-built",
+        label: "Image built successfully and appears in docker images output",
+        hint: "Run: docker images myapp — you should see the repository name, tag, image ID, and size. If the build failed, re-run docker build and read the error message carefully."
+      },
+      {
+        id: "container-responds",
+        label: "Container responds on port 3000 with a JSON message",
+        hint: "Run: curl http://localhost:3000/ — you should see {\"message\":\"Hello from the Docker app!\",\"version\":\"1.0.0\"}. If the port is not responding, check: docker ps (is the container running?), docker logs myapp (any startup errors?)."
+      },
+      {
+        id: "layer-count",
+        label: "Image inspect shows 4 layers",
+        hint: "Run: docker image inspect myapp:v1 --format '{{len .RootFS.Layers}} layers' — should show '4 layers'. Each Dockerfile instruction that modified the filesystem (FROM, RUN npm install, COPY package.json, COPY . .) created one layer."
+      },
+      {
+        id: "cache-hit",
+        label: "Second build (after changing app.js) shows CACHED for npm install step",
+        hint: "The 'RUN npm install' step should say CACHED in the second build output — because package.json didn't change. Only the final 'COPY . .' step should re-run. Build time drops from ~40s to ~1s."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Core Dockerfile Instructions",
+      items: [
+        { command: "FROM <image>:<tag>", description: "Set the base image — must be the first instruction", example: "FROM node:20" },
+        { command: "WORKDIR <path>", description: "Set working directory for subsequent instructions (creates if missing)", example: "WORKDIR /app" },
+        { command: "COPY <src> <dst>", description: "Copy files from build context into the image", example: "COPY package.json ." },
+        { command: "RUN <command>", description: "Execute a shell command during build — creates a layer", example: "RUN npm install" },
+        { command: "ENV <key>=<value>", description: "Set an environment variable (available at build time and runtime)", example: "ENV NODE_ENV=production" },
+        { command: "EXPOSE <port>", description: "Document the port (metadata only — does NOT publish the port)", example: "EXPOSE 3000" },
+        { command: "CMD [\"<exec>\", \"<arg>\"]", description: "Default command when container starts — use exec form to avoid shell", example: "CMD [\"node\", \"app.js\"]" },
+        { command: "ENTRYPOINT [\"<exec>\"]", description: "Fixed executable — CMD provides default arguments to it", example: "ENTRYPOINT [\"node\"]" },
+      ]
+    },
+    {
+      title: "docker image Commands",
+      items: [
+        { command: "docker build -t <name>:<tag> <context>", description: "Build an image from a Dockerfile", example: "docker build -t myapp:v1 ." },
+        { command: "docker build -f <Dockerfile> <context>", description: "Specify a non-default Dockerfile path", example: "docker build -f docker/app/Dockerfile.basic docker/app/" },
+        { command: "docker images", description: "List all local images with size and creation date" },
+        { command: "docker pull <image>:<tag>", description: "Download an image from the registry", example: "docker pull node:20-alpine" },
+        { command: "docker image inspect <image>", description: "Show full image metadata including layers, environment, and config" },
+        { command: "docker rmi <image>", description: "Remove a local image (fails if containers use it — use -f to force)" },
+        { command: "docker tag <src> <dst>", description: "Tag an existing image with a new name", example: "docker tag myapp:v1 myregistry.io/myapp:v1" },
+        { command: "docker image prune", description: "Remove dangling images (untagged images with no containers)" },
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "Image layer", description: "Read-only filesystem diff created by each Dockerfile instruction that modifies files" },
+        { command: "Build context", description: "Directory sent to Docker daemon during build — use .dockerignore to exclude large files" },
+        { command: "Layer cache", description: "Docker reuses cached layers if instruction and all inputs are unchanged — subsequent layers are invalidated on any change" },
+        { command: "Copy-on-write", description: "Containers share image layers; changes go to the writable container layer only" },
+        { command: "Image digest", description: "SHA256 hash of the image content — immutable identifier (unlike tags which can move)" },
+      ]
+    }
+  ]}
+/>

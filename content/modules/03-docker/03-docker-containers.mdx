@@ -1,0 +1,358 @@
+---
+title: "Docker Containers: Lifecycle, Exec, Logs, and Resource Limits"
+description: "Master the container lifecycle — from creation to removal — and learn to inspect, debug, and control containers with exec, logs, and resource limits backed by cgroups"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "03-docker-containers"
+order: 3
+difficulty: "Foundation"
+estimatedMinutes: 20
+prerequisites: ["03-docker/02-docker-images"]
+tags: ["docker", "containers", "lifecycle", "docker-exec", "docker-logs", "resource-limits", "cgroups", "debugging"]
+---
+
+## Overview
+
+Your container crashed at 3am — what happened? Without understanding the container lifecycle, you are left staring at an empty terminal. With it, you know exactly where to look: `docker logs` shows what the process printed before dying, `docker inspect` shows the exit code and when it stopped, and `docker exec` lets you walk through a running container's environment before the crash repeats.
+
+This lesson covers the full container lifecycle (created → running → stopped → removed), interactive debugging with `docker exec`, log inspection with `docker logs`, and resource limits via `--memory` and `--cpus`. The resource limits section connects back to the cgroups mechanism from the previous lesson.
+
+## How It Works
+
+### Container Lifecycle: Five States
+
+Every container passes through defined states. Understanding these states tells you what commands are available and what is happening to the process.
+
+```
+Container Lifecycle
+────────────────────────────────────────────────────────────────────
+
+  ┌─────────┐  docker start     ┌─────────┐  docker pause   ┌────────┐
+  │ Created │ ────────────────► │ Running │ ──────────────► │ Paused │
+  └─────────┘                  └────┬────┘ ◄─────────────── └────────┘
+       ▲                            │         docker unpause
+       │  docker create             │ docker stop
+       │                            │ (SIGTERM → SIGKILL after 10s)
+       │                            ▼
+  ┌────┴────┐  docker rm       ┌─────────┐
+  │ Removed │ ◄──────────────  │ Stopped │
+  └─────────┘                  └─────────┘
+                                    │
+                                    └─ docker start  (restart without recreate)
+```
+
+**Key transition details:**
+
+- `docker create` prepares the container (sets up namespaces, overlay FS) but does not start the process
+- `docker start` starts the process (the CMD or ENTRYPOINT from the image)
+- `docker run` = `docker create` + `docker start` in one command
+- `docker stop` sends **SIGTERM** to PID 1 inside the container, then waits 10 seconds; if the process hasn't exited, it sends **SIGKILL**
+- `docker kill` sends SIGKILL immediately (no grace period)
+- `docker pause` uses the `SIGSTOP` cgroup freezer — process is suspended, not terminated
+- `docker rm` removes a stopped container — the writable overlay layer is discarded
+
+<Callout type="tip" title="Graceful Shutdown: Why It Matters">
+When your application handles SIGTERM correctly, it can finish in-flight requests, flush write buffers, and release database connections before exiting. This is critical for zero-downtime deployments.
+
+For SIGTERM to reach your application, it must be PID 1 in the container. If you use `CMD ["npm", "start"]`, npm is PID 1 and it may not pass signals to the Node.js process it spawned. Use `CMD ["node", "app.js"]` — node becomes PID 1 and receives signals directly.
+
+To measure the shutdown timing difference: `time docker stop <container>` with `CMD ["node", "app.js"]` vs `CMD ["npm", "start"]`. The npm version will always wait the full 10 second grace period before SIGKILL.
+</Callout>
+
+<TerminalBlock
+  title="Container lifecycle commands"
+  lines={[
+    { type: 'comment', content: 'Run a container (create + start) — detached, named, port mapped' },
+    { type: 'command', content: 'docker run -d --name myapp -p 3000:3000 myapp:v1' },
+    { type: 'output', content: 'a1b2c3d4e5f6...' },
+    { type: 'comment', content: 'List running containers' },
+    { type: 'command', content: 'docker ps' },
+    { type: 'output', content: 'CONTAINER ID   IMAGE      COMMAND         STATUS         PORTS' },
+    { type: 'output', content: 'a1b2c3d4e5f6   myapp:v1   "node app.js"   Up 3 seconds   0.0.0.0:3000->3000/tcp' },
+    { type: 'comment', content: 'Stop — sends SIGTERM, waits 10s, then SIGKILL' },
+    { type: 'command', content: 'docker stop myapp' },
+    { type: 'output', content: 'myapp' },
+    { type: 'comment', content: 'List ALL containers (including stopped)' },
+    { type: 'command', content: 'docker ps -a' },
+    { type: 'output', content: 'CONTAINER ID   IMAGE      COMMAND         STATUS                    PORTS' },
+    { type: 'output', content: 'a1b2c3d4e5f6   myapp:v1   "node app.js"   Exited (137) 5 seconds ago' },
+    { type: 'comment', content: 'Restart the same container (same overlay FS, same name, new process)' },
+    { type: 'command', content: 'docker start myapp' },
+    { type: 'comment', content: 'Remove the container permanently (must be stopped first, or use -f)' },
+    { type: 'command', content: 'docker rm myapp' },
+  ]}
+/>
+
+The `--rm` flag automatically removes the container when it exits — useful for one-off commands:
+
+```bash
+docker run --rm node:20 node -e "console.log('Node version: ' + process.version)"
+```
+
+### Interactive Access: docker exec
+
+`docker exec` runs a new process inside a running container's namespaces. This is the primary debugging tool — get a shell inside a container to inspect its filesystem, environment variables, running processes, and network configuration.
+
+<TerminalBlock
+  title="docker exec for interactive debugging"
+  lines={[
+    { type: 'comment', content: 'Start the app container first' },
+    { type: 'command', content: 'docker run -d --name debug-app -p 3000:3000 myapp:v1' },
+    { type: 'comment', content: 'Open a shell inside the running container' },
+    { type: 'comment', content: '-i: keep stdin open, -t: allocate a pseudo-TTY (together: interactive terminal)' },
+    { type: 'command', content: 'docker exec -it debug-app /bin/sh' },
+    { type: 'output', content: '#' },
+    { type: 'comment', content: '-- now inside the container -- ' },
+    { type: 'command', content: 'ps aux' },
+    { type: 'output', content: 'PID   USER     TIME  COMMAND' },
+    { type: 'output', content: '    1 root      0:00 node app.js' },
+    { type: 'output', content: '   14 root      0:00 /bin/sh' },
+    { type: 'output', content: '   20 root      0:00 ps aux' },
+    { type: 'command', content: 'ls /app' },
+    { type: 'output', content: 'app.js  node_modules  package.json' },
+    { type: 'command', content: 'env | grep PORT' },
+    { type: 'output', content: 'PORT=3000' },
+    { type: 'command', content: 'exit' },
+    { type: 'comment', content: 'exit closes the shell — container keeps running (PID 1 is still node)' },
+  ]}
+/>
+
+<Callout type="warning" title="docker exec vs docker attach: Important Difference">
+`docker exec` starts a NEW process inside the container's namespaces. When you exit the exec shell, the container continues running.
+
+`docker attach` connects your terminal to the container's **PID 1** stdin/stdout. If you press Ctrl+C while attached, you send SIGINT to PID 1 — this KILLS the container's main process, stopping the container. Use `Ctrl+P Ctrl+Q` to detach without stopping.
+
+For debugging, always prefer `docker exec -it <name> /bin/sh`. Reserve `docker attach` for the rare case where you specifically need to interact with PID 1's input stream.
+</Callout>
+
+You can also run non-interactive commands with `docker exec` (without `-it`):
+
+```bash
+# Check what files exist in /app without opening a shell
+docker exec debug-app ls -la /app
+
+# Read an environment variable
+docker exec debug-app printenv NODE_ENV
+
+# Run a health check command
+docker exec debug-app node -e "require('./app.js')" 2>&1 | head -5
+```
+
+### Logs and Inspection
+
+**Container logs** are whatever the container's PID 1 writes to stdout and stderr. Docker captures this output and stores it per container.
+
+<TerminalBlock
+  title="Container log commands"
+  lines={[
+    { type: 'comment', content: 'View all logs since the container started' },
+    { type: 'command', content: 'docker logs debug-app' },
+    { type: 'output', content: 'Server running on port 3000' },
+    { type: 'comment', content: 'Follow logs in real time (like tail -f) — Ctrl+C to stop following' },
+    { type: 'command', content: 'docker logs -f debug-app' },
+    { type: 'output', content: 'Server running on port 3000' },
+    { type: 'comment', content: 'Show last 50 lines with timestamps' },
+    { type: 'command', content: 'docker logs --tail 50 --timestamps debug-app' },
+    { type: 'output', content: '2026-03-19T12:00:00.000Z Server running on port 3000' },
+    { type: 'comment', content: 'Full container metadata — exit code, start/stop time, IP address, mounts, etc.' },
+    { type: 'command', content: 'docker inspect debug-app' },
+    { type: 'comment', content: 'Extract just the exit code (useful in scripts)' },
+    { type: 'command', content: 'docker inspect debug-app --format "{{.State.ExitCode}}"' },
+    { type: 'output', content: '0' },
+  ]}
+/>
+
+`docker inspect` returns full JSON metadata about a container. Key fields for debugging:
+
+| Field | What It Tells You |
+|-------|------------------|
+| `.State.Status` | Current state: running, exited, paused |
+| `.State.ExitCode` | Exit code of PID 1 (0 = clean, 137 = SIGKILL, 1 = error) |
+| `.State.StartedAt` | When the container started |
+| `.State.FinishedAt` | When it stopped (and why, combined with ExitCode) |
+| `.NetworkSettings.IPAddress` | Container's IP on the Docker bridge network |
+| `.Mounts` | Volumes or bind mounts attached to the container |
+| `.HostConfig.Memory` | Memory limit in bytes (0 = unlimited) |
+
+### Resource Limits: Connecting Back to cgroups
+
+In the previous lesson (What Are Containers), you learned that cgroups are the kernel mechanism Docker uses for resource limits. The `--memory` and `--cpus` flags on `docker run` directly write values to the cgroup files you saw at `/sys/fs/cgroup/`.
+
+<Callout type="deep-dive" title="What --memory and --cpus Write to cgroups">
+When you run `docker run --memory=128m --cpus=0.5`, Docker:
+1. Creates a cgroup at `/sys/fs/cgroup/system.slice/docker-<id>.scope/`
+2. Writes `134217728` (128 * 1024 * 1024 bytes) to `memory.max`
+3. Writes `50000 100000` to `cpu.max` (50,000 microseconds per 100,000 microsecond period = 50% of one CPU)
+
+When the container process exceeds `memory.max`, the kernel OOM killer fires and terminates the process. The container stops with exit code 137 (SIGKILL). This is why memory-constrained containers can die suddenly without any application-level error message.
+</Callout>
+
+<TerminalBlock
+  title="Resource limits with docker stats"
+  lines={[
+    { type: 'comment', content: 'Run a container with memory and CPU limits' },
+    { type: 'command', content: 'docker run -d --name limited-app --memory=128m --cpus=0.5 -p 3001:3000 myapp:v1' },
+    { type: 'output', content: 'b2c3d4e5f6a7...' },
+    { type: 'comment', content: 'Monitor live resource usage — shows memory limit alongside current usage' },
+    { type: 'command', content: 'docker stats limited-app --no-stream' },
+    { type: 'output', content: 'CONTAINER ID   NAME          CPU %   MEM USAGE / LIMIT   MEM %   NET I/O     BLOCK I/O' },
+    { type: 'output', content: 'b2c3d4e5f6a7   limited-app   0.02%   18.4MiB / 128MiB    14.4%   656B / 0B   0B / 0B' },
+    { type: 'comment', content: 'Verify the limit is enforced via cgroup (requires root)' },
+    { type: 'command', content: 'docker inspect limited-app --format "Memory: {{.HostConfig.Memory}} bytes"' },
+    { type: 'output', content: 'Memory: 134217728 bytes' },
+    { type: 'command', content: 'docker rm -f limited-app' },
+  ]}
+/>
+
+<TerminalBlock
+  title="Useful docker run flags reference"
+  lines={[
+    { type: 'comment', content: '-d: run in background (detached)' },
+    { type: 'command', content: 'docker run -d myapp:v1' },
+    { type: 'comment', content: '--name: assign a human-readable name' },
+    { type: 'command', content: 'docker run --name myapp myapp:v1' },
+    { type: 'comment', content: '-p host:container — publish a port to the host' },
+    { type: 'command', content: 'docker run -p 3000:3000 myapp:v1' },
+    { type: 'comment', content: '-e: set an environment variable in the container' },
+    { type: 'command', content: 'docker run -e NODE_ENV=production myapp:v1' },
+    { type: 'comment', content: '--rm: remove container automatically when it exits' },
+    { type: 'command', content: 'docker run --rm myapp:v1' },
+    { type: 'comment', content: '--memory: set memory limit (supports k, m, g suffixes)' },
+    { type: 'command', content: 'docker run --memory=256m myapp:v1' },
+    { type: 'comment', content: '--cpus: set CPU limit (fractional — 0.5 = half a core)' },
+    { type: 'command', content: 'docker run --cpus=0.5 myapp:v1' },
+    { type: 'comment', content: '--restart: restart policy (no, on-failure, always, unless-stopped)' },
+    { type: 'command', content: 'docker run --restart=unless-stopped myapp:v1' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Debug a Misbehaving Container in Production"
+  difficulty="Foundation"
+  scenario="It's 9am. A Slack alert fires: the API container has been restarting every 5 minutes. Your job is to investigate. You will inspect logs, exec into the running container to check the environment, apply resource limits to prevent it from consuming all host memory, and practice the graceful stop vs force-kill timing difference."
+  objective="By the end of this exercise, you will be able to inspect container logs, exec into a container for live debugging, apply memory and CPU limits, monitor resource usage with docker stats, and observe the graceful vs force-kill shutdown timing difference."
+  steps={[
+    {
+      step: 1,
+      description: "Run the progressive app container. You need the image from the previous lesson — if you removed it, rebuild it first.",
+      command: "docker run -d --name debug-app -p 3000:3000 myapp:v1"
+    },
+    {
+      step: 2,
+      description: "View the container logs to see what the process printed at startup.",
+      command: "docker logs debug-app"
+    },
+    {
+      step: 3,
+      description: "Exec into the container and inspect the running process. Check: what PID is node? What files are in /app? What environment variables are set?",
+      command: "docker exec -it debug-app /bin/sh"
+    },
+    {
+      step: 4,
+      description: "Back on the host — stop the container and observe the shutdown time. The node process handles SIGTERM, so it should exit quickly.",
+      command: "time docker stop debug-app"
+    },
+    {
+      step: 5,
+      description: "Start a new container with resource limits applied. The --memory flag sets the cgroup memory.max value you learned about in Lesson 1.",
+      command: "docker run -d --name limited-app --memory=128m --cpus=0.5 -p 3001:3000 myapp:v1"
+    },
+    {
+      step: 6,
+      description: "Monitor resource usage live. Press Ctrl+C to stop watching after a few seconds.",
+      command: "docker stats limited-app"
+    },
+    {
+      step: 7,
+      description: "View the memory limit as Docker stored it — 128m converted to bytes.",
+      command: "docker inspect limited-app --format \"Memory limit: {{.HostConfig.Memory}} bytes\""
+    },
+    {
+      step: 8,
+      description: "Clean up all containers from this exercise.",
+      command: "docker rm -f debug-app limited-app"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "logs-visible",
+        label: "Container logs show 'Server running on port 3000'",
+        hint: "Run: docker logs debug-app — the first line should be 'Server running on port 3000'. If nothing appears, the container may have crashed. Run docker ps -a to check its status, then docker logs debug-app to see any error output."
+      },
+      {
+        id: "exec-shell",
+        label: "docker exec opened a shell inside the container where PID 1 is node",
+        hint: "Inside the container, run: ps aux — you should see 'node app.js' listed with PID 1. Your shell will have a higher PID (14, 15, etc.). This proves you are inside the container's PID namespace."
+      },
+      {
+        id: "resource-limits",
+        label: "docker stats shows MEM LIMIT of 128MiB for the limited-app container",
+        hint: "Run: docker stats limited-app --no-stream — the MEM USAGE / LIMIT column should show '... / 128MiB'. If it shows 0B / 0B, the container may not be running. Check docker ps."
+      },
+      {
+        id: "graceful-stop",
+        label: "docker stop completed in under 2 seconds (node handled SIGTERM gracefully)",
+        hint: "Run: time docker stop debug-app — you should see 'real 0m0.XXXs' — a fraction of a second. If it takes 10+ seconds, the process did not handle SIGTERM and Docker waited for the kill timeout. This is the difference between 'CMD [\"node\", \"app.js\"]' and 'CMD [\"npm\", \"start\"]'."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Container Lifecycle Commands",
+      items: [
+        { command: "docker run -d --name <n> <image>", description: "Create and start a container in the background", example: "docker run -d --name myapp myapp:v1" },
+        { command: "docker ps", description: "List running containers" },
+        { command: "docker ps -a", description: "List all containers including stopped ones" },
+        { command: "docker start <name>", description: "Start a stopped container" },
+        { command: "docker stop <name>", description: "Graceful stop: SIGTERM then SIGKILL after 10 seconds" },
+        { command: "docker kill <name>", description: "Immediate stop: sends SIGKILL (no grace period)" },
+        { command: "docker restart <name>", description: "Stop then start a container" },
+        { command: "docker rm <name>", description: "Remove a stopped container (use -f to force-remove running)" },
+        { command: "docker rm -f <name>", description: "Force remove — stop and delete in one command" },
+      ]
+    },
+    {
+      title: "Inspection and Debugging",
+      items: [
+        { command: "docker exec -it <name> /bin/sh", description: "Open an interactive shell inside a running container" },
+        { command: "docker exec <name> <cmd>", description: "Run a command inside the container without interactive shell", example: "docker exec myapp ls /app" },
+        { command: "docker logs <name>", description: "Show all container output (stdout + stderr)" },
+        { command: "docker logs -f <name>", description: "Follow logs in real time (like tail -f)" },
+        { command: "docker logs --tail 100 <name>", description: "Show last N lines of logs" },
+        { command: "docker inspect <name>", description: "Full container metadata as JSON" },
+        { command: "docker inspect <name> --format \"{{.State.ExitCode}}\"", description: "Extract a specific field from inspect output" },
+        { command: "docker stats <name>", description: "Live resource usage (CPU, memory, network, disk)" },
+        { command: "docker stats --no-stream", description: "Single snapshot of resource usage (not live)" },
+      ]
+    },
+    {
+      title: "Resource Limit Flags",
+      items: [
+        { command: "--memory=<limit>", description: "Set max memory — writes to cgroup memory.max. OOM kill fires when exceeded.", example: "docker run --memory=256m myapp:v1" },
+        { command: "--memory-swap=<limit>", description: "Set total memory + swap limit (set equal to --memory to disable swap)" },
+        { command: "--cpus=<decimal>", description: "Set CPU limit as fraction of one core — writes to cgroup cpu.max", example: "docker run --cpus=1.5 myapp:v1" },
+        { command: "--cpu-shares=<num>", description: "Relative CPU weight (default 1024) — used when host is under contention" },
+        { command: "--pids-limit=<num>", description: "Maximum number of processes inside the container — prevents fork bombs" },
+      ]
+    },
+    {
+      title: "Exit Code Reference",
+      items: [
+        { command: "Exit code 0", description: "Clean exit — process exited normally" },
+        { command: "Exit code 1", description: "Application error — process exited due to an unhandled error" },
+        { command: "Exit code 137", description: "SIGKILL (128 + 9) — container was force-killed (OOM or docker kill)" },
+        { command: "Exit code 143", description: "SIGTERM (128 + 15) — process received SIGTERM and exited cleanly" },
+      ]
+    }
+  ]}
+/>
