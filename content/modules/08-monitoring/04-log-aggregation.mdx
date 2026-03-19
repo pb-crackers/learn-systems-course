@@ -11,6 +11,299 @@ prerequisites: ["08-monitoring/03-grafana"]
 tags: ["logs", "loki", "promtail", "elk", "logql", "centralized-logging", "log-aggregation"]
 ---
 
-## Log Aggregation
+## Overview
 
-*Full content will be added in plan 07-01 continuation.*
+In the Linux Fundamentals module, you read log files with `cat`, `grep`, and `tail`. You could watch a single file in real time with `tail -f /var/log/nginx/access.log`. That works when you have one server.
+
+When you have 50 containers across 10 hosts, `tail -f` breaks down immediately. Which host? Which container? Logs from the frontend, API, database, and cache service are scattered across the filesystem of every machine. If the API crashes at 3 AM, you need to find the error quickly — not SSH into ten hosts and search logs manually.
+
+Centralized logging solves this: collect logs from every container and host, ship them to a single storage system, and make them searchable from one place.
+
+## How It Works
+
+The centralized logging pipeline has four stages:
+
+```
+Collect → Ship → Store → Query
+
+[App containers] → [Log agent (Promtail/Logstash)] → [Storage (Loki/Elasticsearch)] → [UI (Grafana/Kibana)]
+```
+
+Each stage has distinct responsibilities:
+- **Collect**: A log agent runs on each host, tails log files or reads from the Docker socket
+- **Ship**: The agent sends log lines (with labels/tags) to a central store via HTTP or a binary protocol
+- **Store**: The central store indexes and compresses logs for fast retrieval
+- **Query**: A query UI lets you search, filter, and visualize logs across all hosts and services
+
+### The ELK Stack
+
+**ELK** stands for Elasticsearch, Logstash, and Kibana — the most established centralized logging stack.
+
+- **Elasticsearch**: Stores and indexes logs. Every word in every log line is indexed for full-text search. This makes queries like "find all logs containing the string 'NullPointerException'" extremely fast.
+- **Logstash**: Ingests, transforms, and routes logs. A pipeline with input (read from file, TCP, HTTP), filter (parse, transform, enrich), and output (send to Elasticsearch) stages.
+- **Kibana**: Visualizes logs stored in Elasticsearch. Provides a search UI, dashboards, and the KQL query language.
+
+**ELK strengths:** Powerful full-text search, mature ecosystem with 10+ years of production use, extensive plugin ecosystem for parsing structured and unstructured logs.
+
+**ELK tradeoffs:** Elasticsearch requires significant resources — a minimum of 2 GB heap (often 4-8 GB in production), complex JVM tuning, and expertise to operate at scale. A three-node Elasticsearch cluster for high availability is a substantial infrastructure commitment.
+
+ELK is a conceptual reference for this course. For local learning labs, the resource requirements make ELK impractical on a developer laptop.
+
+### Loki + Promtail + Grafana
+
+Loki is Grafana Labs' lightweight alternative to Elasticsearch, designed specifically for log aggregation. It makes a different architectural trade-off: **Loki indexes labels, not log content.**
+
+**The Loki model:**
+
+1. **Promtail** runs on each host as a DaemonSet (Kubernetes) or Docker container. It tails log files and Docker container logs, attaches labels (job name, container name, host), and ships log lines to Loki.
+
+2. **Loki** stores logs indexed only by label set. The labels `{job="app", container="web", host="node-1"}` form the index. The actual log content is compressed and stored but NOT word-indexed.
+
+3. To query logs, you first select a log stream by labels, then Loki greps through that stream for text matches:
+   ```
+   {job="app"} |= "error"
+   ```
+   This means: "Find all log lines from the `job=app` stream that contain the string 'error'."
+
+**LogQL** is Loki's query language. It starts with a log stream selector in `{}` and optionally chains filter expressions:
+
+```logql
+# Select all logs from the app container
+{container=~"monitoring-app.*"}
+
+# Filter to only error lines
+{container=~"monitoring-app.*"} |= "error"
+
+# Count log volume per minute
+count_over_time({container=~"monitoring-app.*"}[5m])
+
+# Parse JSON logs and filter by field
+{container=~"monitoring-app.*"} | json | level="error"
+```
+
+**Loki strengths:** Lightweight (no JVM, no full-text index), integrates with Grafana you already have, uses the same label model as Prometheus (labels on log streams mirror metric labels), 10x less storage than Elasticsearch for the same log volume.
+
+**Loki tradeoffs:** No full-text index means "find any log containing 'NullPointerException' across all services" requires selecting a broad stream first, then scanning. For narrow, label-targeted queries this is fast. For broad text searches across unlabeled data, it is slower than Elasticsearch.
+
+### Loki Configuration
+
+The Loki server configuration for a local development setup:
+
+```yaml
+# loki/loki-config.yml
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  filesystem:
+    directory: /loki/chunks
+
+limits_config:
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+```
+
+Configuration sections:
+- `auth_enabled: false` — single-tenant mode for development (no tenant ID required in requests)
+- `ingester.lifecycler.ring.kvstore.store: inmemory` — for development only; production uses consul or etcd for distributed coordination
+- `schema_config` — defines the storage schema: TSDB store (the current recommended index type), filesystem storage for chunk data
+- `storage_config.filesystem.directory` — where log chunks are stored on disk
+- `limits_config.reject_old_samples_max_age: 168h` — reject log lines older than 7 days (prevents accidentally ingesting old historical logs)
+
+### Promtail Configuration
+
+Promtail is the log shipping agent that collects logs and sends them to Loki:
+
+```yaml
+# promtail/promtail-config.yml
+server:
+  http_listen_port: 9080
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: varlogs
+          __path__: /var/log/*log
+
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: container
+```
+
+Promtail connects to the Docker socket to discover running containers and tail their logs. The `relabel_configs` section extracts the container name from Docker metadata and sets it as the `container` label on log lines. This is how `{container=~"monitoring-app.*"}` in a LogQL query finds your app's logs.
+
+<Callout type="deep-dive" title="Loki's Key Design Decision: Index Labels, Not Content">
+Elasticsearch indexes every word in every log line — this is called an inverted index. If you have 1 billion log lines, Elasticsearch creates a mapping from every word to the log lines containing it. This makes text search fast but requires enormous storage and RAM for the index itself.
+
+Loki only indexes the label set: `{job="app", container="web", host="node-1"}`. The actual log content is stored compressed but not indexed. To search for a word, Loki first selects the matching label stream, then scans through only the relevant compressed chunks.
+
+Result: Loki uses roughly 10x less storage than Elasticsearch for the same log volume. The trade-off is that broad text searches across unlabeled data are slower. But in well-structured environments where logs are properly labeled by service, Loki queries are fast because the label selection narrows the data significantly before the text scan begins.
+
+This is why the Prometheus and Loki label models are intentionally consistent — a metric with `{job="app", instance="web-1"}` and logs with `{job="app", container="web-1"}` use the same label vocabulary, making correlation between metrics and logs natural.
+</Callout>
+
+<Callout type="tip" title="Starting the Monitoring Stack with Loki">
+The Docker Compose monitoring stack in `docker/monitoring/` includes a Loki + Promtail configuration. Start the full stack including log aggregation using the Loki profile:
+
+```bash
+docker compose --profile loki up -d
+```
+
+Once running, add Loki as a data source in Grafana (Settings > Data Sources > Add > Loki, URL: `http://loki:3100`). Then go to Explore, select the Loki data source, and write LogQL queries to see your container logs.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Set Up Centralized Logging with Loki"
+  difficulty="Intermediate"
+  scenario="Your Docker Compose application generates logs from multiple containers. Instead of running docker logs on each container individually, set up centralized logging so all logs are searchable from one place in Grafana."
+  objective="By the end of this exercise, you will be able to start a Loki stack, write LogQL queries to filter logs by container, and use text filtering to find error lines."
+  steps={[
+    {
+      step: 1,
+      description: "Navigate to the monitoring directory and start the monitoring stack with the Loki profile enabled.",
+      command: "cd docker/monitoring && docker compose --profile loki up -d"
+    },
+    {
+      step: 2,
+      description: "Wait for Loki to start and become healthy. Loki takes a few seconds to initialize its storage.",
+      command: "sleep 15 && curl -s http://localhost:3100/ready && echo 'Loki is ready'"
+    },
+    {
+      step: 3,
+      description: "Open Grafana at localhost:3001. Navigate to Settings (gear icon) > Data Sources > Add data source. Select Loki.",
+      command: "open http://localhost:3001"
+    },
+    {
+      step: 4,
+      description: "In the Loki data source config, set URL to http://loki:3100 (the Docker service name, not localhost). Click Save & Test.",
+      command: "echo 'In Grafana: URL field = http://loki:3100  (Docker service name)'"
+    },
+    {
+      step: 5,
+      description: "Navigate to Explore (compass icon) in the left sidebar. Select the Loki data source from the dropdown.",
+      command: "echo 'In Grafana: Explore > select Loki data source'"
+    },
+    {
+      step: 6,
+      description: "Query 1: Select all app container logs using a container label selector.",
+      command: "echo 'LogQL: {container=~\"monitoring-app.*\"}  → Shows all log lines from the app container'"
+    },
+    {
+      step: 7,
+      description: "Generate some app traffic so there are recent log lines to query.",
+      command: "for i in $(seq 1 20); do curl -s http://localhost:3000/ > /dev/null; done && echo 'Traffic generated'"
+    },
+    {
+      step: 8,
+      description: "Query 2: Filter app logs to only lines containing 'GET' (HTTP request log lines).",
+      command: "echo 'LogQL: {container=~\"monitoring-app.*\"} |= \"GET\"  → |= is the text filter operator in LogQL'"
+    },
+    {
+      step: 9,
+      description: "Query 3: Count log volume over 5-minute windows to see ingestion rate.",
+      command: "echo 'LogQL: count_over_time({container=~\"monitoring-app.*\"}[5m])  → Returns log line count per 5-minute window'"
+    },
+    {
+      step: 10,
+      description: "Compare Loki label-first querying to ELK text-first querying. If this were Elasticsearch, you could query {message: error} across all logs simultaneously. With Loki, you first pick a label stream, then filter text within it.",
+      command: "echo 'Loki pattern: {container=~\"monitoring-app.*\"} |= \"error\"  vs ELK: message:error across all indices'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "loki-connects",
+        label: "Loki data source connects in Grafana (Save & Test shows green checkmark)",
+        hint: "The URL must be http://loki:3100 (Docker service name). Using localhost:3100 will fail because Grafana's backend cannot reach localhost:3100 inside the Docker network."
+      },
+      {
+        id: "logql-stream",
+        label: "LogQL query {container=~\"monitoring-app.*\"} returns app container log lines",
+        hint: "If no logs appear, check that Promtail is running (docker compose ps) and has had time to collect logs. Also verify the container name matches — run: docker ps | grep monitoring to see actual container names."
+      },
+      {
+        id: "text-filter",
+        label: "Text filter |= \"GET\" correctly narrows log results to lines containing 'GET'",
+        hint: "The |= operator is Loki's contains filter. It scans the selected log stream for the literal string. Case-sensitive: |= \"get\" will not match 'GET'."
+      },
+      {
+        id: "label-query-model",
+        label: "You can explain why Loki requires a label selector before text filtering",
+        hint: "Loki indexes labels, not text. Without a label selector, Loki has no way to narrow down which log chunks to scan. The label selector is mandatory — it is how Loki avoids scanning all stored data for every query."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Log Aggregation Stacks",
+      items: [
+        { command: "ELK (Elasticsearch + Logstash + Kibana)", description: "Full-text indexed logs — powerful search but resource-heavy (2+ GB heap). Industry standard for large-scale deployments.", example: "Query: GET /logs/_search?q=NullPointerException" },
+        { command: "Loki + Promtail + Grafana", description: "Label-indexed logs — lightweight (no JVM), integrates with Grafana/Prometheus label model. 10x less storage than ELK.", example: "Query: {job='app'} |= 'error'" },
+        { command: "Fluentd / Fluent Bit", description: "Log collectors/forwarders — ship logs from containers to any backend (ELK, Loki, Splunk, CloudWatch)", example: "Alternative to Promtail; more plugin ecosystem" },
+      ]
+    },
+    {
+      title: "LogQL",
+      items: [
+        { command: "{label=\"value\"}", description: "Log stream selector — select logs by label. Required as first component of every LogQL query.", example: "{job=\"app\", container=\"web\"}" },
+        { command: "|= \"string\"", description: "Text filter — include lines containing the string (case-sensitive)", example: "{job=\"app\"} |= \"error\"" },
+        { command: "!= \"string\"", description: "Inverse text filter — exclude lines containing the string", example: "{job=\"app\"} != \"healthcheck\"" },
+        { command: "| json", description: "Parse JSON log lines into structured fields for filtering", example: "{job=\"app\"} | json | level=\"error\"" },
+        { command: "count_over_time([5m])", description: "Count log lines per time window — useful for log volume dashboards", example: "count_over_time({job=\"app\"}[5m])" },
+      ]
+    },
+    {
+      title: "Loki vs Elasticsearch",
+      items: [
+        { command: "Loki index", description: "Indexes only labels — fast for label-targeted queries, uses 10x less storage", example: "{job='app', host='node-1'} |= 'error'" },
+        { command: "Elasticsearch index", description: "Full-text inverted index — fast for any text search, but expensive (RAM, disk, CPU)", example: "GET /logs/_search?q=error" },
+        { command: "When to use Loki", description: "Services with consistent labeling (Kubernetes, Docker Compose), Prometheus-based monitoring stacks, resource-constrained environments", example: "" },
+        { command: "When to use ELK", description: "Large log volumes requiring full-text search across unstructured log data, compliance/audit log retention, existing ELK infrastructure", example: "" },
+      ]
+    }
+  ]}
+/>
