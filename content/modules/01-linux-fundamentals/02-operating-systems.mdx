@@ -1,0 +1,261 @@
+---
+title: "What an Operating System Does"
+description: "Kernel, userspace, system calls — the software layer between you and the hardware"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "02-operating-systems"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 22
+prerequisites: ["01-linux-fundamentals/01-how-computers-work"]
+tags: ["kernel", "userspace", "syscalls", "os"]
+---
+
+## Overview
+
+A container crashed with "permission denied" while calling `openat` — a system call to open a file. Was this a bug in the application code? A missing capability in the container security profile? A Linux security module blocking the call? You cannot diagnose this without understanding the boundary between user code and the kernel, and how that boundary is crossed via system calls.
+
+This lesson explains what the Linux kernel does, why the userspace/kernel split exists, how system calls bridge that gap, and how the kernel exposes its internal state through `/proc` and `/sys`.
+
+## How It Works
+
+### What the Kernel Does
+
+The **kernel** is the core of the operating system. It is the first program loaded after the bootloader and it runs for the entire lifetime of the system. It is responsible for:
+
+**Hardware abstraction**: The kernel provides a uniform interface to hardware. Your application doesn't need to know whether storage is on an NVMe SSD, a SATA HDD, or a network-attached filesystem — it just calls `read()` and `write()`. The kernel translates those calls into the appropriate device-specific commands.
+
+**Process management**: The kernel creates, schedules, and terminates processes. It decides which process runs on which CPU core for how long (the scheduler). It enforces isolation between processes — one process cannot read another's memory without explicit sharing.
+
+**Memory management**: The kernel manages virtual memory. It maps each process's virtual address space to physical RAM pages, handles page faults (when a process accesses memory not yet in RAM), and manages the swap area.
+
+**Filesystem access**: The kernel presents all storage — local disks, NFS mounts, tmpfs, procfs — through a unified filesystem interface (the VFS, covered in the next lesson).
+
+**Device drivers**: Code inside the kernel (or loaded as modules) that speaks the protocol of specific hardware devices — a specific network card, a specific GPU, a specific USB controller.
+
+### Kernel Space vs User Space
+
+This is the most important architectural division in Unix-like systems.
+
+**Ring 0 (kernel space)**: Code running in ring 0 has unrestricted access to all hardware, all memory, all I/O ports. The kernel runs here. A bug in kernel-space code can crash the entire system.
+
+**Ring 3 (user space)**: All user programs — your shell, your web server, your container processes — run in ring 3. Ring 3 code cannot directly access hardware, cannot access other processes' memory, and cannot execute privileged instructions. This is enforced by the CPU hardware, not just by convention.
+
+**Why this separation matters**: A buggy user-space program can only corrupt its own memory and crash itself — it cannot corrupt the kernel or other processes. This isolation is fundamental to system stability and security.
+
+<Callout type="tip" title="What 'Segmentation Fault' Means">
+A segmentation fault occurs when a program in user space tries to access a memory address it doesn't have permission to access. The CPU raises a hardware exception, the kernel catches it and sends `SIGSEGV` to the process, the process terminates. This is the protection model working correctly — preventing one bad program from corrupting system memory.
+</Callout>
+
+### System Calls: Crossing the Boundary
+
+User-space code cannot directly access hardware. To do anything useful — read a file, send a network packet, create a new process — it must ask the kernel. This request is a **system call**.
+
+The system call interface is the contract between user programs and the kernel. It is stable across kernel versions: programs compiled years ago continue to work because the system call ABI has not changed.
+
+**Common system calls:**
+
+| Syscall | What it does |
+|---------|-------------|
+| `open(path, flags)` | Open a file, returns a file descriptor |
+| `read(fd, buf, count)` | Read bytes from a file descriptor |
+| `write(fd, buf, count)` | Write bytes to a file descriptor |
+| `fork()` | Create a copy of the current process |
+| `exec(path, argv)` | Replace the current process image with a new program |
+| `exit(status)` | Terminate the current process |
+| `mmap(addr, len, ...)` | Map a file or memory region into the process's address space |
+| `socket(domain, type, ...)` | Create a network socket |
+| `clone(flags, ...)` | Create a new thread or process with fine-grained control (used by containers) |
+
+**How a system call works mechanically:**
+
+1. User code calls a C library function (e.g., `fopen()` from libc)
+2. libc sets up the syscall number and arguments in registers
+3. libc executes the `syscall` instruction (on x86-64)
+4. The CPU switches from ring 3 to ring 0 — a privilege level transition
+5. The kernel handles the request, performs the operation
+6. The CPU switches back to ring 3, with the return value in a register
+7. libc returns the result to the application
+
+<Callout type="deep-dive" title="Tracing System Calls with strace">
+`strace` is a Linux tool that intercepts all system calls made by a process and prints them to stderr. It's invaluable for debugging.
+
+Example: watching what `ls /tmp` actually does at the syscall level:
+
+```bash
+strace ls /tmp 2>&1 | head -30
+```
+
+You'll see calls like `execve`, `openat`, `getdents64` (reading directory entries), and `write` (writing the output). Every file operation, every network connection, every process creation — all visible through strace.
+
+The syscall table for x86-64 Linux has ~350 entries, documented in `man 2 <syscall-name>`. Each syscall number corresponds to a kernel function. You can find the full table in the kernel source at `arch/x86/entry/syscalls/syscall_64.tbl`.
+</Callout>
+
+<Callout type="warning" title="strace Has Overhead — Never Use on Production Processes">
+`strace` works by attaching to a process via `ptrace()` and intercepting every system call. This causes a context switch overhead on every syscall, which can slow a process by 10-100x. Never attach strace to a production service without understanding this impact. Use it in staging, or briefly on a single process instance in production if you absolutely must.
+</Callout>
+
+### The Linux Boot Process
+
+Understanding the boot sequence tells you where things can go wrong and where to look for problems:
+
+1. **BIOS/UEFI**: The firmware runs POST (Power-On Self Test), finds bootable devices
+2. **Bootloader (GRUB)**: Loaded from the boot sector; loads the kernel image into RAM, passes kernel parameters
+3. **Kernel initialization**: The kernel decompresses itself, initializes hardware, mounts the root filesystem
+4. **PID 1 (init/systemd)**: The first user-space process. On modern Linux, this is `systemd`. PID 1 is special: it cannot be killed, it adopts orphaned processes, and it is responsible for starting all other services
+5. **User-space services**: systemd starts network services, login daemons, and all configured units
+
+<Callout type="tip" title="PID 1 in Containers">
+In a Docker container, the first process started (from `CMD` or `ENTRYPOINT`) becomes PID 1. This matters because PID 1 is responsible for reaping zombie processes. If your container's entrypoint is a shell script and it doesn't handle SIGTERM correctly, your container may take 30 seconds to stop (the Docker timeout before SIGKILL). This is why `tini` or proper signal handling matters in containers.
+</Callout>
+
+### /proc and /sys: Windows Into the Kernel
+
+The `/proc` filesystem is a **virtual filesystem** — it has no data on disk. The kernel generates its contents on-the-fly when you read from it. It is the primary interface for inspecting kernel state.
+
+**Key /proc paths:**
+
+| Path | What it contains |
+|------|-----------------|
+| `/proc/cpuinfo` | CPU details (as seen in Lesson 1) |
+| `/proc/meminfo` | Memory statistics |
+| `/proc/loadavg` | 1, 5, 15-minute load averages + runnable/total processes |
+| `/proc/uptime` | System uptime in seconds |
+| `/proc/version` | Kernel version string |
+| `/proc/mounts` | Currently mounted filesystems |
+| `/proc/[pid]/` | Per-process directory (covered in the Processes lesson) |
+| `/proc/net/` | Network interface and socket statistics |
+
+**`/sys`** is similar to `/proc` but organized around hardware devices and kernel subsystems. It follows a strict hierarchy: `/sys/bus/`, `/sys/class/`, `/sys/devices/`. You can read hardware parameters and, as root, write to certain entries to change kernel settings at runtime.
+
+<TerminalBlock
+  title="Exploring the Kernel Interface"
+  lines={[
+    { type: 'comment', content: 'Check kernel version' },
+    { type: 'command', content: 'cat /proc/version' },
+    { type: 'output', content: 'Linux version 6.8.0-51-generic (buildd@lcy02-amd64-044) (gcc-13 (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0, GNU ld (GNU Binutils for Ubuntu) 2.42) #52-Ubuntu SMP PREEMPT_DYNAMIC Thu Dec  5 13:09:44 UTC 2024' },
+    { type: 'comment', content: 'See load average: 1min 5min 15min / running-threads/total-threads / last-pid' },
+    { type: 'command', content: 'cat /proc/loadavg' },
+    { type: 'output', content: '0.15 0.10 0.07 1/312 4821' },
+    { type: 'comment', content: 'System uptime (seconds) and idle time' },
+    { type: 'command', content: 'cat /proc/uptime' },
+    { type: 'output', content: '86423.45 172844.12' },
+    { type: 'comment', content: 'Trace system calls made by the hostname command' },
+    { type: 'command', content: 'strace -c hostname 2>&1' },
+    { type: 'output', content: 'myserver' },
+    { type: 'output', content: '% time     seconds  usecs/call     calls    errors syscall' },
+    { type: 'output', content: '100.00    0.000041          41         1           execve' },
+    { type: 'output', content: '  0.00    0.000000           0         6           read' },
+    { type: 'output', content: '  0.00    0.000000           0         9           openat' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Explore the Kernel Interface and Trace System Calls"
+  difficulty="Foundation"
+  scenario="You are debugging a containerized application that is failing with 'Operation not permitted' on startup. Before you can file a useful bug report, you need to understand whether the failure is at the system call level (a missing container capability) or at the application level (a code bug). You will use /proc and strace to build that diagnostic intuition."
+  objective="By the end of this exercise, you will be able to read kernel state from /proc, interpret strace output, and identify which system calls a program makes during startup."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the Linux lab container.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Read the kernel version and uptime from /proc.",
+      command: "cat /proc/version && echo '---' && cat /proc/uptime"
+    },
+    {
+      step: 3,
+      description: "Check the load average. The format is: 1min_avg 5min_avg 15min_avg running_threads/total_threads last_pid.",
+      command: "cat /proc/loadavg"
+    },
+    {
+      step: 4,
+      description: "Use strace to trace the system calls made by 'ls /'. The -e flag filters to specific syscall types. Look at what openat and getdents64 do.",
+      command: "strace -e openat,getdents64 ls / 2>&1 | head -20"
+    },
+    {
+      step: 5,
+      description: "Use strace with -c (count mode) to get a summary of all syscalls made by a command. This shows which syscalls are called most frequently.",
+      command: "strace -c ls /usr/bin 2>&1"
+    },
+    {
+      step: 6,
+      description: "Look at /proc/1 — PID 1 (the init process in this container). See what files it has open and what its command line is.",
+      command: "cat /proc/1/cmdline | tr '\\0' ' ' && echo && ls /proc/1/fd | head -10"
+    },
+    {
+      step: 7,
+      description: "Check the kernel messages log. dmesg shows messages from the kernel ring buffer — hardware events, driver messages, errors.",
+      command: "dmesg | tail -20"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "proc-version",
+        label: "You can read the kernel version from /proc/version",
+        hint: "Run: cat /proc/version | awk '{print $3}' to extract just the version number"
+      },
+      {
+        id: "strace-basic",
+        label: "You can run strace on a command and see the system calls it makes",
+        hint: "Run: strace echo hello 2>&1 | tail -5 — you should see write() and exit_group()"
+      },
+      {
+        id: "strace-count",
+        label: "You can use strace -c to get a summary of system call counts",
+        hint: "Run: strace -c ls 2>&1 — look for the table showing % time, calls, and syscall name"
+      },
+      {
+        id: "proc-pid",
+        label: "You can read PID 1's command line from /proc/1/cmdline",
+        hint: "Run: cat /proc/1/cmdline | tr '\\0' ' ' — the null bytes between arguments need to be replaced for readable output"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Kernel Information",
+      items: [
+        { command: "uname -a", description: "Print all system information: kernel version, hostname, architecture", example: "uname -r" },
+        { command: "cat /proc/version", description: "Kernel version and build toolchain details", example: "cat /proc/version" },
+        { command: "dmesg | tail -50", description: "Last 50 lines of kernel ring buffer — hardware events and errors", example: "dmesg -T | grep -i error" },
+        { command: "cat /proc/loadavg", description: "1, 5, 15-minute load averages and thread counts", example: "cat /proc/loadavg" },
+      ]
+    },
+    {
+      title: "System Call Tracing",
+      items: [
+        { command: "strace <cmd>", description: "Trace all system calls made by a command", example: "strace ls /tmp 2>&1 | head -20" },
+        { command: "strace -c <cmd>", description: "Count and summarize system calls — useful for profiling", example: "strace -c find /usr 2>&1" },
+        { command: "strace -e <syscall> <cmd>", description: "Filter to specific system calls only", example: "strace -e openat,read cat /etc/hosts" },
+        { command: "strace -p <pid>", description: "Attach to a running process and trace its system calls", example: "strace -p 1234 2>&1 | head -20" },
+      ]
+    },
+    {
+      title: "Key /proc Paths",
+      items: [
+        { command: "/proc/cpuinfo", description: "CPU details per logical processor" },
+        { command: "/proc/meminfo", description: "Memory statistics: total, free, available, cache, swap" },
+        { command: "/proc/loadavg", description: "Load average and process counts" },
+        { command: "/proc/uptime", description: "Seconds since boot and idle time" },
+        { command: "/proc/mounts", description: "Currently mounted filesystems (same as /etc/mtab)" },
+        { command: "/proc/[pid]/cmdline", description: "Command line of process PID (null-byte delimited)" },
+        { command: "/proc/[pid]/status", description: "Human-readable process status including memory usage and signals" },
+        { command: "/proc/[pid]/fd/", description: "Directory of file descriptors open in process PID" },
+      ]
+    }
+  ]}
+/>

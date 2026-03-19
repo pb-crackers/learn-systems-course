@@ -1,0 +1,315 @@
+---
+title: "The Linux Filesystem"
+description: "Hierarchy, mount points, inodes, and the everything-is-a-file philosophy"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "03-linux-filesystem"
+order: 3
+difficulty: "Foundation"
+estimatedMinutes: 25
+prerequisites: ["01-linux-fundamentals/02-operating-systems"]
+tags: ["filesystem", "inodes", "mount", "fhs", "vfs"]
+---
+
+## Overview
+
+A Docker container's disk filled up, but `df` showed plenty of space available. The container's overlay filesystem was full while the host filesystem had room to spare — two separate filesystems mounted at different points in the same directory tree. Understanding mount points, inodes, and the Filesystem Hierarchy Standard (FHS) would have caught this in minutes instead of hours.
+
+This lesson explains how Linux organizes files: the directory hierarchy and what each directory is for, how inodes store file metadata, how hard links and soft links differ mechanically, how filesystems attach to the tree via mount points, and why "everything is a file" is not just a slogan — it is the fundamental abstraction that makes Unix tools composable.
+
+## How It Works
+
+### The Filesystem Hierarchy Standard
+
+Every file on a Linux system lives under `/` — the root directory. Unlike Windows (where each drive letter has its own tree), Linux has a single unified tree. External drives, network filesystems, virtual filesystems — everything is attached somewhere under `/`.
+
+The FHS defines what each top-level directory contains and why:
+
+| Directory | Purpose |
+|-----------|---------|
+| `/bin` | Essential user binaries (`ls`, `cp`, `bash`) — must be available before `/usr` is mounted |
+| `/sbin` | System administration binaries (`fdisk`, `iptables`) — historically root-only |
+| `/etc` | System-wide configuration files (text, editable by admins) |
+| `/home` | User home directories (`/home/alice`, `/home/bob`) |
+| `/root` | Home directory of the root user |
+| `/var` | Variable data that changes during operation: logs (`/var/log`), spool files, databases |
+| `/tmp` | Temporary files — cleared on reboot (on most distros). World-writable with sticky bit. |
+| `/proc` | Virtual filesystem: kernel state exposed as files (no disk data) |
+| `/sys` | Virtual filesystem: hardware and driver state |
+| `/dev` | Device files: block devices, character devices |
+| `/usr` | User programs, libraries, documentation — the "secondary hierarchy" |
+| `/usr/bin` | Most user-space programs (`vim`, `python3`, `git`) |
+| `/usr/lib` | Shared libraries for programs in `/usr/bin` |
+| `/lib` | Shared libraries needed for binaries in `/bin` and `/sbin` |
+| `/opt` | Optional software installed outside the package manager |
+| `/mnt` | Conventional mount point for manually mounted temporary filesystems |
+| `/media` | Mount points for removable media (USB drives, CDs) |
+| `/boot` | Kernel images, initrd, bootloader files |
+
+<Callout type="tip" title="Why /bin and /usr/bin Both Exist">
+Historically, `/usr` was a separate filesystem mounted later in the boot process. Essential tools (`ls`, `sh`, `mount`) needed to be available before `/usr` was mounted, so they lived in `/bin`. Modern systems (Ubuntu 20.04+, Fedora 17+) have merged them: `/bin` is now a symlink to `/usr/bin`. But the distinction matters when examining older systems or rescue scenarios.
+</Callout>
+
+### Inodes: The Metadata Objects
+
+When you create a file, the filesystem allocates two things: **the data blocks** (the actual file contents) and an **inode** (index node) that describes the file.
+
+An inode stores:
+- File type (regular file, directory, symlink, block device, char device, pipe, socket)
+- Permissions (mode bits)
+- Owner UID and group GID
+- File size in bytes
+- Timestamps: atime (last access), mtime (last modification), ctime (last status change)
+- Link count (number of directory entries pointing to this inode)
+- Pointers to data blocks
+
+**What the inode does NOT store**: the filename. Filenames are stored in **directory entries** (dentries) — a directory is just a special file that maps filenames to inode numbers. This is the key insight behind hard links.
+
+<TerminalBlock
+  title="Examining Inodes"
+  lines={[
+    { type: 'comment', content: 'Show inode numbers with ls -i' },
+    { type: 'command', content: 'ls -i /etc/passwd /etc/hostname' },
+    { type: 'output', content: '2621449 /etc/passwd' },
+    { type: 'output', content: '2621441 /etc/hostname' },
+    { type: 'comment', content: 'stat shows the full inode data for a file' },
+    { type: 'command', content: 'stat /etc/passwd' },
+    { type: 'output', content: '  File: /etc/passwd' },
+    { type: 'output', content: '  Size: 2734      Blocks: 8          IO Block: 4096   regular file' },
+    { type: 'output', content: 'Device: 8,1     Inode: 2621449     Links: 1' },
+    { type: 'output', content: 'Access: (0644/-rw-r--r--)  Uid: (    0/    root)   Gid: (    0/    root)' },
+    { type: 'output', content: 'Access: 2024-03-18 09:15:42.000000000 +0000' },
+    { type: 'output', content: 'Modify: 2024-03-10 14:23:11.000000000 +0000' },
+    { type: 'output', content: 'Change: 2024-03-10 14:23:11.000000000 +0000' },
+  ]}
+/>
+
+<Callout type="deep-dive" title="Hard Links and the Inode Model">
+A **hard link** is just a directory entry that points to the same inode as another directory entry. Both filenames reference the same underlying inode — the same permissions, the same data, the same timestamps. You cannot tell which is the "original" because there is no original; they are equals.
+
+```bash
+ln /etc/passwd /tmp/passwd-hardlink
+ls -i /etc/passwd /tmp/passwd-hardlink
+# Both show the same inode number
+stat /etc/passwd | grep Links
+# Links: 2  (the inode now has 2 directory entries pointing to it)
+```
+
+When you delete a file with `rm`, you are removing a directory entry. The inode and its data blocks are only freed when the link count reaches zero. This is why a program that has a file open can continue to read it after `rm` deletes the filename — the inode persists until all file descriptors are closed AND the link count is zero.
+
+**Hard link limitations**: You cannot hard link across different filesystems (because inode numbers are only unique within one filesystem). You cannot hard link directories (this would create cycles in the filesystem tree, breaking tools that traverse it). For cross-filesystem or directory links, use soft links.
+</Callout>
+
+### Soft Links (Symbolic Links)
+
+A **symbolic link** (symlink) is a special file that contains a path string. When the kernel resolves a symlink, it follows the path stored inside it. Unlike a hard link, a symlink:
+
+- Can span filesystems
+- Can point to directories
+- Has its own inode (the symlink file itself is a filesystem object)
+- Can be broken (dangling symlink) if the target is deleted
+
+<TerminalBlock
+  title="Hard Links vs Soft Links"
+  lines={[
+    { type: 'comment', content: 'Create a file and examine its inode' },
+    { type: 'command', content: 'echo "hello" > /tmp/original.txt && ls -i /tmp/original.txt' },
+    { type: 'output', content: '131073 /tmp/original.txt' },
+    { type: 'comment', content: 'Create a hard link — same inode number' },
+    { type: 'command', content: 'ln /tmp/original.txt /tmp/hardlink.txt && ls -i /tmp/original.txt /tmp/hardlink.txt' },
+    { type: 'output', content: '131073 /tmp/original.txt' },
+    { type: 'output', content: '131073 /tmp/hardlink.txt' },
+    { type: 'comment', content: 'Create a soft link — different inode, contains the path' },
+    { type: 'command', content: 'ln -s /tmp/original.txt /tmp/softlink.txt && ls -li /tmp/*.txt' },
+    { type: 'output', content: '131073 -rw-r--r-- 2 root root  6 Mar 18 10:00 /tmp/hardlink.txt' },
+    { type: 'output', content: '131073 -rw-r--r-- 2 root root  6 Mar 18 10:00 /tmp/original.txt' },
+    { type: 'output', content: '131098 lrwxrwxrwx 1 root root 18 Mar 18 10:00 /tmp/softlink.txt -> /tmp/original.txt' },
+  ]}
+/>
+
+### Mount Points: Attaching Filesystems to the Tree
+
+Linux presents all filesystems — regardless of device or type — through a single directory tree. The mechanism is **mounting**: attaching a filesystem to a directory, called the **mount point**.
+
+When a filesystem is mounted at `/data`, files inside that filesystem appear under `/data/`. The mount point directory itself (on the parent filesystem) is hidden while the filesystem is mounted.
+
+<TerminalBlock
+  title="Working with Mount Points"
+  lines={[
+    { type: 'comment', content: 'See all mounted filesystems' },
+    { type: 'command', content: 'findmnt' },
+    { type: 'output', content: 'TARGET                                SOURCE     FSTYPE      OPTIONS' },
+    { type: 'output', content: '/                                     /dev/sda1  ext4        rw,relatime' },
+    { type: 'output', content: '├─/proc                               proc       proc        rw,nosuid,nodev,noexec' },
+    { type: 'output', content: '├─/sys                                sysfs      sysfs       rw,nosuid,nodev,noexec' },
+    { type: 'output', content: '├─/dev                                devtmpfs   devtmpfs    rw,nosuid' },
+    { type: 'output', content: '└─/home                               /dev/sda2  ext4        rw,relatime' },
+    { type: 'comment', content: 'Show disk space including filesystem type' },
+    { type: 'command', content: 'df -hT' },
+    { type: 'output', content: 'Filesystem     Type      Size  Used Avail Use% Mounted on' },
+    { type: 'output', content: '/dev/sda1      ext4       20G  8.1G  11G  43% /' },
+    { type: 'output', content: 'tmpfs          tmpfs     1.9G     0  1.9G   0% /dev/shm' },
+  ]}
+/>
+
+<Callout type="warning" title="Running Out of Inodes">
+A filesystem has a fixed number of inodes allocated when it is formatted. You can run out of inodes before running out of disk space — this happens when you create millions of small files (log files, package manager caches, Node.js node_modules).
+
+When inodes are exhausted, you cannot create new files even with available disk space. Check inode usage with `df -i`. The error you will see is "No space left on device" — misleading because disk space is not the issue.
+</Callout>
+
+### Everything Is a File
+
+In Linux, the "everything is a file" philosophy means that a wide range of system objects are accessed through the same `open/read/write/close` interface:
+
+| Object | Type indicator in `ls -la` | Example |
+|--------|---------------------------|---------|
+| Regular file | `-` | `/etc/passwd` |
+| Directory | `d` | `/home/` |
+| Symbolic link | `l` | `/bin -> /usr/bin` |
+| Block device | `b` | `/dev/sda` (hard disk) |
+| Character device | `c` | `/dev/null`, `/dev/urandom` |
+| Named pipe (FIFO) | `p` | Created with `mkfifo` |
+| Socket | `s` | `/var/run/docker.sock` |
+
+**Why this matters**: The same tools — `cat`, `echo`, `dd`, `cp` — work on all of these. You can `cat /dev/urandom` (read random bytes), `dd if=/dev/sda of=backup.img` (copy a raw disk to a file), or `echo "data" > /dev/ttyS0` (write to a serial port). The interface is uniform regardless of the underlying mechanism.
+
+### VFS: The Virtual Filesystem Switch
+
+Different filesystem types — ext4, XFS, btrfs, FAT32, NFS, tmpfs, procfs — all have different on-disk (or in-memory) layouts. The **VFS** (Virtual Filesystem Switch) is the kernel layer that presents a uniform interface to all of them.
+
+When your program calls `open("/home/alice/file.txt", O_RDONLY)`, the kernel:
+1. Resolves the path `/home/alice/file.txt` through the VFS
+2. Determines which filesystem is mounted at `/home`
+3. Dispatches to that filesystem's `open` implementation
+4. Returns a file descriptor
+
+The VFS defines interfaces (as C function pointers: `inode_operations`, `file_operations`, `super_operations`) that each filesystem driver implements. This is why you can `cat` a file on ext4, a file on NFS, and a virtual file in `/proc` with the same command.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Navigate the Filesystem Hierarchy and Explore Inodes"
+  difficulty="Foundation"
+  scenario="You are onboarding to a new Linux server and need to understand its filesystem layout — where logs are, where configs live, where the OS stores installed programs. You also need to diagnose a 'no space left on device' error that a colleague says appeared despite df showing plenty of space."
+  objective="By the end of this exercise, you will be able to navigate the FHS confidently, inspect inode metadata with stat and ls -i, create hard and soft links, and check for inode exhaustion with df -i."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Explore key FHS directories. Notice what types of files are in each.",
+      command: "ls /bin /etc /var/log /proc /dev | head -10"
+    },
+    {
+      step: 3,
+      description: "Inspect the inode of /etc/hostname with stat. Note the inode number, link count, permissions, and timestamps.",
+      command: "stat /etc/hostname"
+    },
+    {
+      step: 4,
+      description: "List inode numbers of files in /etc with ls -i. Notice that directory entries are just inode number + name pairs.",
+      command: "ls -i /etc | head -15"
+    },
+    {
+      step: 5,
+      description: "Create a test file and a hard link to it. Verify they share the same inode number.",
+      command: "echo 'test content' > /tmp/testfile.txt && ln /tmp/testfile.txt /tmp/testfile-hardlink.txt && ls -li /tmp/testfile*.txt"
+    },
+    {
+      step: 6,
+      description: "Create a soft link and compare it to the hard link. Note the different inode, the 'l' file type indicator, and the -> path in the listing.",
+      command: "ln -s /tmp/testfile.txt /tmp/testfile-softlink.txt && ls -li /tmp/testfile*.txt"
+    },
+    {
+      step: 7,
+      description: "Delete the original file and check what happens to the hard link and soft link. The hard link still works. The soft link is now dangling.",
+      command: "rm /tmp/testfile.txt && cat /tmp/testfile-hardlink.txt && cat /tmp/testfile-softlink.txt 2>&1"
+    },
+    {
+      step: 8,
+      description: "Explore mount points with findmnt. Note that /proc and /sys are virtual filesystems with no block device source.",
+      command: "findmnt --tree"
+    },
+    {
+      step: 9,
+      description: "Check inode usage. Compare 'df -h' (byte usage) to 'df -i' (inode usage).",
+      command: "df -h && echo '---' && df -i"
+    },
+    {
+      step: 10,
+      description: "Explore /dev — device files. Look for block devices (b) and character devices (c).",
+      command: "ls -la /dev | grep '^[bc]' | head -10"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "stat-inode",
+        label: "You can read a file's inode number, link count, and timestamps with stat",
+        hint: "Run: stat /etc/passwd — look for the 'Inode:' and 'Links:' fields"
+      },
+      {
+        id: "hard-link-same-inode",
+        label: "You verified that a hard link and its original share the same inode number",
+        hint: "Run: ls -i /tmp/testfile.txt /tmp/testfile-hardlink.txt — both should show the same number"
+      },
+      {
+        id: "soft-link-dangling",
+        label: "You observed that deleting the original file breaks the soft link but not the hard link",
+        hint: "After rm original.txt: cat hardlink.txt succeeds (data still there via inode), cat softlink.txt fails (target path gone)"
+      },
+      {
+        id: "findmnt-virtual",
+        label: "You can identify virtual filesystems (procfs, sysfs) in findmnt output",
+        hint: "Run: findmnt --tree — /proc has FSTYPE=proc, /sys has FSTYPE=sysfs. Neither has a real block device as SOURCE."
+      },
+      {
+        id: "df-inodes",
+        label: "You can check inode usage with df -i",
+        hint: "Run: df -i — look for high IUse% which would indicate inode exhaustion risk"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Inode and File Inspection",
+      items: [
+        { command: "stat <file>", description: "Show complete inode metadata: size, permissions, timestamps, inode number, link count", example: "stat /etc/passwd" },
+        { command: "ls -i <dir>", description: "List files with their inode numbers", example: "ls -i /etc | sort -n" },
+        { command: "ls -la <dir>", description: "Long listing with file type indicator, permissions, link count, owner, size", example: "ls -la /dev | head -20" },
+        { command: "file <path>", description: "Determine file type by examining content (not extension)", example: "file /bin/ls" },
+      ]
+    },
+    {
+      title: "Links",
+      items: [
+        { command: "ln <target> <link>", description: "Create a hard link (same inode, same filesystem only)", example: "ln /etc/passwd /tmp/passwd-backup" },
+        { command: "ln -s <target> <link>", description: "Create a symbolic link (stores path, cross-filesystem allowed)", example: "ln -s /var/log /home/user/logs" },
+        { command: "readlink <link>", description: "Print the target path of a symbolic link", example: "readlink /bin" },
+        { command: "readlink -f <link>", description: "Resolve all symlinks in a path and print the canonical path", example: "readlink -f /bin/sh" },
+      ]
+    },
+    {
+      title: "Mount Points and Disk Usage",
+      items: [
+        { command: "findmnt", description: "Show mounted filesystems as a tree with source, type, and options", example: "findmnt --tree" },
+        { command: "mount", description: "List all mounted filesystems (verbose format)", example: "mount | grep ext4" },
+        { command: "df -h", description: "Disk usage for all mounted filesystems in human-readable units", example: "df -h /" },
+        { command: "df -i", description: "Inode usage for all mounted filesystems — check for inode exhaustion", example: "df -i" },
+        { command: "du -sh <dir>", description: "Total disk usage of a directory", example: "du -sh /var/log" },
+        { command: "du -sh * | sort -h", description: "Size of each item in current directory, sorted by size", example: "du -sh /var/* | sort -h" },
+      ]
+    }
+  ]}
+/>

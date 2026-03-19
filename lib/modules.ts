@@ -1,23 +1,65 @@
-import type { Module } from '@/types/content'
+import fs from 'fs'
+import path from 'path'
+import matter from 'gray-matter'
+import type { Module, Lesson, LessonFrontmatter } from '@/types/content'
 import { MODULES } from '@/content/modules/index'
 
-// Returns MODULES with empty lessons arrays (lessons populated by Phases 2-7).
-// During Phase 1, lessons arrays are always empty — the sidebar shows module placeholders.
+/**
+ * Scans the content/modules/<moduleSlug>/ directory for .mdx lesson files,
+ * parses frontmatter with gray-matter, and returns typed Lesson objects.
+ * Files prefixed with "00-" (templates) are excluded.
+ * SERVER-ONLY — uses Node.js fs APIs.
+ */
+function getLessonsForModule(moduleSlug: string): Lesson[] {
+  const moduleDir = path.join(process.cwd(), 'content', 'modules', moduleSlug)
+
+  if (!fs.existsSync(moduleDir)) {
+    return []
+  }
+
+  const files = fs
+    .readdirSync(moduleDir)
+    .filter((f) => f.endsWith('.mdx') && !f.startsWith('00-'))
+    .sort()
+
+  return files.map((file) => {
+    const raw = fs.readFileSync(path.join(moduleDir, file), 'utf-8')
+    const { data } = matter(raw)
+    const slug = data.lessonSlug as string
+    return {
+      id: `${moduleSlug}/${slug}`,
+      slug,
+      moduleSlug,
+      frontmatter: data as LessonFrontmatter,
+    }
+  })
+}
+
 export function getAllModules(): Module[] {
-  return MODULES.map((mod) => ({ ...mod, lessons: [] }))
+  return MODULES.map((mod) => ({
+    ...mod,
+    lessons: getLessonsForModule(mod.slug),
+  }))
 }
 
 export function getModuleBySlug(slug: string): Module | undefined {
   const mod = MODULES.find((m) => m.slug === slug)
   if (!mod) return undefined
-  return { ...mod, lessons: [] }
+  return {
+    ...mod,
+    lessons: getLessonsForModule(mod.slug),
+  }
 }
 
-// Returns all lesson paths for Next.js generateStaticParams.
-// Returns empty array until Phase 2+ adds lesson .mdx files.
+/**
+ * Returns all lesson paths for Next.js generateStaticParams.
+ * Scans all module directories for .mdx lesson files.
+ */
 export function getAllLessonPaths(): { moduleSlug: string; lessonSlug: string }[] {
-  // Will be populated dynamically in Phase 2 when MDX files exist:
-  // const lessonFiles = glob.sync('content/modules/**/*.mdx')
-  // For Phase 1, return empty array.
-  return []
+  return getAllModules().flatMap((mod) =>
+    mod.lessons.map((lesson) => ({
+      moduleSlug: mod.slug,
+      lessonSlug: lesson.slug,
+    }))
+  )
 }

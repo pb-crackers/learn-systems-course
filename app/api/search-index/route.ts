@@ -1,15 +1,44 @@
+import fs from 'fs'
+import path from 'path'
+import matter from 'gray-matter'
 import { NextResponse } from 'next/server'
 import { buildSearchIndex, type SearchDoc } from '@/lib/search'
-// NOTE: When Phase 2+ adds MDX content, this route will dynamically scan
-// content/modules/**/*.mdx with gray-matter and build the real index.
-// For Phase 1, return an empty but valid index.
 
-export const dynamic = 'force-static'  // Pre-render as static JSON at build time
+export const dynamic = 'force-static' // Pre-render as static JSON at build time
 
 export async function GET() {
-  // Phase 1: empty corpus — no lesson files exist yet.
-  // Phase 2+: scan content/modules/**/*.mdx, extract frontmatter + body text.
+  const contentDir = path.join(process.cwd(), 'content', 'modules')
   const docs: SearchDoc[] = []
+
+  const moduleDirs = fs
+    .readdirSync(contentDir)
+    .filter((entry) =>
+      fs.statSync(path.join(contentDir, entry)).isDirectory()
+    )
+
+  for (const moduleDir of moduleDirs) {
+    const modulePath = path.join(contentDir, moduleDir)
+    const lessonFiles = fs
+      .readdirSync(modulePath)
+      .filter((f) => f.endsWith('.mdx') && !f.startsWith('00-'))
+
+    for (const file of lessonFiles) {
+      const raw = fs.readFileSync(path.join(modulePath, file), 'utf-8')
+      const { data, content } = matter(raw)
+
+      docs.push({
+        id: `${data.moduleSlug}/${data.lessonSlug}`,
+        title: data.title as string,
+        module: data.module as string,
+        moduleSlug: data.moduleSlug as string,
+        body: content
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim(),
+      })
+    }
+  }
+
   const index = buildSearchIndex(docs)
 
   return NextResponse.json(index, {

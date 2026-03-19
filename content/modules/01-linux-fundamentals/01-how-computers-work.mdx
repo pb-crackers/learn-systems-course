@@ -1,0 +1,203 @@
+---
+title: "How Computers Work"
+description: "CPU, memory, storage, and I/O — the physical foundation everything else runs on"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "01-how-computers-work"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 20
+prerequisites: []
+tags: ["hardware", "cpu", "memory", "storage", "io"]
+---
+
+## Overview
+
+Your monitoring dashboard shows CPU at 98% and the application is crawling. Is this a code problem? A hardware scaling issue? A runaway process? You cannot answer that question without understanding what a CPU actually does — what "98% CPU" means at the machine level, and why it matters whether you have one fast core or many slower ones.
+
+This lesson explains the physical machinery that every operating system, container, and application runs on. Before you can understand Linux, you need to understand the hardware Linux is managing.
+
+## How It Works
+
+### The Central Processing Unit (CPU)
+
+The CPU is the brain of the computer. It executes instructions — billions per second on modern hardware. But speed alone is misleading. To understand performance, you need to understand the fetch-decode-execute cycle.
+
+**The fetch-decode-execute cycle:**
+
+1. **Fetch**: The CPU reads the next instruction from memory (or cache) into its instruction register
+2. **Decode**: The control unit interprets the binary instruction — is this "add two numbers"? "Read from memory"? "Jump to address X"?
+3. **Execute**: The arithmetic/logic unit (ALU) performs the operation
+
+This cycle repeats billions of times per second. "Clock speed" (measured in GHz) is how many cycles per second the CPU can complete. 3 GHz = 3 billion cycles per second.
+
+**Registers** are the CPU's internal storage — the fastest memory that exists, but there are only ~32 of them on a typical x86-64 CPU. They hold the values currently being operated on. Moving data from RAM into a register is many times slower than working with data already in a register.
+
+**Cores** vs **clock speed**: A quad-core CPU at 2.5 GHz can do more total work per second than a single-core CPU at 3 GHz, but only if the work can be parallelized. A single-threaded program runs on one core — it cannot use the other three.
+
+<Callout type="deep-dive" title="The Instruction Pipeline">
+Modern CPUs don't wait for one instruction to fully complete before starting the next. They use **pipelining** — while one instruction is being decoded, the next is already being fetched. This is why a 3 GHz CPU can often complete more than one instruction per clock cycle (instructions per cycle, or IPC, is often > 1 on modern CPUs).
+
+**Branch prediction** is a key optimization: the CPU speculatively executes the likely path of an if/else branch before the condition is known. When it guesses wrong (a branch misprediction), it must throw away speculative work — this is a measurable performance cost. This is also the mechanism behind Spectre/Meltdown vulnerabilities.
+
+**Context switching**: When the OS switches which process is running on a CPU core, it must save all the register values of the outgoing process and restore all the register values of the incoming process. This is a context switch — it has real overhead, which is why creating thousands of OS threads is expensive.
+</Callout>
+
+<Callout type="tip" title="What 'CPU Usage' Actually Means">
+When `top` shows a process at 100% CPU, it means that process is consuming all available time on one CPU core — the fetch-decode-execute cycle is running as fast as the OS will allow it. A process can use more than 100% if it has multiple threads running on multiple cores simultaneously (you may see 400% on a quad-core system).
+</Callout>
+
+### Memory (RAM)
+
+RAM (Random Access Memory) is where running programs and their data live. It is **volatile** — when power is removed, the contents are lost. This is different from storage (disks), which persists.
+
+**The memory hierarchy** explains why performance varies so dramatically depending on where data lives:
+
+| Level | Speed | Size | Where |
+|-------|-------|------|-------|
+| CPU Registers | ~1 cycle | ~64 bytes | Inside the CPU |
+| L1 Cache | ~4 cycles | ~32-64 KB | Per-core, inside CPU |
+| L2 Cache | ~12 cycles | ~256 KB - 1 MB | Per-core or shared |
+| L3 Cache | ~30-40 cycles | ~8-64 MB | Shared across cores |
+| RAM | ~100-300 cycles | GBs | On the motherboard |
+| SSD | ~10,000+ cycles | TBs | External storage |
+| HDD | ~500,000+ cycles | TBs | External storage |
+
+**Why this matters**: A program that operates on data already in L1 cache is ~100x faster than one that must fetch data from RAM on every operation. Cache-friendly code (sequential memory access) is not just a micro-optimization — it is often the difference between a program being fast or slow.
+
+**Virtual memory**: Every process believes it has access to a large, contiguous block of memory (the virtual address space). The CPU's Memory Management Unit (MMU) translates these virtual addresses to physical RAM locations. This lets the OS isolate processes (each sees only its own virtual space), run programs larger than physical RAM (via swap), and share read-only code pages between multiple copies of the same program.
+
+<Callout type="deep-dive" title="What Happens When RAM Is Full">
+When RAM fills up, the OS uses **swap space** — a reserved area on disk — to store pages of memory that haven't been accessed recently. Accessing swapped-out data requires reading from disk, making it ~1000x slower than RAM. A system that is heavily swapping ("thrashing") will appear frozen. This is why memory pressure monitoring matters in production.
+</Callout>
+
+### Storage
+
+Storage devices hold data persistently — your operating system, program files, logs, databases.
+
+**Spinning disk (HDD)**: A physical platter spins at 5400-15000 RPM. A read/write head physically moves to the correct track. **Seek time** (the time for the head to move to the right track) is measured in milliseconds — thousands of times slower than RAM. Sequential reads are much faster than random reads because the head doesn't need to move far.
+
+**Solid State Drive (SSD)**: No moving parts. Data is stored in NAND flash cells, and reads happen by sending electrical signals. No seek time — any block can be read as fast as any other block (hence "random access"). SSDs are typically 10-100x faster than HDDs for random I/O.
+
+**Block devices**: From the OS perspective, storage is a **block device** — a device you can read and write in fixed-size chunks called blocks (typically 512 bytes or 4096 bytes). `/dev/sda`, `/dev/nvme0n1` are block devices. Filesystems are layered on top of block devices to organize blocks into files and directories.
+
+<Callout type="tip" title="Diagnosing I/O Bottlenecks">
+If a system is slow and CPU usage is low, the bottleneck is often I/O. `iostat -x 1` shows disk I/O wait time. `iotop` shows which processes are doing the most disk I/O. High `%iowait` in `top` means CPUs are idle waiting for disk operations to complete.
+</Callout>
+
+### I/O: The Glue
+
+I/O (Input/Output) refers to all communication between the CPU/RAM and external devices: disks, network cards, keyboards, displays.
+
+**Buses**: Physical pathways that carry data between components. PCIe (PCI Express) connects GPUs and NVMe SSDs. SATA connects HDDs and SATA SSDs. USB connects peripherals. Each bus has a maximum bandwidth — the rate at which data can flow.
+
+**Interrupts**: Rather than the CPU constantly polling "is the network card done yet?", devices signal the CPU when they need attention via **hardware interrupts**. The CPU temporarily pauses what it is doing, runs the interrupt handler (a small piece of OS code), then returns to the original work. This is far more efficient than polling.
+
+**DMA (Direct Memory Access)**: For bulk data transfers, the CPU delegates to the DMA controller. Rather than the CPU reading each byte from a network card and writing it to RAM, DMA lets the device write directly to a region of RAM while the CPU continues executing. The CPU gets an interrupt only when the transfer is complete.
+
+<Callout type="deep-dive" title="Why I/O Is Usually the Bottleneck">
+Modern CPUs are incredibly fast. Most server applications spend the majority of their time waiting for I/O: waiting for a network response, waiting for a disk read, waiting for a database query. This is why asynchronous I/O (epoll, io_uring) and non-blocking architectures matter — they let one CPU handle thousands of concurrent I/O operations by working on other requests while waiting for I/O to complete.
+</Callout>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Inspect Hardware Through the /proc Filesystem"
+  difficulty="Foundation"
+  scenario="You are a junior DevOps engineer at a startup. A slow server was just handed to you and your team lead says 'figure out what hardware this thing has before we decide whether to upgrade it or move the workload.' You need to gather a complete hardware profile using only the command line — no GUI, no cloud console."
+  objective="By the end of this exercise, you will be able to read CPU, memory, and storage information directly from the Linux kernel's /proc and /sys interfaces without relying on specialized tools."
+  steps={[
+    {
+      step: 1,
+      description: "Build and launch the Linux lab container. This gives you a consistent Linux environment for all exercises in this course.",
+      command: "docker build -t learn-systems-linux docker/linux/ && docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Examine /proc/cpuinfo. This file is generated by the kernel and contains real-time CPU information. Look for the 'model name', 'cpu cores', and 'siblings' fields.",
+      command: "cat /proc/cpuinfo | grep -E 'model name|cpu cores|siblings|processor' | head -20"
+    },
+    {
+      step: 3,
+      description: "Count the logical CPUs available (each 'processor' entry is one logical CPU — which may be a core or a hyperthread).",
+      command: "grep -c '^processor' /proc/cpuinfo"
+    },
+    {
+      step: 4,
+      description: "Examine /proc/meminfo. This shows total RAM, available RAM, swap usage, and buffer/cache sizes. The 'MemAvailable' line is what the kernel estimates is freely usable without swapping.",
+      command: "cat /proc/meminfo | head -20"
+    },
+    {
+      step: 5,
+      description: "Use free -h to see memory in a more readable format. Notice that 'available' differs from 'free' — Linux aggressively uses free RAM as disk cache (shown as 'buff/cache'), which it reclaims instantly if a program needs it.",
+      command: "free -h"
+    },
+    {
+      step: 6,
+      description: "List block devices to see storage layout. lsblk shows block devices as a tree, including their sizes, types (disk, partition), and mount points.",
+      command: "lsblk"
+    },
+    {
+      step: 7,
+      description: "Check disk usage on mounted filesystems.",
+      command: "df -h"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "cpu-cores",
+        label: "You can identify the number of CPU cores from /proc/cpuinfo",
+        hint: "Run: grep -c '^processor' /proc/cpuinfo — each 'processor' entry is one logical CPU"
+      },
+      {
+        id: "mem-total",
+        label: "You can read total and available memory from /proc/meminfo",
+        hint: "Look for 'MemTotal' and 'MemAvailable' in /proc/meminfo — values are in kB"
+      },
+      {
+        id: "mem-available-vs-free",
+        label: "You understand why 'available' memory differs from 'free' memory",
+        hint: "Linux uses free RAM as disk cache (buff/cache). 'Available' includes this reclaimable cache. 'Free' is truly unused RAM."
+      },
+      {
+        id: "block-devices",
+        label: "You can list block devices and their sizes with lsblk",
+        hint: "lsblk shows the storage device tree. Look for TYPE=disk entries for physical devices."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "CPU Inspection",
+      items: [
+        { command: "lscpu", description: "Summarize CPU architecture: cores, threads, sockets, cache sizes", example: "lscpu" },
+        { command: "cat /proc/cpuinfo", description: "Raw kernel CPU data — one block per logical CPU", example: "grep 'model name' /proc/cpuinfo | uniq" },
+        { command: "nproc", description: "Print number of available logical CPUs", example: "nproc" },
+      ]
+    },
+    {
+      title: "Memory Inspection",
+      items: [
+        { command: "free -h", description: "Show total/used/available RAM and swap in human-readable units", example: "free -h" },
+        { command: "cat /proc/meminfo", description: "Detailed kernel memory statistics", example: "grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo" },
+        { command: "vmstat 1 5", description: "Virtual memory statistics: runnable processes, memory, swap, I/O, CPU", example: "vmstat 1 5" },
+      ]
+    },
+    {
+      title: "Storage Inspection",
+      items: [
+        { command: "lsblk", description: "List block devices in tree format showing partitions and mount points", example: "lsblk -o NAME,SIZE,TYPE,MOUNTPOINT" },
+        { command: "df -h", description: "Disk usage for mounted filesystems in human-readable units", example: "df -h /" },
+        { command: "iostat -x 1", description: "Extended I/O statistics per device, updated every second", example: "iostat -x 1 3" },
+      ]
+    }
+  ]}
+/>
