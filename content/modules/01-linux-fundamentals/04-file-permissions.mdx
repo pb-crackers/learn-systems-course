@@ -1,0 +1,350 @@
+---
+title: "File Permissions and Ownership"
+description: "Users, groups, chmod, chown, sticky bits — controlling who can do what"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "04-file-permissions"
+order: 4
+difficulty: "Foundation"
+estimatedMinutes: 22
+prerequisites: ["01-linux-fundamentals/03-linux-filesystem"]
+tags: ["permissions", "chmod", "chown", "users", "groups", "sticky-bit"]
+---
+
+## Overview
+
+A deploy failed because the application couldn't write to its log directory. The fix was one `chmod` command, but understanding WHY it failed requires knowing how Linux decides who can do what to every file. The permission check happens in the kernel — it's not optional and it's not configurable by user-space code.
+
+This lesson explains the Linux permission model from first principles: how the kernel identifies processes by UID (not username), what each permission bit means for files versus directories, how to read and set permissions in both symbolic and numeric formats, and what setuid/setgid/sticky bits actually do at the kernel level.
+
+## How It Works
+
+### Users and Groups: UIDs and GIDs
+
+The Linux kernel identifies users and groups by numbers, not names. Every process has:
+- A **UID** (User ID): the numeric identity of the user running the process
+- A **GID** (Group ID): the primary group of that user
+- A set of **supplementary group IDs**: additional groups the user belongs to
+
+When you log in as `alice`, the login process looks up `alice` in `/etc/passwd`, reads her UID (say, 1001), and sets the UID of all processes you start to 1001. The username `alice` is a human-readable label. The kernel only ever compares numbers.
+
+**`/etc/passwd`** stores user accounts:
+```
+root:x:0:0:root:/root:/bin/bash
+alice:x:1001:1001:Alice Smith:/home/alice:/bin/bash
+```
+Fields: username:password-placeholder:UID:GID:comment:home:shell
+
+**`/etc/group`** stores group membership:
+```
+sudo:x:27:alice,bob
+developers:x:1002:alice,carol
+```
+Fields: groupname:password:GID:member-list
+
+<TerminalBlock
+  title="Checking Your Identity"
+  lines={[
+    { type: 'comment', content: 'Show your current user and primary group' },
+    { type: 'command', content: 'whoami && id' },
+    { type: 'output', content: 'alice' },
+    { type: 'output', content: 'uid=1001(alice) gid=1001(alice) groups=1001(alice),27(sudo),1002(developers)' },
+    { type: 'comment', content: 'Show only the numeric UID' },
+    { type: 'command', content: 'id -u' },
+    { type: 'output', content: '1001' },
+  ]}
+/>
+
+### The Permission Model
+
+Every file and directory in Linux has three permission sets:
+- **Owner** (u): the user who owns the file
+- **Group** (g): the group that owns the file
+- **Other** (o): everyone else
+
+Each permission set has three bits:
+- **Read (r = 4)**: Can read the file's contents
+- **Write (w = 2)**: Can modify the file's contents
+- **Execute (x = 1)**: Can run the file as a program
+
+The kernel evaluates permissions in order: owner first, then group, then other. If the process's UID matches the file's owner UID, the owner permissions apply — group and other are ignored, even if they would grant more access.
+
+**Permissions mean different things for files vs directories:**
+
+| Permission | On a file | On a directory |
+|------------|-----------|----------------|
+| **read (r)** | Can read file contents | Can list directory contents (`ls`) |
+| **write (w)** | Can modify file contents | Can create, delete, rename files inside |
+| **execute (x)** | Can run as a program | Can `cd` into the directory and access files by name |
+
+<Callout type="tip" title="Missing Execute on a Directory">
+The most common permission error: "Permission denied" when accessing a file inside a directory, even though you have read permission on the file itself. The issue is that `x` on the directory is required to traverse it. Without directory execute, you cannot access anything inside — not even if you know the exact filename. Run `ls -la` on the parent directory to check its `x` bit.
+</Callout>
+
+### Reading Permission Strings
+
+The `ls -la` output shows permissions as a 10-character string:
+
+```
+-rwxr-xr--
+^   ^   ^
+|   |   other permissions (r--)
+|   group permissions (r-x)
+owner permissions (rwx)
+
+^ first character: file type
+  - = regular file
+  d = directory
+  l = symbolic link
+  b = block device
+  c = character device
+```
+
+**Examples:**
+
+| String | Owner | Group | Other | Meaning |
+|--------|-------|-------|-------|---------|
+| `-rw-r--r--` | rw- | r-- | r-- | Config file: owner edits, everyone reads |
+| `-rwxr-xr-x` | rwx | r-x | r-x | Program: everyone can run it |
+| `-rw-------` | rw- | --- | --- | Private file: owner only |
+| `drwxr-xr-x` | rwx | r-x | r-x | Typical directory |
+| `drwx------` | rwx | --- | --- | Private directory: owner only |
+
+**Numeric (octal) representation**: Each permission set is represented as a sum of its bit values (r=4, w=2, x=1):
+
+| Octal | Binary | Permission |
+|-------|--------|-----------|
+| 7 | 111 | rwx |
+| 6 | 110 | rw- |
+| 5 | 101 | r-x |
+| 4 | 100 | r-- |
+| 0 | 000 | --- |
+
+So `chmod 755` means: owner=7(rwx), group=5(r-x), other=5(r-x).
+
+### chmod: Changing Permissions
+
+**Symbolic mode** — human-readable, modifies specific bits:
+```bash
+chmod u+x script.sh      # add execute for owner
+chmod g-w file.txt       # remove write for group
+chmod o=r file.txt       # set other to read-only (overwrite)
+chmod a+r file.txt       # add read for all (a = ugo)
+chmod u+x,g-w file.txt   # multiple changes in one command
+```
+
+**Numeric mode** — precise, sets all three sets at once:
+```bash
+chmod 755 script.sh    # rwxr-xr-x — typical executable
+chmod 644 config.txt   # rw-r--r-- — typical config file
+chmod 600 secret.key   # rw------- — private key file
+chmod 777 shared/      # rwxrwxrwx — world-writable (avoid)
+```
+
+<Callout type="warning" title="chmod 777 Is a Security Antipattern">
+Setting permissions to 777 (world-writable) is almost never correct. It means any process running as any user on the system can modify the file. For a web application's upload directory, this means any compromised process (a hacked PHP script, a container escape) can overwrite any file. The minimum permissions that solve a problem are always the right choice. Start with 644 or 755 and add only what is needed.
+</Callout>
+
+### chown and chgrp
+
+`chown` changes the owner and/or group of a file:
+
+```bash
+chown alice file.txt             # change owner to alice
+chown alice:developers file.txt  # change owner and group
+chown :developers file.txt       # change group only (colon prefix)
+chown -R alice:devs /app/        # recursive — all files in directory
+```
+
+`chgrp` changes only the group:
+```bash
+chgrp developers project/
+chgrp -R www-data /var/www/html/
+```
+
+**Why only root can chown**: If unprivileged users could change file ownership, a user could give a setuid binary to root, escalating privileges. The kernel enforces that only UID 0 (root) or a process with `CAP_CHOWN` capability can change file ownership.
+
+### Special Permission Bits
+
+Beyond the standard rwx bits, there are three special bits that modify execution behavior:
+
+**setuid (SUID, 4000)**: When set on an executable, it runs with the **owner's UID** rather than the caller's UID. `/usr/bin/passwd` is the canonical example — it needs to write to `/etc/shadow` (owned by root, mode 640) so it runs as root even when called by a normal user. Shown as `s` in the owner execute position: `-rwsr-xr-x`.
+
+**setgid (SGID, 2000)**: When set on an executable, it runs with the **owner's GID**. When set on a **directory**, new files created inside inherit the directory's group (instead of the creator's primary GID) — useful for shared project directories. Shown as `s` in the group execute position: `-rwxr-sr-x` (executable) or `drwxr-sr-x` (directory).
+
+**Sticky bit (1000)**: When set on a directory, only the file's **owner** (or root) can delete or rename files inside — other users cannot delete each other's files even if they have write permission on the directory. `/tmp` always has the sticky bit set. Shown as `t` in the other execute position: `drwxrwxrwt`.
+
+<Callout type="deep-dive" title="Security Implications of SUID">
+SUID binaries are high-value attack targets. When a SUID binary has a vulnerability (buffer overflow, command injection), an attacker can exploit it to run arbitrary code as the owner (often root). This is why the number of SUID binaries on a system should be minimized and audited regularly.
+
+```bash
+# Find all SUID binaries on the system
+find / -perm -4000 -type f 2>/dev/null
+```
+
+Legitimate SUID binaries include: `passwd`, `sudo`, `ping`, `mount`, `su`. Any SUID binary you don't recognize warrants investigation — it may be a backdoor or a misconfiguration.
+
+In containers, SUID binaries are usually stripped or capabilities are used instead (CAP_NET_RAW for ping, etc.).
+</Callout>
+
+### umask: Default Permission Mask
+
+When a new file or directory is created, its initial permissions are determined by the **umask** — a bitmask that removes permissions from the default:
+
+- Default for files: `0666` (rw-rw-rw-)
+- Default for directories: `0777` (rwxrwxrwx)
+- The umask bits are **subtracted**: `permissions = default & ~umask`
+
+Common umask values:
+
+| umask | New file | New dir | Effect |
+|-------|----------|---------|--------|
+| `022` | 644 | 755 | Group and other cannot write — the standard default |
+| `027` | 640 | 750 | Group can read, other has nothing |
+| `077` | 600 | 700 | Owner only |
+
+```bash
+umask          # show current umask
+umask 027      # set umask for current shell session
+```
+
+The umask is set per-process and inherited by child processes. It is configured system-wide in `/etc/profile` or `/etc/login.defs`.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Secure a Web Application File Structure"
+  difficulty="Foundation"
+  scenario="You are setting up a web application on a Linux server. The application runs as the 'www-data' user and needs to read its configuration, write to its log directory, and execute its scripts — but no other users should be able to read the config (it contains database credentials). You need to set up the correct permissions and verify the security model is enforced."
+  objective="By the end of this exercise, you will be able to apply chmod (both symbolic and numeric), chown, and the sticky bit to implement a real-world file permission policy."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Create the directory structure for a web application.",
+      command: "mkdir -p /opt/webapp/{config,logs,scripts,public} && ls -la /opt/webapp/"
+    },
+    {
+      step: 3,
+      description: "Create a sensitive config file and a log file.",
+      command: "echo 'DB_PASSWORD=secret123' > /opt/webapp/config/app.conf && touch /opt/webapp/logs/app.log"
+    },
+    {
+      step: 4,
+      description: "Check the default permissions on the new files.",
+      command: "ls -la /opt/webapp/config/app.conf /opt/webapp/logs/app.log"
+    },
+    {
+      step: 5,
+      description: "Make the config file readable only by its owner (no group, no other). A file with DB credentials should never be world-readable.",
+      command: "chmod 600 /opt/webapp/config/app.conf && ls -la /opt/webapp/config/app.conf"
+    },
+    {
+      step: 6,
+      description: "Make the scripts directory executable by owner and group, but not writable by group. Use symbolic mode.",
+      command: "chmod 750 /opt/webapp/scripts && ls -la /opt/webapp/"
+    },
+    {
+      step: 7,
+      description: "Set the sticky bit on the logs directory so only the file owner can delete log files. This protects logs from being deleted by other processes.",
+      command: "chmod +t /opt/webapp/logs && ls -la /opt/webapp/"
+    },
+    {
+      step: 8,
+      description: "Verify the sticky bit is shown as 't' in the other-execute position.",
+      command: "stat /opt/webapp/logs | grep -E 'Access.*Uid'"
+    },
+    {
+      step: 9,
+      description: "Check your current UID and explore what the kernel would do: try to read the config as a different user. Add a test user and switch to it.",
+      command: "useradd -m testuser && su - testuser -c 'cat /opt/webapp/config/app.conf'"
+    },
+    {
+      step: 10,
+      description: "Examine /tmp — the system's shared temporary directory. Note the sticky bit in the permissions string.",
+      command: "ls -la / | grep tmp && stat /tmp"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "config-600",
+        label: "secret.txt (or app.conf) has permissions 600 — owner read/write only",
+        hint: "Run: ls -la /opt/webapp/config/app.conf — should show -rw------- with owner as your user"
+      },
+      {
+        id: "scripts-executable",
+        label: "The scripts/ directory has execute permission for the owner",
+        hint: "Run: ls -la /opt/webapp/ — the scripts/ line should show drwxr-x--- (750)"
+      },
+      {
+        id: "sticky-bit",
+        label: "The logs/ directory has the sticky bit set (shown as 't')",
+        hint: "Run: ls -la /opt/webapp/ — the logs/ line should show drwxrwxrwt or similar with 't' at end"
+      },
+      {
+        id: "permission-denied",
+        label: "A non-owner user cannot read a 600 file even though they can see its directory listing",
+        hint: "The kernel checks the owner UID first — if it matches, only owner permissions apply. 600 means no access for group or other."
+      },
+      {
+        id: "tmp-sticky",
+        label: "You can see the sticky bit on /tmp in the ls output",
+        hint: "Run: ls -la / | grep ' tmp' — should show drwxrwxrwt (the 't' is the sticky bit)"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Reading Permissions",
+      items: [
+        { command: "ls -la", description: "Long listing: permissions, links, owner, group, size, timestamp", example: "ls -la /etc/passwd" },
+        { command: "stat <file>", description: "Full metadata including octal permission representation", example: "stat /usr/bin/passwd" },
+        { command: "id", description: "Show current user's UID, GID, and supplementary groups", example: "id" },
+        { command: "id <user>", description: "Show another user's UID and group memberships", example: "id www-data" },
+        { command: "groups", description: "List all groups current user belongs to", example: "groups" },
+      ]
+    },
+    {
+      title: "chmod — Change Mode",
+      items: [
+        { command: "chmod 644 <file>", description: "Set rw-r--r-- (typical config file)", example: "chmod 644 /etc/app.conf" },
+        { command: "chmod 755 <file>", description: "Set rwxr-xr-x (typical executable or directory)", example: "chmod 755 /usr/local/bin/script.sh" },
+        { command: "chmod 600 <file>", description: "Set rw------- (private file: SSH keys, credentials)", example: "chmod 600 ~/.ssh/id_rsa" },
+        { command: "chmod u+x <file>", description: "Add execute permission for owner only", example: "chmod u+x deploy.sh" },
+        { command: "chmod -R 755 <dir>", description: "Apply recursively to all files in directory", example: "chmod -R 755 /var/www/html/" },
+        { command: "chmod +t <dir>", description: "Set sticky bit on a directory", example: "chmod +t /tmp/shared/" },
+      ]
+    },
+    {
+      title: "chown / chgrp — Change Ownership",
+      items: [
+        { command: "chown <user> <file>", description: "Change file owner", example: "chown www-data /var/www/html" },
+        { command: "chown <user>:<group> <file>", description: "Change owner and group simultaneously", example: "chown deploy:www-data /opt/app" },
+        { command: "chown -R <user>:<grp> <dir>", description: "Recursively change ownership of all files", example: "chown -R app:app /opt/myapp/" },
+        { command: "chgrp <group> <file>", description: "Change group only", example: "chgrp developers /opt/project/" },
+      ]
+    },
+    {
+      title: "Special Bits and umask",
+      items: [
+        { command: "chmod 4755 <file>", description: "Set SUID: file runs as its owner (4 = SUID, 755 = permissions)", example: "chmod 4755 /usr/local/bin/special" },
+        { command: "chmod 2775 <dir>", description: "Set SGID on directory: new files inherit directory's group", example: "chmod 2775 /opt/shared/" },
+        { command: "find / -perm -4000 -type f 2>/dev/null", description: "Find all SUID binaries on the system", example: "find /usr -perm -4000 2>/dev/null" },
+        { command: "umask", description: "Show current umask (permission bits removed from new files)", example: "umask" },
+        { command: "umask 027", description: "Set umask: new files get 640, dirs get 750", example: "umask 027" },
+      ]
+    }
+  ]}
+/>

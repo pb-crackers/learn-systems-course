@@ -1,0 +1,372 @@
+---
+title: "Processes"
+description: "PID, fork/exec, process states, signals, ps, top, kill — how Linux runs your programs"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "05-processes"
+order: 5
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["01-linux-fundamentals/04-file-permissions"]
+tags: ["processes", "pid", "fork", "exec", "signals", "ps", "top", "kill"]
+---
+
+## Overview
+
+A production service is consuming 100% of one CPU core and you need to figure out which process, what it is doing, and how to stop it gracefully without losing data. You reach for `top`, find the PID, and want to send `SIGTERM` — but if you don't understand what SIGTERM means versus SIGKILL, and how process state transitions work, you might cause data corruption or a 30-second hang. Understanding processes, signals, and process states is the difference between a clean fix and a hard reboot.
+
+This lesson explains what a process is at the kernel level, the fork/exec model that underlies every Unix program launch, process states and what they mean, signals and when to use each one, and the tools to inspect and manage processes in production.
+
+## How It Works
+
+### What Is a Process?
+
+A **process** is a running instance of a program. While a program is a static binary on disk, a process is that program plus its runtime context:
+
+- **PID**: Process ID — a unique integer assigned by the kernel when the process is created
+- **PPID**: Parent Process ID — the PID of the process that created this one
+- **UID/GID**: The user and group identity under which the process runs (set at fork/exec time from the parent's identity and the file's permissions)
+- **Virtual address space**: The memory mapping for this process (code, stack, heap, mapped files)
+- **File descriptors**: The open files, sockets, and pipes this process has access to
+- **Environment variables**: Key-value pairs inherited from the parent
+- **Working directory**: The current directory (used to resolve relative paths)
+- **Signal handlers**: Functions registered to handle specific signals
+
+The kernel maintains a **process table** — a data structure containing information about every running process. In Linux, each process also has a directory in `/proc/[pid]/` that exposes its state.
+
+### The fork/exec Model
+
+Unix process creation uses a two-step mechanism that looks redundant at first but is elegantly composable.
+
+**`fork()`**: Creates an exact copy of the calling process. The new process (child) gets:
+- A new PID (different from the parent)
+- A copy of the parent's memory (modern kernels use copy-on-write — pages are only physically copied when written)
+- A copy of the parent's file descriptors
+- The same code and program counter position (both parent and child continue from the fork() call, but with different return values: child gets 0, parent gets the child's PID)
+
+**`exec()`** (actually a family: `execve`, `execvp`, etc.): Replaces the current process's program image with a new one. The PID stays the same, but the code, stack, and heap are replaced with the new program's. The file descriptors and environment can be selectively preserved.
+
+Together: fork() makes a copy, then exec() replaces the copy with the new program. This lets the parent set up the child's environment (redirect file descriptors, set environment variables, change working directory) between fork() and exec() — the POSIX "pre-exec" setup window.
+
+<Callout type="deep-dive" title="The Shell Pipeline: fork/exec in Action">
+When you run `ls | grep txt` in bash, here is what happens:
+
+1. bash calls `fork()` twice — creating two child processes
+2. In child 1 (for `ls`): before exec, bash sets stdout to the write end of a pipe, then calls `exec("ls")`
+3. In child 2 (for `grep`): before exec, bash sets stdin to the read end of the same pipe, then calls `exec("grep", "txt")`
+4. bash calls `wait()` for both children
+
+The pipe is set up by the parent (bash) and inherited by both children. Neither `ls` nor `grep` knows about pipelines — they just read from stdin and write to stdout. The shell orchestrates the plumbing via fork/exec.
+
+This also explains why shell variables are not inherited by child processes: exec() replaces the process image, so bash's internal state is gone. Only environment variables (`export VAR=val`) survive exec.
+</Callout>
+
+### PID 1 and the Process Tree
+
+Every process except PID 1 has a parent. All processes form a tree rooted at PID 1.
+
+**PID 1 is special**:
+- It is the first user-space process started by the kernel
+- It cannot be killed (SIGKILL to PID 1 causes a kernel panic)
+- It is responsible for **reaping zombie processes** — calling `wait()` for processes whose parent has died
+- On modern Linux, PID 1 is `systemd`, which manages services, logging, and the boot sequence
+
+<Callout type="tip" title="PID 1 in Docker Containers">
+In a Docker container, the first process started from your `CMD` or `ENTRYPOINT` becomes PID 1. This matters for two reasons:
+
+1. **Signal handling**: Docker sends SIGTERM to PID 1 when stopping a container. If PID 1 is a shell script that doesn't forward signals, the script ignores SIGTERM, Docker waits 10 seconds, then sends SIGKILL — hard kill, no cleanup.
+
+2. **Zombie reaping**: If your container runs multiple processes and the parent of some processes dies, those orphaned processes become children of PID 1. If PID 1 doesn't call `wait()`, they accumulate as zombies.
+
+Solutions: Use a proper init like `tini` (--init flag in docker run), use `exec` in your entrypoint script to replace the shell with your program, or handle signals explicitly in your application.
+</Callout>
+
+### Process States
+
+Processes transition between states as they run. The `STAT` column in `ps aux` shows the current state:
+
+| State | Code | Description |
+|-------|------|-------------|
+| **Running** | `R` | Currently executing on a CPU core, or in the run queue waiting for a core |
+| **Sleeping (interruptible)** | `S` | Waiting for an event (I/O, timer, signal). Can be woken by a signal. |
+| **Sleeping (uninterruptible)** | `D` | Waiting for I/O to complete. Cannot be interrupted, even by SIGKILL. |
+| **Stopped** | `T` | Execution paused by SIGSTOP or SIGTSTP (Ctrl+Z). Resumed by SIGCONT. |
+| **Zombie** | `Z` | Process has exited but its parent hasn't called wait() to read its exit status. |
+| **Idle** | `I` | Kernel thread that is idle. |
+
+Additional state modifiers (appear as a second character after the main state):
+- `<`: High priority
+- `N`: Low priority (nice value > 0)
+- `s`: Session leader
+- `+`: In the foreground process group
+- `l`: Has multiple threads
+
+<TerminalBlock
+  title="Reading ps aux Output"
+  lines={[
+    { type: 'command', content: 'ps aux | head -5' },
+    { type: 'output', content: 'USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND' },
+    { type: 'output', content: 'root           1  0.0  0.1 169960 11208 ?        Ss   Mar15   0:05 /sbin/init' },
+    { type: 'output', content: 'root           2  0.0  0.0      0     0 ?        S    Mar15   0:00 [kthreadd]' },
+    { type: 'output', content: 'root         584  0.0  0.0      0     0 ?        I<   Mar15   0:00 [kworker/0:1H]' },
+    { type: 'output', content: 'postgres     891  0.1  2.3 421340 93104 ?        Ss   Mar15   1:42 postgres: checkpointer' },
+    { type: 'comment', content: 'PID 1: Ss = S (sleeping) + s (session leader). TIME = CPU time consumed.' },
+    { type: 'comment', content: 'VSZ = virtual memory size (mapped, not all in RAM). RSS = resident set size (actually in RAM).' },
+  ]}
+/>
+
+<Callout type="tip" title="Uninterruptible Sleep (D) and System Freezes">
+A process in state `D` (uninterruptible sleep) cannot be killed. It is waiting for a kernel operation — usually a disk I/O call — to complete. This is why a server with a failed or very slow disk can appear to freeze: many processes enter state `D` waiting for I/O that never completes.
+
+`ps aux | awk '$8 == "D"'` shows all processes in uninterruptible sleep. If you see many of these, investigate disk health with `dmesg | grep -i error` and I/O wait with `iostat -x 1`.
+</Callout>
+
+### /proc/[pid]/: Per-Process Kernel Interface
+
+Every running process has a directory in `/proc/` containing files that expose its state:
+
+| Path | Contents |
+|------|---------|
+| `/proc/[pid]/cmdline` | Command line arguments (null-byte separated) |
+| `/proc/[pid]/status` | Human-readable process status: state, memory, UID, capabilities |
+| `/proc/[pid]/environ` | Environment variables (null-byte separated) |
+| `/proc/[pid]/fd/` | Symlinks to every open file descriptor |
+| `/proc/[pid]/maps` | Memory map: address ranges, permissions, mapped files |
+| `/proc/[pid]/exe` | Symlink to the executable file |
+| `/proc/[pid]/cwd` | Symlink to the current working directory |
+| `/proc/[pid]/net/` | Network connections (same as /proc/net/ for this process's network namespace) |
+
+### Signals: Asynchronous Notifications
+
+Signals are asynchronous notifications sent to a process by the kernel or another process. When a process receives a signal:
+1. The current execution is interrupted
+2. The kernel checks if the process has registered a handler for this signal
+3. If yes: the handler runs, then execution resumes
+4. If no: the default action applies (usually terminate, sometimes ignore, sometimes stop)
+
+**Key signals every operator needs to know:**
+
+| Signal | Number | Default | Key use |
+|--------|--------|---------|---------|
+| `SIGHUP` | 1 | Terminate | Terminal hangup; conventionally: reload config without restart |
+| `SIGINT` | 2 | Terminate | Ctrl+C — politely interrupt the process |
+| `SIGKILL` | 9 | Terminate | **Cannot be caught or ignored** — immediate termination by kernel |
+| `SIGTERM` | 15 | Terminate | Polite termination request — process can clean up and exit gracefully |
+| `SIGSTOP` | 19 | Stop | **Cannot be caught or ignored** — pauses process execution |
+| `SIGCONT` | 18 | Continue | Resume a stopped process |
+| `SIGTSTP` | 20 | Stop | Ctrl+Z — suspends process (can be caught, unlike SIGSTOP) |
+| `SIGUSR1/2` | 10,12 | Terminate | User-defined: application-specific meanings |
+| `SIGCHLD` | 17 | Ignore | Sent to parent when child state changes (needed for reaping) |
+
+<Callout type="warning" title="SIGKILL Is a Last Resort">
+`kill -9 <pid>` (SIGKILL) terminates the process immediately and unconditionally. The process has absolutely no opportunity to:
+- Flush write buffers (risk of data corruption or incomplete writes)
+- Close database connections gracefully (leaving locks or uncommitted transactions)
+- Write a final log entry
+- Remove lock files or temporary files
+- Notify dependent services
+
+Always try `SIGTERM` first and wait several seconds. Only escalate to SIGKILL if the process doesn't terminate. The standard pattern: `kill <pid>; sleep 5; kill -0 <pid> && kill -9 <pid>` — send SIGTERM, wait, check if still alive, only then SIGKILL.
+</Callout>
+
+<Callout type="tip" title="kill -0: Test Process Existence Without Signaling">
+`kill -0 <pid>` sends signal 0 — a "null signal" that doesn't actually do anything to the process, but checks whether the process exists and whether you have permission to signal it. It returns exit code 0 if the process exists, 1 if it doesn't.
+
+```bash
+# Check if process 1234 is still alive
+if kill -0 1234 2>/dev/null; then
+  echo "Process 1234 is running"
+else
+  echo "Process 1234 is not running"
+fi
+```
+
+This is far more reliable than `ps aux | grep <name>` which can match the grep process itself.
+</Callout>
+
+### Process Monitoring Tools
+
+**`ps aux`** — snapshot of all processes at a point in time:
+```bash
+ps aux                   # all processes, BSD format
+ps aux | grep nginx      # filter by name
+ps -ef                   # all processes, POSIX format (shows PPID)
+ps --ppid 1234           # child processes of PID 1234
+ps -p 1234 -o pid,ppid,stat,cmd  # specific PID, custom columns
+```
+
+**`top`** — real-time process monitor (refreshes every 3 seconds by default):
+- Press `q` to quit
+- Press `k` then enter a PID to send a signal
+- Press `M` to sort by memory, `P` to sort by CPU
+- Press `1` to show individual CPU usage per core
+- Press `f` to configure displayed columns
+
+**`/proc/loadavg`** — the three load average numbers represent the average number of processes in the run queue (running or waiting to run) over the last 1, 5, and 15 minutes. A load average equal to your CPU core count means 100% utilization. Greater than core count means demand exceeds capacity.
+
+### Background Processes and Job Control
+
+```bash
+# Run a command in the background (shell doesn't wait)
+sleep 100 &
+
+# List background jobs in current shell
+jobs
+
+# Bring job 1 to foreground
+fg %1
+
+# Send foreground job to background (first Ctrl+Z to stop, then bg)
+# Ctrl+Z — sends SIGTSTP
+bg %1
+
+# Detach a process from the terminal (survives shell exit)
+nohup long-running-script.sh &
+
+# Remove a job from the shell's job table (won't get SIGHUP when shell exits)
+disown %1
+```
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Investigate a Runaway Process"
+  difficulty="Intermediate"
+  scenario="You receive an alert: a server has high CPU usage and the monitoring dashboard shows a runaway process. You need to identify the process, understand what it is doing, stop it gracefully, and confirm it has exited. A colleague also left a zombie process on the system — you need to identify and explain it."
+  objective="By the end of this exercise, you will be able to find processes by name and PID, read process state from ps and /proc, send signals to control processes, and identify zombie processes."
+  steps={[
+    {
+      step: 1,
+      description: "Launch the lab container.",
+      command: "docker run --rm -it learn-systems-linux bash"
+    },
+    {
+      step: 2,
+      description: "Launch a background process that simulates CPU load.",
+      command: "yes > /dev/null &"
+    },
+    {
+      step: 3,
+      description: "Find the PID of the 'yes' process using ps. Note its STAT column (R = running).",
+      command: "ps aux | grep yes | grep -v grep"
+    },
+    {
+      step: 4,
+      description: "Read the process's command line directly from /proc. The null bytes between arguments are replaced with spaces.",
+      command: "YES_PID=$(pgrep yes | head -1) && cat /proc/$YES_PID/cmdline | tr '\\0' ' '"
+    },
+    {
+      step: 5,
+      description: "Check what files the process has open. fd/ contains symlinks to each open file descriptor.",
+      command: "ls -la /proc/$YES_PID/fd/"
+    },
+    {
+      step: 6,
+      description: "Read the process status from /proc. Note: Name, State, Pid, PPid, Uid, VmRSS (resident memory).",
+      command: "grep -E 'Name|State|Pid|PPid|Uid|VmRSS' /proc/$YES_PID/status"
+    },
+    {
+      step: 7,
+      description: "Stop the process gracefully with SIGTERM. Wait a moment, then verify it's gone.",
+      command: "kill $YES_PID && sleep 1 && ps aux | grep yes | grep -v grep || echo 'Process stopped'"
+    },
+    {
+      step: 8,
+      description: "Create a long-running background process, then pause it with SIGSTOP and resume with SIGCONT.",
+      command: "sleep 300 & SLEEP_PID=$! && echo \"Launched sleep: $SLEEP_PID\" && kill -STOP $SLEEP_PID && ps aux | grep sleep | grep -v grep"
+    },
+    {
+      step: 9,
+      description: "Resume the stopped process, then send SIGTERM to clean it up.",
+      command: "kill -CONT $SLEEP_PID && ps aux | grep sleep | grep -v grep && kill $SLEEP_PID"
+    },
+    {
+      step: 10,
+      description: "Use kill -0 to safely test if a PID is running (exit 0 = alive, exit 1 = not running).",
+      command: "kill -0 $SLEEP_PID 2>/dev/null && echo 'alive' || echo 'not running'"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "find-pid",
+        label: "You can find a process's PID using ps aux | grep",
+        hint: "Run: ps aux | grep yes | grep -v grep — the second column is the PID"
+      },
+      {
+        id: "proc-cmdline",
+        label: "You can read a process's command line from /proc/PID/cmdline",
+        hint: "Run: cat /proc/<pid>/cmdline | tr '\\0' ' ' — the null bytes separate argv elements"
+      },
+      {
+        id: "sigterm-success",
+        label: "You successfully sent SIGTERM to a process and it terminated",
+        hint: "Run: kill <pid> then ps aux | grep <name> — it should be gone after a moment"
+      },
+      {
+        id: "sigstop-sigcont",
+        label: "You paused a process with SIGSTOP and resumed it with SIGCONT",
+        hint: "After kill -STOP <pid>, ps aux shows STAT=T (stopped). After kill -CONT <pid>, STAT returns to S or R."
+      },
+      {
+        id: "kill-zero",
+        label: "You used kill -0 to test process existence without sending a real signal",
+        hint: "Run: kill -0 <known-dead-pid>; echo $? — should print 1. kill -0 <live-pid>; echo $? — should print 0."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Process Inspection",
+      items: [
+        { command: "ps aux", description: "List all processes: user, PID, CPU%, MEM%, state, command", example: "ps aux | sort -rk 3 | head -10" },
+        { command: "ps -ef", description: "List all processes in POSIX format, showing PPID", example: "ps -ef | grep nginx" },
+        { command: "top", description: "Real-time process monitor. Press q to quit, k to kill, M for memory sort", example: "top -u www-data" },
+        { command: "pgrep <name>", description: "Find PIDs of processes matching name", example: "pgrep -l nginx" },
+        { command: "pidof <name>", description: "Find PID of an exactly-named process", example: "pidof sshd" },
+      ]
+    },
+    {
+      title: "Signals",
+      items: [
+        { command: "kill <pid>", description: "Send SIGTERM (15) to process — request graceful shutdown", example: "kill 1234" },
+        { command: "kill -9 <pid>", description: "Send SIGKILL — immediate forced termination (last resort)", example: "kill -9 1234" },
+        { command: "kill -STOP <pid>", description: "Pause process execution (cannot be caught)", example: "kill -STOP 1234" },
+        { command: "kill -CONT <pid>", description: "Resume a stopped process", example: "kill -CONT 1234" },
+        { command: "kill -HUP <pid>", description: "Send SIGHUP — often used to trigger config reload", example: "kill -HUP $(pidof nginx)" },
+        { command: "kill -0 <pid>", description: "Test if process exists without signaling (exit 0 = alive)", example: "kill -0 1234 && echo running" },
+        { command: "kill -l", description: "List all signal names and numbers", example: "kill -l" },
+        { command: "pkill <name>", description: "Send signal to all processes matching name", example: "pkill -TERM nginx" },
+      ]
+    },
+    {
+      title: "Job Control",
+      items: [
+        { command: "<cmd> &", description: "Run command in background", example: "python server.py &" },
+        { command: "jobs", description: "List background jobs in current shell session", example: "jobs" },
+        { command: "fg %<n>", description: "Bring job number n to foreground", example: "fg %1" },
+        { command: "bg %<n>", description: "Resume stopped job in background", example: "bg %1" },
+        { command: "nohup <cmd> &", description: "Run command immune to SIGHUP (survives shell exit)", example: "nohup ./backup.sh &" },
+        { command: "disown %<n>", description: "Remove job from shell's job table", example: "disown %1" },
+      ]
+    },
+    {
+      title: "/proc Process Paths",
+      items: [
+        { command: "/proc/[pid]/cmdline", description: "Command line (null-byte delimited args)", example: "cat /proc/1/cmdline | tr '\\0' ' '" },
+        { command: "/proc/[pid]/status", description: "Process state, memory, UID, capabilities", example: "grep State /proc/1/status" },
+        { command: "/proc/[pid]/fd/", description: "Open file descriptors as symlinks", example: "ls -la /proc/$$/fd" },
+        { command: "/proc/[pid]/maps", description: "Memory map: address, permissions, mapped file", example: "cat /proc/1/maps | head" },
+        { command: "/proc/[pid]/exe", description: "Symlink to the process's executable file", example: "readlink /proc/1/exe" },
+        { command: "/proc/loadavg", description: "1, 5, 15-min load averages and thread counts", example: "cat /proc/loadavg" },
+      ]
+    }
+  ]}
+/>
