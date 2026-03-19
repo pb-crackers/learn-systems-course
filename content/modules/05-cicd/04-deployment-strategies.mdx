@@ -1,0 +1,273 @@
+---
+title: "Deployment Strategies: Blue/Green, Rolling, and Canary"
+description: "Naive deployment (stop old, start new) causes downtime. Blue/green, rolling, and canary deployments solve this differently — each with distinct tradeoffs in cost, speed, and rollback capability."
+module: "CI/CD Pipelines"
+moduleSlug: "05-cicd"
+lessonSlug: "04-deployment-strategies"
+order: 4
+difficulty: "Intermediate"
+estimatedMinutes: 20
+prerequisites: ["05-cicd/03-building-testing"]
+tags: ["deployment", "blue-green", "rolling", "canary", "rollback", "zero-downtime", "strategies"]
+---
+
+## Overview
+
+Your CI/CD pipeline produces a Docker image tagged with a commit SHA. Now what? The image needs to get from the registry to production without causing downtime. This seems simple — stop the old container, start the new one — but naive approaches fail in practice. There is always a gap between stopping the old version and the new version being ready, and during that gap, users see errors.
+
+This lesson covers three strategies that solve the zero-downtime deployment problem differently: **blue/green** (maintain two full environments), **rolling** (replace instances gradually), and **canary** (expose a small percentage to the new version first). Each has a distinct risk profile, cost model, and rollback story.
+
+Understanding these strategies is not optional knowledge for anyone working in DevOps or SRE roles. When a job description says "experience with blue/green deployments" or "canary releases," these are the concepts they mean.
+
+## How It Works
+
+### Why Naive Deployment Causes Downtime
+
+The naive approach to deploying a new version:
+
+```
+1. Stop the old container
+2. Pull the new image
+3. Start the new container
+```
+
+Step 2 takes time — pulling an image from a registry takes seconds or minutes depending on image size and network. During that window, the application is completely down. Every request fails. For any service with users, this is unacceptable.
+
+Even if the image is already cached locally, starting a new container is not instantaneous. The application process needs to start, connect to the database, load caches, and pass health checks before it can serve traffic. The gap between "old process stopped" and "new process ready" is real downtime.
+
+The strategies below eliminate this gap by ensuring the old version keeps serving traffic until the new version is confirmed healthy.
+
+### Blue/Green Deployment
+
+Blue/green maintains **two complete, identical environments** at all times. One is live (serving production traffic), one is idle (standing by).
+
+```
+Blue-Green Deployment:
+
+BEFORE DEPLOYMENT:
+  [Load Balancer] → [v1 Blue][v1 Blue][v1 Blue]   ← active (live traffic)
+                    [v2 Green][v2 Green][v2 Green]  ← idle
+
+DEPLOY:
+  Deploy new version to Green environment
+  Run smoke tests against Green
+  Green is healthy? → switch load balancer
+
+AFTER SWITCH:
+  [Load Balancer] → [v2 Green][v2 Green][v2 Green] ← now active
+                    [v1 Blue][v1 Blue][v1 Blue]     ← now idle (rollback ready)
+
+ROLLBACK (if needed):
+  [Load Balancer] → [v1 Blue][v1 Blue][v1 Blue]    ← instant switch back
+```
+
+The load balancer switch is the only moment that matters — it is a single configuration change, taking milliseconds. Users experience zero downtime because there is no gap: one moment they hit Blue, the next they hit Green.
+
+**Rollback is instant.** The old Blue environment is still running, unchanged. If the new Green version has a bug, switch the load balancer back. This is the primary advantage of blue/green.
+
+**Tradeoffs:**
+
+| Consideration | Details |
+|--------------|---------|
+| Infrastructure cost | Doubles your server costs — you always maintain two full environments |
+| Rollback speed | Instant — single load balancer switch |
+| Deployment downtime | Zero — switch is atomic |
+| Database migrations | Complex — both versions may run simultaneously before the switch, so schema changes must be backward-compatible |
+
+Database migrations are the main complication. If Green requires a new database column, and then you switch back to Blue, Blue doesn't know about that column. Blue/green works cleanly for stateless application changes; it requires careful sequencing for schema changes.
+
+### Rolling Deployment
+
+Rolling deployment replaces instances **one at a time** (or in small batches). At any point during the rollout, both old and new versions are running simultaneously.
+
+```
+Rolling Deployment:
+
+START:   [v1][v1][v1][v1][v1]   ← all 5 instances on v1
+
+STEP 1:  [v2][v1][v1][v1][v1]   ← 1 replaced, load balancer routes to all 5
+STEP 2:  [v2][v2][v1][v1][v1]   ← 2 replaced
+STEP 3:  [v2][v2][v2][v1][v1]   ← 3 replaced
+STEP 4:  [v2][v2][v2][v2][v1]   ← 4 replaced
+
+DONE:    [v2][v2][v2][v2][v2]   ← all 5 on v2
+
+ROLLBACK: re-deploy v1 through the same rolling process ← slow
+```
+
+At each step, the load balancer routes traffic to all running instances — both old and new. This means zero downtime (there are always healthy instances serving traffic) without doubling infrastructure.
+
+**Tradeoffs:**
+
+| Consideration | Details |
+|--------------|---------|
+| Infrastructure cost | Same as production — no extra capacity needed |
+| Rollback speed | Slow — must redeploy the old version through the same rolling process |
+| Deployment downtime | Zero — healthy instances always available |
+| Database migrations | Risky — both v1 and v2 are running simultaneously, so the schema must support both versions at once |
+
+The database constraint is more severe than blue/green. In blue/green, the overlap is brief (time between deploy to Green and load balancer switch). In rolling, v1 and v2 might coexist for 20-30 minutes. Any database migration must be backward-compatible for that entire window.
+
+Rolling deployment is the default strategy for Kubernetes (the `RollingUpdate` strategy in a Deployment spec) because it requires no extra infrastructure. Kubernetes orchestrates the replacement sequence automatically.
+
+### Canary Deployment
+
+Canary deployment routes a **small percentage of real production traffic** to the new version first. The name comes from "canary in a coal mine" — the new version is exposed to a small slice of users, and if it fails, the blast radius is small.
+
+```
+Canary Deployment:
+
+START:   [v1][v1][v1][v1][v1]    ← 100% traffic to v1
+
+PHASE 1: [v2][v1][v1][v1][v1]    ← 5% traffic to v2 (1 of 20 requests)
+         Monitor: error rates, latency, business metrics
+
+PHASE 2: [v2][v2][v2][v1][v1]    ← 25% traffic to v2, still monitoring
+
+PHASE 3: [v2][v2][v2][v2][v1]    ← 75% traffic to v2
+
+DONE:    [v2][v2][v2][v2][v2]    ← 100% to v2 (canary complete)
+
+ROLLBACK: route all traffic back to v1 instances ← fast
+```
+
+The key difference from rolling: you **monitor metrics at each phase**. Error rate spiked? Rollback immediately. P99 latency increased by 200ms? Stop the rollout. The new version touches 5% of users, not 100%, so you can abort before most users are affected.
+
+**Tradeoffs:**
+
+| Consideration | Details |
+|--------------|---------|
+| Infrastructure cost | Small overhead — just the canary instances |
+| Rollback speed | Fast — route traffic back to v1; canary instances are still running |
+| Deployment downtime | Zero |
+| Database migrations | Same constraint as rolling — schema must support both versions simultaneously |
+| Monitoring requirement | Essential — canary is useless without metrics to observe |
+| Infrastructure complexity | Requires traffic-splitting capability (load balancer weighted routing, service mesh, or feature flags) |
+
+Canary is the safest strategy for detecting production issues, but it requires more infrastructure: a load balancer that supports weighted traffic routing (AWS ALB, nginx with upstream weights, or a service mesh like Istio) and monitoring that can detect anomalies during the rollout. Phase 7 covers Prometheus and Grafana — the monitoring foundation that makes canary deployments actionable.
+
+<Callout type="info" title="You won't implement these strategies in this course — but you need to understand them">
+Implementing blue/green, rolling, or canary deployments requires production load balancers, container orchestration (Kubernetes or ECS), and traffic management infrastructure that is beyond the scope of a local-first course. But understanding these concepts is critical for any DevOps or SRE role.
+
+When you see "blue/green deployment" in a job description, now you know exactly what it means: two full environments, instant load balancer switch, instant rollback. When an incident post-mortem says "the canary caught the bug before full rollout," you understand why — 5% of traffic hit the bug, metrics spiked, the automated rollback fired before 95% of users were affected.
+
+The concepts are the prerequisite. The implementation comes with the production systems you'll work on after this course.
+</Callout>
+
+### Choosing a Strategy: Decision Factors
+
+No strategy is universally best. The right choice depends on the application's requirements:
+
+| Strategy | Choose When |
+|----------|------------|
+| Blue/Green | Instant rollback is critical; budget exists for doubled infrastructure; stateless app changes dominate |
+| Rolling | Infrastructure cost is constrained; Kubernetes is in use (default behavior); slow rollback is acceptable |
+| Canary | Risk of production bugs is high; monitoring infrastructure is mature; traffic-splitting load balancer available |
+
+A **payments service** handling financial transactions prioritizes instant rollback (blue/green or canary) — any bug in production directly causes financial harm. A **content delivery service** with thousands of identical frontend instances prioritizes cost-efficiency (rolling) — a brief period with mixed versions serving cached HTML is acceptable.
+
+### Rollback: The Other Half of Deployment
+
+Every deployment strategy must answer: what happens when the new version is broken?
+
+| Strategy | Rollback Mechanism | Rollback Speed |
+|----------|-------------------|----------------|
+| Blue/Green | Switch load balancer back to Blue | Seconds (single config change) |
+| Rolling | Re-deploy old version through rolling process | Minutes (one instance at a time) |
+| Canary | Route all traffic to v1 instances | Seconds (but only if canary is caught early) |
+
+Blue/green's instant rollback is its defining advantage. The old environment is never torn down until the new version is fully verified. This is why teams that have experienced painful 3am rollback scenarios often choose blue/green — even though it doubles infrastructure cost.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Choose a Deployment Strategy for a Payment Processing Service"
+  difficulty="Intermediate"
+  scenario="Your CTO asks which deployment strategy to use for a new e-commerce site. The site handles credit card payments. Any bug that reaches production could result in failed transactions, which means lost revenue and potential regulatory issues. The team has a solid Prometheus/Grafana monitoring stack but limited budget for extra infrastructure."
+  objective="By the end of this exercise, you will be able to evaluate deployment strategies against specific requirements and defend a recommendation with tradeoffs — the kind of analysis expected in a DevOps interview or architecture review."
+  steps={[
+    {
+      step: 1,
+      description: "Analyze the constraints: payment processing means high cost-of-bug. Failed transactions = lost revenue + potential fraud liability. This shifts the analysis toward strategies that minimize user impact when bugs occur.",
+      command: "# High cost-of-bug → prioritize rollback speed and blast radius reduction"
+    },
+    {
+      step: 2,
+      description: "Evaluate canary: the 5% blast radius is appealing. A bug affecting payment would only hit 1 in 20 users initially, giving time to detect and rollback. But this requires traffic-splitting infrastructure. Does 'limited budget' rule this out?",
+      command: "# Canary: small blast radius, monitoring already exists. Traffic splitting might be available at low cost (nginx weighted upstream)."
+    },
+    {
+      step: 3,
+      description: "Evaluate blue/green: instant rollback is valuable for a payment system. Cost doubles infrastructure, but for a payments service, the cost of a failed deployment likely exceeds the server cost. Database migrations are the complication — payment schema changes must be backward-compatible.",
+      command: "# Blue/green: instant rollback, no traffic-splitting needed, but schema changes need careful management"
+    },
+    {
+      step: 4,
+      description: "Evaluate rolling: no extra infrastructure cost. But slow rollback means all 5 instances might be running v2 before the bug is detected. For payments, this is a significant risk. Rolling is probably the worst fit here.",
+      command: "# Rolling: 100% of users hit the bug before rollback begins. Poor fit for high-stakes payments."
+    },
+    {
+      step: 5,
+      description: "Write your recommendation: canary + blue/green as fallback makes sense. Start with canary at 5% to validate with real traffic. If the monitoring stack catches anomalies, rollback before most users are affected. If budget allows, keep the blue environment warm as the ultimate fast rollback.",
+      command: "# Recommendation: canary (primary) + blue/green idle (instant rollback insurance)"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "strategy-mechanics",
+        label: "You can explain how each strategy avoids downtime during deployment",
+        hint: "Blue/green: switch load balancer after new is ready. Rolling: always-healthy instances. Canary: partial traffic while old serves rest."
+      },
+      {
+        id: "rollback-comparison",
+        label: "You can compare rollback speed: blue/green (seconds) vs rolling (minutes) vs canary (seconds if caught early)",
+        hint: "Blue/green rollback is a load balancer config change. Rolling rollback is re-deploying old version through the same process. Canary rollback is routing traffic back."
+      },
+      {
+        id: "database-constraint",
+        label: "You understand why database migrations complicate all three strategies when both old and new versions run simultaneously",
+        hint: "Any schema change (add column, rename column, delete column) must be compatible with both the old and new application code during the transition window."
+      },
+      {
+        id: "payments-recommendation",
+        label: "You can recommend a strategy for the payment scenario with justified tradeoffs",
+        hint: "There is no single right answer. A strong answer: canary for blast radius control (monitoring already exists), with blue/green or fast rollback as insurance. Rolling is the weakest fit because rollback is slow."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Strategy Comparison",
+      items: [
+        { command: "Blue/Green", description: "Two full environments. Deploy to idle, switch load balancer. Zero downtime, instant rollback, double infrastructure cost." },
+        { command: "Rolling", description: "Replace instances one at a time. Zero downtime, no extra cost, slow rollback. Kubernetes default." },
+        { command: "Canary", description: "Route small % to new version, monitor, then expand. Zero downtime, fast rollback, requires traffic-splitting and monitoring." },
+      ]
+    },
+    {
+      title: "Rollback Mechanisms",
+      items: [
+        { command: "Blue/Green rollback", description: "Switch load balancer back to Blue environment — milliseconds, old version untouched" },
+        { command: "Rolling rollback", description: "Re-deploy old version through same rolling process — minutes, all instances must cycle through" },
+        { command: "Canary rollback", description: "Route 100% traffic back to v1 instances — seconds, but blast radius depends on how far canary progressed" },
+      ]
+    },
+    {
+      title: "Decision Guide",
+      items: [
+        { command: "Need instant rollback?", description: "Blue/green. Cost is the tradeoff." },
+        { command: "Cost-constrained?", description: "Rolling. Rollback is slow — acceptable if bugs are catchable pre-production." },
+        { command: "High risk + monitoring?", description: "Canary. Requires traffic-splitting infrastructure and working metrics." },
+        { command: "Database schema change?", description: "Deploy schema change separately (additive-only). Keep both versions compatible during transition." },
+      ]
+    }
+  ]}
+/>

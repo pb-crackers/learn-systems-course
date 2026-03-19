@@ -1,0 +1,346 @@
+---
+title: "Building and Testing in Pipelines: Docker, Tests, and Linting"
+description: "A production CI pipeline builds Docker images with BuildKit caching, runs tests and linting, and pushes to ghcr.io — all automated on every push. This lesson walks through a complete, real-world workflow."
+module: "CI/CD Pipelines"
+moduleSlug: "05-cicd"
+lessonSlug: "03-building-testing"
+order: 3
+difficulty: "Intermediate"
+estimatedMinutes: 30
+prerequisites: ["05-cicd/02-github-actions", "03-docker/07-dockerfile-best-practices"]
+tags: ["docker-build", "testing", "linting", "pipelines", "buildx", "ghcr", "multi-stage", "matrix"]
+---
+
+## Overview
+
+The previous lesson covered GitHub Actions syntax. This lesson puts that syntax to work for a real task: building and testing a Docker application in CI. You will see a complete, production-quality pipeline that runs lint, test, builds a Docker image, and pushes to a container registry — the same tasks a professional DevOps pipeline performs every day.
+
+The pipeline in this lesson builds the Node.js app from `docker/app/` — the same application you Dockerized in Phase 4. That continuity is intentional: understanding Docker and understanding CI/CD are the same skill applied at different layers.
+
+## How It Works
+
+### Docker Builds in CI: The Flow
+
+When a pipeline runs a Docker build, the sequence is:
+
+1. **Checkout** — `actions/checkout@v6` clones the repository onto the runner
+2. **Set up BuildKit** — `docker/setup-buildx-action@v4` enables BuildKit, the modern Docker build backend
+3. **Authenticate to registry** — `docker/login-action@v4` logs into ghcr.io using GITHUB_TOKEN
+4. **Build and push** — `docker/build-push-action@v7` builds the Dockerfile and pushes the resulting image to the registry
+
+Each step depends on the previous one. If authentication fails, the push fails. If the Dockerfile has an error, the build fails before anything is pushed.
+
+### Why ghcr.io Over Docker Hub
+
+The pipeline uses **ghcr.io** (GitHub Container Registry) rather than Docker Hub for the registry:
+
+- **Uses GITHUB_TOKEN** — no separate secret to create and rotate. GitHub automatically provides the token and it has write access to packages in the same repository.
+- **Free for public repositories** — unlimited image storage and pulls, no rate limiting.
+- **Integrated with GitHub** — images appear in the repository's Packages tab, linked to the code and pull requests that produced them.
+- **Image URL includes the repository** — `ghcr.io/myorg/myapp` makes ownership obvious, compared to `docker.io/myapp` which is ambiguous.
+
+### BuildKit and Layer Caching in CI
+
+Without caching, every CI run installs all npm dependencies and rebuilds every Docker layer from scratch. A project with 200 npm dependencies might spend 90 seconds on `npm ci` alone — per run.
+
+**BuildKit** (enabled by `docker/setup-buildx-action@v4`) supports a cache backend that stores layer data in GitHub Actions cache. Subsequent runs reuse cached layers if the corresponding Dockerfile instructions haven't changed.
+
+The cache configuration in the pipeline:
+
+```yaml
+cache-from: type=gha       # read from GitHub Actions cache
+cache-to: type=gha,mode=max  # write all layers to cache (not just final stage)
+```
+
+This is exactly the layer caching concept from Phase 4's Dockerfile optimization: `COPY package*.json ./` and `RUN npm ci` are separate layers. When only `app.js` changes, the `npm ci` layer is served from cache and the build completes in seconds.
+
+### Multi-Stage Builds in CI Context
+
+The `Dockerfile.optimized` from Phase 4 uses a multi-stage build:
+
+```
+Stage 1 (builder): node:20-alpine → npm ci → copy source
+Stage 2 (final):   node:20-alpine → copy from builder → non-root user → healthcheck
+```
+
+In CI, this is critical. The build job runs on a GitHub-hosted runner with 2 vCPUs and 7GB RAM. Every megabyte of image size affects push time and storage. The multi-stage build ensures only the production artifact (minimal Alpine image with production dependencies) is pushed to ghcr.io — not the builder stage with its full dev dependencies.
+
+The pipeline doesn't need to know the Dockerfile is multi-stage. `docker/build-push-action@v7` runs `docker build .` and BuildKit handles the stages automatically.
+
+### Test Automation: npm ci, npm test, npm run lint
+
+Running tests in CI uses the same commands as local development, but in a controlled sequence:
+
+**`npm ci`** (not `npm install`): Installs exactly the versions in `package-lock.json`. Fails if `package-lock.json` is missing or out of sync with `package.json`. This guarantees reproducible installs — the CI machine installs identical packages to what the developer committed.
+
+**`npm test`**: Runs the test suite. Exit code 0 = pass, non-zero = fail. GitHub Actions treats any non-zero exit code as step failure, which fails the job and stops the pipeline.
+
+**`npm run lint`**: Runs the linter (ESLint, or whichever linter is configured in `package.json`). Lint failures in CI are treated identically to test failures — the pipeline stops.
+
+Running lint before tests is a pipeline convention: linting is faster than tests, so you get feedback sooner if there's a style violation. The pipeline doesn't spend time running a 30-second test suite to discover the code has a syntax error that linting would have caught in 2 seconds.
+
+### The Complete Production-Quality Pipeline
+
+Here is the complete workflow. Read it once end-to-end, then we'll walk through each section.
+
+<CodeBlock language="yaml" title=".github/workflows/ci.yml — complete CI/CD pipeline for docker/app/">
+{`name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
+  build-push:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/\${{ github.repository }}:$\{{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max`}
+</CodeBlock>
+
+**Walking through each section:**
+
+**Triggers (`on:`):** Runs on push to main AND on pull requests targeting main. This means: every PR gets lint+test, but only commits to main trigger the Docker build and push.
+
+**`lint` job:** Checks out code, installs Node.js 20 with npm caching (subsequent runs skip the Node.js download), installs dependencies with `npm ci`, runs the linter. No Docker involvement — pure code quality check.
+
+**`test` job (`needs: lint`):** Only runs if lint passed. Same Node.js setup, then `npm test`. The `actions/setup-node@v4` npm cache means `npm ci` here reuses the same package cache from the lint job if they run close together.
+
+**`build-push` job:** The most complex job — three key guards:
+
+1. `needs: test` — only runs if lint AND test passed (because test needs lint)
+2. `if: github.ref == 'refs/heads/main'` — only runs on the main branch, not on PRs. A pull request triggers lint and test but never pushes an image.
+3. `permissions: contents: read, packages: write` — explicitly grants the GITHUB_TOKEN write access to the repository's packages (ghcr.io). Without `packages: write`, the push fails with a 403.
+
+**`docker/setup-buildx-action@v4`:** Enables BuildKit. No parameters needed — it sets up the default buildx builder.
+
+**`docker/login-action@v4`:** Authenticates to `ghcr.io` using GITHUB_TOKEN. `github.actor` is the GitHub username of whoever triggered the run — used as the registry username.
+
+**`docker/build-push-action@v7`:** Builds and pushes in one step. Key parameters:
+- `context: .` — the Docker build context is the repository root (where Dockerfile lives)
+- `push: true` — actually push after building (set to `false` in PRs if you want to test the build without pushing)
+- `tags: ghcr.io/${{ github.repository }}:${{ github.sha }}` — tags the image with the commit SHA for traceability
+- `cache-from/cache-to` — BuildKit layer cache backed by GitHub Actions cache
+
+<Callout type="deep-dive" title="This pipeline builds the docker/app/ project from Phase 4">
+The `Dockerfile.optimized` you wrote in Phase 4 — with multi-stage builds, non-root user (`appuser`), and HEALTHCHECK using `wget` — is exactly what this pipeline builds and pushes.
+
+The deliberate choices from Phase 4 carry forward:
+- **Multi-stage build** → smaller final image, faster push to ghcr.io
+- **`COPY package*.json ./` before `COPY . .`** → npm install layer is cached; only app.js changes invalidate the final layer
+- **Non-root user** → pushed image runs securely; your pipeline produces production-safe artifacts
+- **HEALTHCHECK** → Kubernetes, Docker Swarm, and ECS can all probe the container health without additional configuration
+
+Your Docker knowledge directly translates to CI/CD. The pipeline automates the same `docker build` and `docker push` commands you ran manually in Phase 4.
+</Callout>
+
+### The `permissions` Block: Why It Matters
+
+The `permissions` block is a security control. By default, GITHUB_TOKEN has broad read permissions. Explicitly narrowing it to what the job needs follows the principle of least privilege.
+
+For the `build-push` job:
+- `contents: read` — allows `actions/checkout@v6` to clone the repository
+- `packages: write` — allows `docker/login-action@v4` to push to `ghcr.io/${{ github.repository }}`
+
+Without `packages: write`, the login succeeds but the push fails. The error message is `denied: installation not allowed to Create organization package`.
+
+### The Main-Branch Guard
+
+```yaml
+if: github.ref == 'refs/heads/main'
+```
+
+This condition on the `build-push` job means: even though `needs: test` makes it depend on the test job, the job still only runs if the current branch is main.
+
+The result:
+- **Pull request:** lint runs, test runs (if lint passes), build-push is skipped
+- **Push to main:** lint runs, test runs, build-push runs (if both pass)
+
+This pattern keeps the image registry clean — only code that has been reviewed and merged to main produces images.
+
+### Matrix Strategy for Multi-Version Testing
+
+For libraries and tools that need to support multiple runtime versions, the matrix strategy runs parallel jobs:
+
+<CodeBlock language="yaml" title="Matrix test across Node.js 18, 20, and 22">
+{`jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+      fail-fast: false     # don't cancel other matrix jobs if one fails
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test`}
+</CodeBlock>
+
+`fail-fast: false` means if the Node.js 18 tests fail, the 20 and 22 jobs still run to completion. You get the full compatibility picture in one run rather than needing to re-run after fixing each version sequentially.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Write the Complete CI Pipeline for docker/app/"
+  difficulty="Intermediate"
+  scenario="Your team has the docker/app/ Node.js application from Phase 4 in a GitHub repository. You want to automate the build pipeline: lint every PR, test every PR, and build + push the Docker image to ghcr.io on every merge to main. Write the complete workflow from scratch."
+  objective="By the end of this exercise, you will have written a three-job GitHub Actions workflow (lint → test → build-push) using production-quality action versions, with correct job dependencies, the main-branch guard, and ghcr.io authentication via GITHUB_TOKEN."
+  steps={[
+    {
+      step: 1,
+      description: "Create the workflow file. Reference the complete YAML from this lesson — study each section before copying.",
+      command: "mkdir -p .github/workflows && touch .github/workflows/ci.yml"
+    },
+    {
+      step: 2,
+      description: "Write the lint job. It needs: checkout, setup-node with cache, npm ci, npm run lint. Use actions/checkout@v6 and actions/setup-node@v4.",
+      command: "# lint job: no needs:, just runs on every trigger"
+    },
+    {
+      step: 3,
+      description: "Write the test job. It needs lint to pass first. Same Node.js setup, then npm test.",
+      command: "# test job: needs: lint"
+    },
+    {
+      step: 4,
+      description: "Write the build-push job with the main-branch guard and correct permissions. Use docker/setup-buildx-action@v4, docker/login-action@v4, and docker/build-push-action@v7.",
+      command: "# build-push job: needs: test, if: github.ref == 'refs/heads/main', permissions: packages: write"
+    },
+    {
+      step: 5,
+      description: "Validate the YAML syntax locally before pushing.",
+      command: "python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('YAML valid')\""
+    },
+    {
+      step: 6,
+      description: "Push to GitHub. Open a pull request — you should see lint and test run but build-push skip. Merge the PR — you should see all three jobs run, with build-push pushing an image to ghcr.io.",
+      command: "git add .github/workflows/ci.yml && git commit -m 'ci: add CI/CD pipeline' && git push"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "yaml-syntax",
+        label: "YAML syntax is valid (no tabs, consistent 2-space indentation, python3 yaml.safe_load passes)",
+        hint: "Run: python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('valid')\". Any indentation error gives a specific line number."
+      },
+      {
+        id: "three-jobs",
+        label: "Three jobs exist: lint, test (needs: lint), and build-push (needs: test)",
+        hint: "Check that test has 'needs: lint' and build-push has 'needs: test'. The dependency chain ensures lint → test → build-push in order."
+      },
+      {
+        id: "main-guard",
+        label: "build-push job has 'if: github.ref == refs/heads/main'",
+        hint: "The if: condition must be: if: github.ref == 'refs/heads/main'. Note: use single quotes around the ref string."
+      },
+      {
+        id: "action-versions",
+        label: "Uses current action versions: checkout@v6, setup-node@v4, setup-buildx@v4, login-action@v4, build-push-action@v7",
+        hint: "Outdated versions (checkout@v2, build-push-action@v5) will work but use deprecated Node.js runtimes. Use the versions from RESEARCH.md (verified March 2026)."
+      },
+      {
+        id: "permissions-block",
+        label: "build-push job has permissions: contents: read, packages: write",
+        hint: "Without 'packages: write', the ghcr.io push will fail with: 'denied: installation not allowed to Create organization package'."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<Callout type="tip" title="Copy this workflow to a GitHub repo with docker/app/ code to run it live">
+The docker/app/ directory contains app.js, package.json, package-lock.json, and Dockerfile.optimized. Push these files to a GitHub repository along with the workflow file. The lint and test steps require ESLint and a test script in package.json — add them before pushing, or modify the workflow to skip those steps and test only the Docker build.
+</Callout>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Actions (current versions — March 2026)",
+      items: [
+        { command: "actions/checkout@v6", description: "Clone repository into runner workspace — always the first step" },
+        { command: "docker/setup-buildx-action@v4", description: "Enable BuildKit for layer caching and multi-platform builds" },
+        { command: "docker/login-action@v4", description: "Authenticate to container registry (ghcr.io, Docker Hub, ECR)" },
+        { command: "docker/build-push-action@v7", description: "Build Docker image and push to registry in one step" },
+      ]
+    },
+    {
+      title: "build-push-action@v7 Key Parameters",
+      items: [
+        { command: "context: .", description: "Docker build context — where the Dockerfile lives (usually repo root)" },
+        { command: "push: true", description: "Actually push after building. Set to false for PR dry-runs." },
+        { command: "tags: ghcr.io/${{ github.repository }}:${{ github.sha }}", description: "Tag with commit SHA for traceability" },
+        { command: "cache-from: type=gha", description: "Read BuildKit layer cache from GitHub Actions cache" },
+        { command: "cache-to: type=gha,mode=max", description: "Write all layers to GitHub Actions cache (including intermediate stages)" },
+      ]
+    },
+    {
+      title: "Permissions for ghcr.io",
+      items: [
+        { command: "permissions:\n  contents: read\n  packages: write", description: "Required for pushing to ghcr.io. 'packages: write' grants GITHUB_TOKEN permission to create/update packages." },
+        { command: "registry: ghcr.io", description: "login-action registry parameter for GitHub Container Registry" },
+        { command: "username: ${{ github.actor }}", description: "GitHub username of the person who triggered the workflow" },
+        { command: "password: ${{ secrets.GITHUB_TOKEN }}", description: "Auto-generated token — no manual secret setup required for ghcr.io" },
+      ]
+    },
+    {
+      title: "Pipeline Patterns",
+      items: [
+        { command: "needs: lint", description: "Job dependency — this job waits for lint to succeed before starting" },
+        { command: "if: github.ref == 'refs/heads/main'", description: "Only run this job on the main branch — skip for PRs" },
+        { command: "npm ci", description: "Reproducible install from package-lock.json. Fails if lock file is out of sync." },
+        { command: "strategy: matrix: node-version: [18, 20, 22]", description: "Run job for each Node.js version in parallel" },
+        { command: "fail-fast: false", description: "Don't cancel remaining matrix jobs when one fails — see all results" },
+      ]
+    }
+  ]}
+/>
