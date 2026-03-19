@@ -41,7 +41,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **LNX-08**: Lesson on text processing — grep, sed, awk, sort, uniq, cut, xargs
 - [x] **LNX-09**: Lesson on package management — apt/yum, repositories, dependencies
 - [ ] **LNX-10**: Hands-on exercises for each Linux lesson with Docker-based lab environments
-- [ ] **LNX-11**: Module cheat sheet with essential Linux commands and concepts
+- [x] **LNX-11**: Module cheat sheet with essential Linux commands and concepts
 
 ### Module 2: Networking Foundations
 
@@ -178,7 +178,7 @@ Requirements for initial release. Each maps to roadmap phases.
 | LNX-08 | Phase 2 | Complete |
 | LNX-09 | Phase 2 | Complete |
 | LNX-10 | Phase 2 | Pending |
-| LNX-11 | Phase 2 | Pending |
+| LNX-11 | Phase 2 | Complete |
 | NET-01 | Phase 3 | Pending |
 | NET-02 | Phase 3 | Pending |
 | NET-03 | Phase 3 | Pending |

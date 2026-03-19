@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-linux-fundamentals-01-PLAN.md
-last_updated: "2026-03-19T10:49:23.820Z"
+stopped_at: Completed 02-linux-fundamentals-04-PLAN.md
+last_updated: "2026-03-19T10:53:32.497Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 25
 ---
 
@@ -55,6 +55,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 01-app-foundation P04 | 14min | 2 tasks | 16 files |
 | Phase 02-linux-fundamentals P02 | 12min | 2 tasks | 7 files |
 | Phase 02-linux-fundamentals P01 | 11min | 2 tasks | 8 files |
+| Phase 02-linux-fundamentals P04 | 5min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,7 @@ Recent decisions affecting current work:
 - [Phase 02-linux-fundamentals]: @next/mdx frontmatter: getLessonContent() reads raw .mdx file via fs.readFileSync for frontmatter since @next/mdx does not auto-export YAML frontmatter without remark-mdx-frontmatter plugin
 - [Phase 02-linux-fundamentals]: Lesson discovery: filesystem scan of content/modules/<slug>/*.mdx via readdirSync; filter out 00- templates; sort alphabetically — adding MDX files requires no code changes
 - [Phase 02-linux-fundamentals]: Search body cleaning: JSX tags stripped with /<[^>]+>/g before indexing — sufficient for full-text search without installing additional remark plugins
+- [Phase 02-linux-fundamentals]: One QuickReference component per lesson topic (9 components) in cheat sheet — not a single mega-component — matches per-lesson pattern and keeps sections independently scannable
 
 ### Pending Todos
 
@@ -96,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T10:49:23.817Z
-Stopped at: Completed 02-linux-fundamentals-01-PLAN.md
+Last session: 2026-03-19T10:53:32.494Z
+Stopped at: Completed 02-linux-fundamentals-04-PLAN.md
 Resume file: None
