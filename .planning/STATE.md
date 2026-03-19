@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-system-administration-ci-cd-01-PLAN.md
-last_updated: "2026-03-19T13:06:25.165Z"
+stopped_at: Completed 05-system-administration-ci-cd-04-PLAN.md
+last_updated: "2026-03-19T13:10:58.611Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 20
-  completed_plans: 18
+  completed_plans: 19
   percent: 25
 ---
 
@@ -67,6 +67,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 04-docker-foundation-capstone P04 | 5min | 2 tasks | 8 files |
 | Phase 05-system-administration-ci-cd P03 | 7min | 2 tasks | 4 files |
 | Phase 05-system-administration-ci-cd P01 | 9min | 2 tasks | 6 files |
+| Phase 05-system-administration-ci-cd P04 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,7 @@ Recent decisions affecting current work:
 - [Phase 05-system-administration-ci-cd]: build-push job main-branch guard (if: github.ref == refs/heads/main) — PRs run lint+test but never push images to registry
 - [Phase 05-system-administration-ci-cd]: jrei/systemd-ubuntu:22.04 requires --privileged --tmpfs flags — documented as warning callout in SYS-02 lesson
 - [Phase 05-system-administration-ci-cd]: Loopback device pattern for disk labs: truncate -s 512M + losetup /dev/loop0 — requires --privileged container
+- [Phase 05-system-administration-ci-cd]: Pipeline YAML in cheat sheet matches lesson 3 exactly (same action versions: checkout@v6, setup-buildx@v4, login-action@v4, build-push-action@v7) — single source of truth for the learner
 
 ### Pending Todos
 
@@ -131,6 +133,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:06:25.163Z
-Stopped at: Completed 05-system-administration-ci-cd-01-PLAN.md
+Last session: 2026-03-19T13:10:58.609Z
+Stopped at: Completed 05-system-administration-ci-cd-04-PLAN.md
 Resume file: None

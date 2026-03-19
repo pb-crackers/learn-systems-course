@@ -84,8 +84,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CICD-02**: Lesson on GitHub Actions — workflows, triggers, jobs, steps, artifacts
 - [x] **CICD-03**: Lesson on building and testing in pipelines — Docker builds, test automation, linting
 - [x] **CICD-04**: Lesson on deployment strategies — blue/green, rolling, canary concepts
-- [ ] **CICD-05**: Hands-on exercises building real CI/CD pipelines
-- [ ] **CICD-06**: Module cheat sheet with CI/CD patterns and GitHub Actions syntax
+- [x] **CICD-05**: Hands-on exercises building real CI/CD pipelines
+- [x] **CICD-06**: Module cheat sheet with CI/CD patterns and GitHub Actions syntax
 
 ### Module 6: Infrastructure as Code
 
@@ -210,8 +210,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | CICD-02 | Phase 5 | Complete |
 | CICD-03 | Phase 5 | Complete |
 | CICD-04 | Phase 5 | Complete |
-| CICD-05 | Phase 5 | Pending |
-| CICD-06 | Phase 5 | Pending |
+| CICD-05 | Phase 5 | Complete |
+| CICD-06 | Phase 5 | Complete |
 | IAC-01 | Phase 6 | Pending |
 | IAC-02 | Phase 6 | Pending |
 | IAC-03 | Phase 6 | Pending |
