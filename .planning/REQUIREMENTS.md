@@ -89,10 +89,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 6: Infrastructure as Code
 
-- [ ] **IAC-01**: Lesson on IaC concepts — why declarative infra, state management, drift
-- [ ] **IAC-02**: Lesson on Terraform/OpenTofu basics — HCL syntax, providers, resources, variables
-- [ ] **IAC-03**: Lesson on Terraform state — local state, remote backends, state locking
-- [ ] **IAC-04**: Lesson on Terraform modules — reusability, composition, registry
+- [x] **IAC-01**: Lesson on IaC concepts — why declarative infra, state management, drift
+- [x] **IAC-02**: Lesson on Terraform/OpenTofu basics — HCL syntax, providers, resources, variables
+- [x] **IAC-03**: Lesson on Terraform state — local state, remote backends, state locking
+- [x] **IAC-04**: Lesson on Terraform modules — reusability, composition, registry
 - [ ] **IAC-05**: Hands-on exercises with local Docker provider (no cloud cost)
 - [ ] **IAC-06**: Module cheat sheet with Terraform/OpenTofu commands and patterns
 
@@ -212,10 +212,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | CICD-04 | Phase 5 | Complete |
 | CICD-05 | Phase 5 | Complete |
 | CICD-06 | Phase 5 | Complete |
-| IAC-01 | Phase 6 | Pending |
-| IAC-02 | Phase 6 | Pending |
-| IAC-03 | Phase 6 | Pending |
-| IAC-04 | Phase 6 | Pending |
+| IAC-01 | Phase 6 | Complete |
+| IAC-02 | Phase 6 | Complete |
+| IAC-03 | Phase 6 | Complete |
+| IAC-04 | Phase 6 | Complete |
 | IAC-05 | Phase 6 | Pending |
 | IAC-06 | Phase 6 | Pending |
 | CLD-01 | Phase 6 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-system-administration-ci-cd-02-PLAN.md
-last_updated: "2026-03-19T13:25:02.430Z"
+stopped_at: Completed 06-infrastructure-as-code-cloud-01-PLAN.md
+last_updated: "2026-03-19T13:59:08.931Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 24
+  completed_plans: 21
   percent: 25
 ---
 
@@ -69,6 +69,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 05-system-administration-ci-cd P01 | 9min | 2 tasks | 6 files |
 | Phase 05-system-administration-ci-cd P04 | 2min | 2 tasks | 2 files |
 | Phase 05-system-administration-ci-cd P02 | 10min | 2 tasks | 16 files |
+| Phase 06-infrastructure-as-code-cloud P01 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,10 @@ Recent decisions affecting current work:
 - [Phase 05-system-administration-ci-cd]: Pipeline YAML in cheat sheet matches lesson 3 exactly (same action versions: checkout@v6, setup-buildx@v4, login-action@v4, build-push-action@v7) — single source of truth for the learner
 - [Phase 05-system-administration-ci-cd]: 05-scheduling verify: systemd timer check is conditional on file existence — avoids false fail on containers without systemd
 - [Phase 05-system-administration-ci-cd]: 06-monitoring verify: load average file check is SKIP not FAIL — learner may observe interactively without saving to file
+- [Phase 06-infrastructure-as-code-cloud]: IAC-01-02 Foundation, IAC-03-04 Intermediate difficulty labels — matches locked decision from CONTEXT.md
+- [Phase 06-infrastructure-as-code-cloud]: terraform{} block taught (not opentofu{}) — works in both tools, what job postings show; HCL variable validation block included showing safety-net pattern
+- [Phase 06-infrastructure-as-code-cloud]: State file shown as actual JSON excerpt in IAC-03; remote backends covered conceptually with S3/GCS/Azure examples without requiring cloud accounts
+- [Phase 06-infrastructure-as-code-cloud]: Module-as-function analogy: variables.tf = function signature, main.tf = implementation, outputs.tf = return value
 
 ### Pending Todos
 
@@ -136,6 +141,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:19:48.153Z
-Stopped at: Completed 05-system-administration-ci-cd-02-PLAN.md
+Last session: 2026-03-19T13:58:57.478Z
+Stopped at: Completed 06-infrastructure-as-code-cloud-01-PLAN.md
 Resume file: None
