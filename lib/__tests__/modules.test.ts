@@ -67,6 +67,12 @@ describe('getAllLessonPaths', () => {
     expect(cicdPaths).toHaveLength(5)
   })
 
+  it('iac module has 5 lessons', () => {
+    const paths = getAllLessonPaths()
+    const iacPaths = paths.filter(p => p.moduleSlug === '06-iac')
+    expect(iacPaths).toHaveLength(5)
+  })
+
   it('cloud module has 6 lessons', () => {
     const paths = getAllLessonPaths()
     const cloudPaths = paths.filter(p => p.moduleSlug === '07-cloud')
