@@ -45,9 +45,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 2: Networking Foundations
 
-- [ ] **NET-01**: Lesson on how networks work — physical layer, switches, routers, packets
-- [ ] **NET-02**: Lesson on the TCP/IP stack — layers, encapsulation, IP addressing, subnets
-- [ ] **NET-03**: Lesson on DNS — resolution process, record types, caching, troubleshooting with dig/nslookup
+- [x] **NET-01**: Lesson on how networks work — physical layer, switches, routers, packets
+- [x] **NET-02**: Lesson on the TCP/IP stack — layers, encapsulation, IP addressing, subnets
+- [x] **NET-03**: Lesson on DNS — resolution process, record types, caching, troubleshooting with dig/nslookup
 - [ ] **NET-04**: Lesson on HTTP/HTTPS — request/response cycle, methods, headers, TLS handshake
 - [ ] **NET-05**: Lesson on SSH — key-based auth, tunneling, config files, agent forwarding
 - [ ] **NET-06**: Lesson on firewalls — iptables, ufw, security groups concepts, netfilter
@@ -179,9 +179,9 @@ Requirements for initial release. Each maps to roadmap phases.
 | LNX-09 | Phase 2 | Complete |
 | LNX-10 | Phase 2 | Complete |
 | LNX-11 | Phase 2 | Complete |
-| NET-01 | Phase 3 | Pending |
-| NET-02 | Phase 3 | Pending |
-| NET-03 | Phase 3 | Pending |
+| NET-01 | Phase 3 | Complete |
+| NET-02 | Phase 3 | Complete |
+| NET-03 | Phase 3 | Complete |
 | NET-04 | Phase 3 | Pending |
 | NET-05 | Phase 3 | Pending |
 | NET-06 | Phase 3 | Pending |
