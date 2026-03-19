@@ -80,10 +80,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 5: CI/CD Pipelines
 
-- [ ] **CICD-01**: Lesson on CI/CD concepts — what it is, why it matters, build/test/deploy lifecycle
-- [ ] **CICD-02**: Lesson on GitHub Actions — workflows, triggers, jobs, steps, artifacts
-- [ ] **CICD-03**: Lesson on building and testing in pipelines — Docker builds, test automation, linting
-- [ ] **CICD-04**: Lesson on deployment strategies — blue/green, rolling, canary concepts
+- [x] **CICD-01**: Lesson on CI/CD concepts — what it is, why it matters, build/test/deploy lifecycle
+- [x] **CICD-02**: Lesson on GitHub Actions — workflows, triggers, jobs, steps, artifacts
+- [x] **CICD-03**: Lesson on building and testing in pipelines — Docker builds, test automation, linting
+- [x] **CICD-04**: Lesson on deployment strategies — blue/green, rolling, canary concepts
 - [ ] **CICD-05**: Hands-on exercises building real CI/CD pipelines
 - [ ] **CICD-06**: Module cheat sheet with CI/CD patterns and GitHub Actions syntax
 
@@ -206,10 +206,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | SYS-06 | Phase 5 | Pending |
 | SYS-07 | Phase 5 | Pending |
 | SYS-08 | Phase 5 | Pending |
-| CICD-01 | Phase 5 | Pending |
-| CICD-02 | Phase 5 | Pending |
-| CICD-03 | Phase 5 | Pending |
-| CICD-04 | Phase 5 | Pending |
+| CICD-01 | Phase 5 | Complete |
+| CICD-02 | Phase 5 | Complete |
+| CICD-03 | Phase 5 | Complete |
+| CICD-04 | Phase 5 | Complete |
 | CICD-05 | Phase 5 | Pending |
 | CICD-06 | Phase 5 | Pending |
 | IAC-01 | Phase 6 | Pending |

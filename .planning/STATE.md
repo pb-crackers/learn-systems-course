@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-docker-foundation-capstone-04-PLAN.md
-last_updated: "2026-03-19T12:34:12.711Z"
+stopped_at: Completed 05-system-administration-ci-cd-03-PLAN.md
+last_updated: "2026-03-19T13:03:26.887Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 16
-  completed_plans: 16
+  total_plans: 20
+  completed_plans: 17
   percent: 25
 ---
 
@@ -65,6 +65,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 04-docker-foundation-capstone P02 | 9min | 2 tasks | 5 files |
 | Phase 04-docker-foundation-capstone P03 | 12min | 2 tasks | 9 files |
 | Phase 04-docker-foundation-capstone P04 | 5min | 2 tasks | 8 files |
+| Phase 05-system-administration-ci-cd P03 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 - [Phase 04-docker-foundation-capstone]: 09-foundation-capstone.mdx stub created in plan 04-03 so integration test passes immediately — plan 04-04 overwrites with full capstone content
 - [Phase 04-docker-foundation-capstone]: verify-volumes.sh write/read persistence test uses busybox:latest to avoid dependency on exercise app image being built
 - [Phase 04-docker-foundation-capstone]: verify.sh splits 'all services running' into 3 separate checks for granular diagnostics per service
+- [Phase 05-system-administration-ci-cd]: CICD-01-02 Foundation, CICD-03-04 Intermediate difficulty labels per locked decision in CONTEXT.md
+- [Phase 05-system-administration-ci-cd]: ghcr.io over Docker Hub in pipeline YAML: uses GITHUB_TOKEN, no extra secret, integrated with GitHub packages
+- [Phase 05-system-administration-ci-cd]: build-push job main-branch guard (if: github.ref == refs/heads/main) — PRs run lint+test but never push images to registry
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T12:29:20.890Z
-Stopped at: Completed 04-docker-foundation-capstone-04-PLAN.md
+Last session: 2026-03-19T13:03:26.885Z
+Stopped at: Completed 05-system-administration-ci-cd-03-PLAN.md
 Resume file: None
