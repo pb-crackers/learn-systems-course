@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-networking-foundations-04-PLAN.md
-last_updated: "2026-03-19T11:39:49.106Z"
+stopped_at: Completed 03-networking-foundations-03-PLAN.md
+last_updated: "2026-03-19T11:43:05.075Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
   percent: 25
 ---
 
@@ -60,6 +60,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 03-networking-foundations P01 | 6min | 2 tasks | 3 files |
 | Phase 03-networking-foundations P02 | 7min | 2 tasks | 4 files |
 | Phase 03-networking-foundations P04 | 4min | 1 tasks | 1 files |
+| Phase 03-networking-foundations P03 | 4min | 2 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,8 @@ Recent decisions affecting current work:
 - [Phase 03-networking-foundations]: 07-troubleshooting: What's Next callout bridges to Docker networking Phase 4
 - [Phase 03-networking-foundations]: 05-ssh: ProxyJump recommended over agent forwarding for bastion access — prevents key exposure on shared machines
 - [Phase 03-networking-foundations]: Cheat sheet follows Phase 2 (Linux Fundamentals) pattern: one QuickReference component per lesson, each with the lesson's most essential commands and concepts
+- [Phase 03-networking-foundations]: CoreDNS hosts plugin for learn.local zone: simpler than zone file, no extra mount required, PTR records served from same hosts block
+- [Phase 03-networking-foundations]: Troubleshooting lab fault: app on port 8080 not 80 — forces learner through full layer-by-layer checklist (ping/nc/curl/ss), unambiguous discovery
 
 ### Pending Todos
 
@@ -109,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T11:39:49.104Z
-Stopped at: Completed 03-networking-foundations-04-PLAN.md
+Last session: 2026-03-19T11:43:05.073Z
+Stopped at: Completed 03-networking-foundations-03-PLAN.md
 Resume file: None
