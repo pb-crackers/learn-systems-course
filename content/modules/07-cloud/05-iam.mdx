@@ -1,0 +1,282 @@
+---
+title: "Cloud IAM: Identity, Policies, and Least Privilege"
+description: "Map IAM users to Linux users, IAM policies to chmod, and role assumption to sudo — cloud access control built on concepts you already know"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "05-iam"
+order: 5
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["07-cloud/01-cloud-concepts", "01-linux-fundamentals/04-file-permissions", "04-sysadmin/01-user-management"]
+tags: ["iam", "identity", "policies", "roles", "least-privilege", "permissions", "security", "aws", "gcp", "azure"]
+---
+
+## Overview
+
+A developer hardcodes AWS access keys in a repository, gets them scraped by a bot in 30 seconds, and comes back Monday morning to a $47,000 AWS bill — crypto miners had been running EC2 instances all weekend. The root cause was not the keys being committed. The root cause was the keys having `AdministratorAccess` — permission to do anything in the entire AWS account.
+
+Cloud IAM (Identity and Access Management) is the same permission model you learned in the Linux Fundamentals module — users, groups, and permissions controlling who can do what to which resource. The surface area is larger (hundreds of cloud resource types instead of filesystem objects), but the conceptual model is identical.
+
+## How It Works
+
+### IAM Users and Groups = Linux Users and Groups
+
+In the sysadmin module, you created Linux users with `useradd` and grouped them with `groupadd`. Cloud IAM has the same abstraction layer:
+
+**IAM Users** are identities that represent a person or application. They authenticate with a password (console access) or access keys (API access). This is the cloud equivalent of a Linux user account.
+
+**IAM Groups** collect users for batch permission management. Instead of granting permissions to 10 individual developers, you grant them to the `Developers` group, then add users to the group. Adding a new developer to the team means one operation: add their IAM user to the group. This is the cloud equivalent of `usermod -aG developers alice`.
+
+```bash
+# Linux: create a user and add them to a group
+useradd -m alice
+groupadd developers
+usermod -aG developers alice
+
+# IAM equivalent (AWS CLI — same concept, different syntax):
+aws iam create-user --user-name alice
+aws iam create-group --group-name Developers
+aws iam add-user-to-group --user-name alice --group-name Developers
+```
+
+| Linux | AWS IAM | GCP Cloud IAM | Azure |
+|-------|---------|--------------|-------|
+| User (UID) | IAM User | Google Account / Service Account | Azure AD User |
+| Group (GID) | IAM Group | Google Group | Azure AD Group |
+| `/etc/passwd` | IAM User database | Cloud Identity | Azure Active Directory |
+
+### IAM Policies = chmod / chown
+
+In the Linux permissions lesson, `chmod 640 config.txt` granted the owner read/write, the group read-only, and others nothing — for a specific file. An IAM policy does the same thing for cloud resources: it defines who (principal) can do what (action) on which resource.
+
+Here is the side-by-side comparison:
+
+```bash
+# Linux: give the group read-only access to this config file
+chmod 640 /etc/app/config.txt
+# Means: owner=rw, group=r, other=none
+# "The file owner can read/write; the devs group can read; nobody else can touch it"
+```
+
+```json
+// IAM Policy JSON — same intent, cloud resource scope
+// This policy grants read-only access to a specific S3 bucket
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::company-reports",
+        "arn:aws:s3:::company-reports/*"
+      ]
+    }
+  ]
+}
+// Means: "Allow GetObject (read a file) and ListBucket (ls equivalent)
+// on the company-reports bucket and everything in it"
+```
+
+The structure maps directly:
+
+| `chmod 640 config.txt` | IAM Policy |
+|------------------------|-----------|
+| `640` = owner rw, group r | `"Effect": "Allow"` + specific actions |
+| `config.txt` = the file | `"Resource"` = the ARN of the cloud resource |
+| Who it applies to = the file's group | Who it applies to = the principal the policy is attached to |
+| `chmod` on a specific file | A separate JSON document attached to a user, group, or role |
+
+IAM policies are documents — JSON files that describe permissions. You attach them to users, groups, or roles. A user can have multiple policies attached. Permissions are additive (if policy A allows `s3:GetObject` and policy B allows `ec2:DescribeInstances`, the user can do both) — but an explicit `Deny` in any policy always wins.
+
+<Callout type="warning" title="The Most Common Cloud Security Mistake">
+Granting `*` (all permissions on all resources) to get something working quickly and never tightening it. You learned not to run everything as root on Linux — the same principle applies in the cloud. A web server should not have permission to delete databases. An application that reads from S3 should not have permission to create EC2 instances. Start with no access and add only what is needed. This is least privilege.
+</Callout>
+
+### IAM Roles = sudo
+
+In the sysadmin module, `sudo` allowed your Linux user to temporarily execute a command with elevated privileges (as root, or as another user). The escalation is:
+1. Temporary — your process's UID returns to normal after the command
+2. Audited — `/var/log/auth.log` records every sudo invocation
+3. Controlled — `/etc/sudoers` specifies exactly what each user can escalate to
+
+IAM Role Assumption is identical in concept:
+
+1. **Temporary** — when you assume a role, you receive temporary credentials (access key + secret + session token) that expire (default 1 hour, max 12 hours)
+2. **Audited** — AWS CloudTrail logs every AssumeRole call with who assumed what and when
+3. **Controlled** — a Trust Policy on the role specifies exactly which principals can assume it
+
+```bash
+# Linux sudo:
+sudo systemctl restart myapp
+# Your UID temporarily becomes 0 (root)
+# The restart happens
+# Your UID returns to 1001 (alice)
+# /var/log/auth.log: "alice : TTY=pts/0 ; COMMAND=/bin/systemctl restart myapp"
+
+# AWS: assume a role (get temporary credentials)
+aws sts assume-role \
+  --role-arn arn:aws:iam::123456789012:role/DeploymentRole \
+  --role-session-name deploy-session-2026-03-19
+
+# Response includes temporary credentials:
+# AccessKeyId: ASIAXYZ...   (expires in 1 hour)
+# SecretAccessKey: ...
+# SessionToken: ...
+# Expiration: 2026-03-19T10:00:00Z
+```
+
+Roles are not attached to humans — they are identities that can be *assumed* by humans or services. An EC2 instance can be configured with an IAM Role — the instance automatically assumes the role and uses its permissions without any access keys in environment variables. This is the cloud equivalent of a service account: your application process has elevated permissions through its identity, not through credentials stored in config files.
+
+<Callout type="deep-dive" title="Trust Policies: The Cloud /etc/sudoers">
+On Linux, `/etc/sudoers` controls who can sudo. In AWS, a Trust Policy on a role controls who can assume it. The concept is identical — a declaration of "this identity can temporarily become this other identity."
+
+```json
+// Trust Policy: only EC2 instances and the deploy user can assume this role
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"       // EC2 instance identity
+      },
+      "Action": "sts:AssumeRole"
+    },
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::123456789012:user/deploy-bot"   // specific IAM user
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+// Equivalent to /etc/sudoers:
+// ec2-service ALL=(DeploymentRole) NOPASSWD: ALL
+// deploy-bot  ALL=(DeploymentRole) NOPASSWD: ALL
+```
+</Callout>
+
+### Least Privilege in Practice
+
+Least privilege means granting the minimum permissions required for a task — nothing more. You applied this on Linux: you did not add your deploy user to the `sudo` group (all permissions), you created a sudoers drop-in file granting exactly `NOPASSWD: /bin/systemctl restart myapp`.
+
+The same discipline applies in the cloud:
+
+| Wrong (too permissive) | Right (least privilege) |
+|------------------------|------------------------|
+| Attach `AdministratorAccess` to the web server role | Attach a policy allowing only `s3:GetObject` on the specific bucket the app reads from |
+| Grant `s3:*` on `*` for an image resizer | Grant `s3:GetObject` on the source bucket and `s3:PutObject` on the destination bucket |
+| IAM user with permanent access keys and no MFA | IAM role assumed by the service — temporary credentials, no keys to leak |
+| Developers have production database credentials | Developers assume a read-only role for debugging — temporary access, audited |
+
+| Linux Equivalent | Cloud IAM |
+|-----------------|-----------|
+| Linux user | IAM User / GCP Service Account / Azure AD User |
+| Linux group | IAM Group / Google Group / Azure AD Group |
+| `chmod 640` | IAM Policy with specific Actions and Resources |
+| `sudo` | IAM Role Assumption (STS AssumeRole) |
+| `/etc/sudoers` | IAM Trust Policy |
+| `!` prefix in `/etc/shadow` (locked account) | IAM user with no policies attached (no permissions) |
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Design a Least-Privilege IAM Policy for a Web Application"
+  difficulty="Intermediate"
+  scenario="Your web application needs two specific permissions: it must read user-uploaded images from an S3 bucket called 'user-uploads', and it must write records to a DynamoDB table called 'orders'. The application runs on EC2 instances with an IAM role. Your task is to design the IAM policy using least privilege — no more permissions than the application needs."
+  objective="By the end of this exercise, you will be able to map Linux permissions concepts to IAM policies, identify over-permissive grants, write a principle-of-least-privilege policy, and explain role assumption as the cloud equivalent of sudo."
+  steps={[
+    {
+      step: 1,
+      description: "Identify the minimum S3 actions needed. The app only reads images — it does not upload, delete, or list bucket contents. What is the minimal IAM action? (Hint: s3:GetObject vs s3:*)",
+      command: "# s3:GetObject only — not s3:PutObject, s3:DeleteObject, s3:ListBucket, or s3:*"
+    },
+    {
+      step: 2,
+      description: "Identify the minimum DynamoDB actions needed. The app writes new order records. It does not read, update, delete, or scan existing records. What is the minimal IAM action? (Hint: dynamodb:PutItem vs dynamodb:*)",
+      command: "# dynamodb:PutItem only — not GetItem, UpdateItem, DeleteItem, Scan, or Query"
+    },
+    {
+      step: 3,
+      description: "Scope the resources. The policy should apply only to the specific bucket (user-uploads) and specific table (orders) — not to all S3 buckets and all DynamoDB tables. Why does scoping matter?",
+      command: "# If compromised, the app can only touch these specific resources, not all buckets and tables in the account"
+    },
+    {
+      step: 4,
+      description: "Write the policy structure in plain language (not JSON): Effect=Allow, Action=[s3:GetObject, dynamodb:PutItem], Resource=[specific bucket ARN, specific table ARN]. Map each field to its Linux equivalent.",
+      command: "# Effect=Allow → chmod +x (grant); Action → operation (read/write); Resource → the specific file (config.txt)"
+    },
+    {
+      step: 5,
+      description: "Explain why the EC2 instance should use an IAM Role (not hardcoded access keys) and how role assumption is like sudo.",
+      command: "# Role = temporary credentials, auto-rotated, no keys to leak. sudo = temporary elevation, audited, no password stored in scripts."
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "cld-05-mapping",
+        label: "Can map Linux user/group to IAM user/group and explain the functional equivalence",
+        hint: "Linux user = IAM User (human identity with credentials). Linux group = IAM Group (batch permission assignment). usermod -aG = add user to IAM group."
+      },
+      {
+        id: "cld-05-policy",
+        label: "Can explain an IAM policy in terms of chmod — who, what action, on which resource",
+        hint: "chmod 640 file.txt: who=group, action=read, resource=file.txt. IAM policy: who=principal the policy is attached to, action=s3:GetObject, resource=arn:aws:s3:::bucket/*"
+      },
+      {
+        id: "cld-05-role",
+        label: "Can explain why IAM Role Assumption is like sudo (temporary, audited, controlled by Trust Policy)",
+        hint: "sudo: temporary UID escalation, logged to auth.log, controlled by /etc/sudoers. AssumeRole: temporary credentials (expire in 1h), logged to CloudTrail, controlled by Trust Policy."
+      },
+      {
+        id: "cld-05-least-privilege",
+        label: "Can explain least privilege in both Linux and cloud terms",
+        hint: "Linux: don't run as root; use specific sudo grants; 600 not 777. Cloud: don't use AdministratorAccess; use specific actions; scope to specific resources, not *."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "IAM Concepts",
+      items: [
+        { command: "IAM User", description: "Human or app identity with long-term credentials. Linux equivalent: useradd. AWS IAM User, GCP Service Account, Azure AD User." },
+        { command: "IAM Group", description: "Batch permission assignment. Linux equivalent: groupadd + usermod -aG. AWS IAM Group, GCP Google Group, Azure AD Group." },
+        { command: "IAM Policy", description: "JSON document defining Effect/Action/Resource. Linux equivalent: chmod/chown on specific files." },
+        { command: "IAM Role", description: "Assumable identity with temporary credentials. Linux equivalent: sudo (temporary escalation, audited)." },
+        { command: "Trust Policy", description: "Controls who can assume a role. Linux equivalent: /etc/sudoers (controls who can sudo to what)." }
+      ]
+    },
+    {
+      title: "Linux to Cloud Mapping",
+      items: [
+        { command: "chmod 640 file", description: "IAM policy: Effect=Allow, specific Action list, specific Resource ARN" },
+        { command: "sudo command", description: "aws sts assume-role: temporary credentials to assume elevated role" },
+        { command: "/etc/sudoers", description: "IAM Trust Policy: defines which principals can assume a role" },
+        { command: "groupadd / usermod -aG", description: "IAM Group creation + add user to group" },
+        { command: "Not running as root", description: "Least privilege: IAM Role with only needed permissions, not AdministratorAccess" }
+      ]
+    },
+    {
+      title: "Least Privilege Checklist",
+      items: [
+        { command: "Specific actions", description: "Use s3:GetObject, not s3:*. Use dynamodb:PutItem, not dynamodb:*" },
+        { command: "Specific resources", description: "Scope to the specific bucket/table ARN, not *" },
+        { command: "Roles over keys", description: "Use IAM Roles (temporary credentials) instead of hardcoded access keys" },
+        { command: "Deny explicit", description: "An explicit Deny in any policy always overrides an Allow — use it for guardrails" }
+      ]
+    }
+  ]}
+/>

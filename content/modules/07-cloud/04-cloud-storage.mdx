@@ -1,0 +1,234 @@
+---
+title: "Cloud Storage: Object, Block, and File Storage"
+description: "Map Docker volumes to block storage, learn what object storage adds that Docker cannot replicate, and choose the right type for each workload"
+module: "Cloud Fundamentals"
+moduleSlug: "07-cloud"
+lessonSlug: "04-cloud-storage"
+order: 4
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["07-cloud/01-cloud-concepts", "03-docker/04-docker-volumes"]
+tags: ["storage", "object-storage", "block-storage", "file-storage", "s3", "ebs", "gcs", "azure-blob"]
+---
+
+## Overview
+
+In the Docker volumes lesson, you learned that containers have ephemeral writable layers — data written inside a container disappears when the container is removed. Named volumes solved that for local development. Cloud storage solves it at infrastructure scale, across multiple machines and availability zones.
+
+Cloud storage comes in three fundamentally different types: block, object, and file. Choosing wrong is one of the most expensive architectural mistakes in cloud infrastructure — the wrong choice either limits your scale, increases your cost by 10x, or breaks your application in subtle ways. Understanding the model of each type prevents that.
+
+## How It Works
+
+### Block Storage = Docker Named Volumes
+
+In the Docker volumes lesson, you created named volumes with `docker volume create` and mounted them at container paths. Cloud block storage works exactly the same way — a virtual disk that attaches to a VM or container and persists when the instance stops.
+
+```bash
+# Docker: create a named volume and attach it to a container
+docker volume create dbdata
+docker run -v dbdata:/var/lib/postgresql/data postgres:16
+
+# Cloud equivalent (conceptual):
+# Create an EBS volume in AWS (a virtual 100GB disk)
+# Attach it to your EC2 instance at /dev/xvdf
+# Format it: mkfs.ext4 /dev/xvdf
+# Mount it: mount /dev/xvdf /var/lib/postgresql/data
+# Now PostgreSQL writes to the volume, not the ephemeral instance disk
+```
+
+Block storage is formatted with a filesystem (ext4, xfs, NTFS) exactly like a physical hard drive. You run the same filesystem commands you learned in the sysadmin module — `df -h`, `mount`, `lsblk`, `mkfs`. When an EC2 instance stops, the EBS volume persists — just like a named Docker volume survives `docker rm`.
+
+<TerminalBlock
+  title="Docker named volume persistence — block storage equivalent"
+  lines={[
+    { type: 'comment', content: 'Create a named volume (equivalent to allocating a cloud block volume)' },
+    { type: 'command', content: 'docker volume create dbdata' },
+    { type: 'output', content: 'dbdata' },
+    { type: 'comment', content: 'Run PostgreSQL with the volume attached (equivalent to attaching EBS to EC2)' },
+    { type: 'command', content: 'docker run -d --name db -v dbdata:/var/lib/postgresql/data -e POSTGRES_PASSWORD=secret postgres:16-alpine' },
+    { type: 'output', content: 'a1b2c3d4...' },
+    { type: 'comment', content: 'Write data, stop and remove the container, start a new one' },
+    { type: 'command', content: 'docker exec db psql -U postgres -c "CREATE TABLE test (id int);" && docker rm -f db' },
+    { type: 'output', content: 'CREATE TABLE' },
+    { type: 'comment', content: 'New container, same volume — data persists (same as EBS surviving instance stop)' },
+    { type: 'command', content: 'docker run --rm -v dbdata:/var/lib/postgresql/data postgres:16-alpine psql -U postgres -c "\\dt"' },
+    { type: 'output', content: '        List of relations' },
+    { type: 'output', content: ' Schema | Name | Type  |  Owner   ' },
+    { type: 'output', content: '--------+------+-------+----------' },
+    { type: 'output', content: ' public | test | table | postgres ' },
+    { type: 'comment', content: 'Clean up' },
+    { type: 'command', content: 'docker volume rm dbdata' },
+  ]}
+/>
+
+Key limitation: a block volume attaches to **one instance at a time**. You cannot mount the same EBS volume to two EC2 instances simultaneously. This mirrors the Docker volume behavior — you can share a named volume across containers on the same host, but not across different Docker hosts.
+
+| Provider | Block Storage Service | Equivalent |
+|----------|----------------------|------------|
+| AWS | EBS (Elastic Block Store) | docker volume with local driver |
+| GCP | Persistent Disk | docker volume with local driver |
+| Azure | Azure Disk Storage | docker volume with local driver |
+
+<Callout type="deep-dive" title="Cloud VMs Use Block Storage for Their Root Disk">
+Remember Docker's overlay filesystem and storage driver from the container internals lesson? Cloud VMs use a similar layered approach. The root volume of an EC2 instance (the disk that contains the OS) is an EBS volume backed by a snapshot. Additional volumes are attached as block devices — `/dev/xvdf`, `/dev/xvdg`, etc. The `df` and `mount` commands you learned in sysadmin work identically on cloud VMs. When you run `df -h` on an EC2 instance, you see EBS volumes listed like physical disks.
+</Callout>
+
+### Object Storage = No Direct Docker Equivalent
+
+This is where cloud genuinely adds something new. Object storage stores files as key-value pairs accessible via HTTP URLs — no filesystem, no mount points, no directories, no `ls` command, no `chmod`. Just a flat namespace of objects with globally unique identifiers.
+
+```bash
+# No Docker equivalent — this is cloud-native
+
+# Store a file (AWS S3 using the AWS CLI):
+aws s3 cp report.pdf s3://my-company-reports/2026/march/report.pdf
+
+# Retrieve the file directly via HTTP (if bucket is public):
+curl -O https://my-company-reports.s3.amazonaws.com/2026/march/report.pdf
+
+# The "path" (2026/march/) is just part of the key — there are no real directories.
+# S3 simulates directory structure by treating "/" as a delimiter in the key name.
+```
+
+The HTTP interface is the defining feature. Any client with an internet connection and the right credentials can retrieve an object from its URL. You do not need to SSH into a machine. You do not need to mount a drive. The object is just a URL.
+
+This matters for two reasons:
+
+1. **Scale.** Object storage scales to billions of files and petabytes with no performance degradation. A block volume tops out at the size of a single disk. An NFS share tops out at the performance of a single file server. S3 serves 11 nines (99.999999999%) durability — AWS redundantly stores each object across multiple AZs automatically.
+
+2. **Access model.** A block volume requires an attached instance. An object in S3 is accessible from anywhere — your API, a browser, a CDN, a Lambda function, a developer's laptop — all via HTTP.
+
+| Provider | Object Storage Service | Pricing Model |
+|----------|----------------------|--------------|
+| AWS | S3 (Simple Storage Service) | Per GB stored + per request |
+| GCP | Cloud Storage | Per GB stored + per operation |
+| Azure | Azure Blob Storage | Per GB stored + per operation |
+
+<Callout type="tip" title="The Most Common Architectural Mistake">
+Using block storage (an EBS volume or a named Docker volume) to store files that should be in object storage. If your files are accessed via HTTP and do not need filesystem operations (`ls`, `chmod`, `grep`), use object storage. It scales infinitely and costs significantly less per GB. Block storage is for databases and applications that need a local filesystem. Object storage is for anything users or services retrieve over HTTP — user uploads, static assets, reports, backups, logs.
+</Callout>
+
+### File Storage = Network-Mounted Filesystem
+
+File storage bridges block and object. It is a managed NFS server — multiple instances mount the same filesystem simultaneously, and they all see each other's changes in real-time. No copy-on-write, no HTTP — just a networked filesystem.
+
+```bash
+# Mount an NFS share (the local equivalent of cloud file storage)
+# From the networking module, NFS works the same way as cloud file storage
+
+sudo mount -t nfs 10.0.0.5:/shared /mnt/shared
+# After this mount, any file written to /mnt/shared by this machine
+# is immediately visible to all other machines that have mounted the same NFS share.
+
+# Cloud file storage: same model, provider manages the NFS server
+# AWS EFS: mount target is at a DNS name like fs-abc12345.efs.us-east-1.amazonaws.com
+# sudo mount -t nfs4 fs-abc12345.efs.us-east-1.amazonaws.com:/ /mnt/efs
+```
+
+The key differentiation from block storage: multiple instances can mount the same file storage volume simultaneously. This makes it useful for applications that need shared configuration, shared uploads visible to all app servers, or legacy applications that expect a filesystem interface but need to run on multiple machines.
+
+| Provider | File Storage Service | Protocol |
+|----------|---------------------|---------|
+| AWS | EFS (Elastic File System) | NFS v4 |
+| GCP | Filestore | NFS v3/v4 |
+| Azure | Azure Files | SMB / NFS |
+
+### The Storage Decision Framework
+
+| Workload | Storage Type | Why |
+|----------|-------------|-----|
+| Database (PostgreSQL, MySQL, MongoDB) | Block | Needs filesystem IOPS, one writer, random access patterns |
+| User file uploads | Object | Accessed via HTTP, arbitrary scale, no filesystem ops needed |
+| Static website assets (images, CSS, JS) | Object | Served directly to browsers via HTTP |
+| Application logs (archive) | Object | Written once, read occasionally, HTTP retrieval works |
+| Shared config files for multiple app servers | File (NFS) | Multiple instances need simultaneous read access |
+| Container/VM root disk | Block | OS needs a filesystem to boot from |
+| ML training datasets | Object | Large files, batch access, HTTP from compute cluster |
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Choose the Right Storage Type for a Production Application"
+  difficulty="Intermediate"
+  scenario="You are designing storage for an e-commerce application with three storage needs: (1) a PostgreSQL database for order records, (2) user-uploaded product photos that the storefront displays, and (3) PDF invoices that users download from their account page. Choose the correct cloud storage type for each and explain why."
+  objective="By the end of this exercise, you will be able to match workload characteristics to the correct cloud storage type, explain the limitations of each type, and name the service on all three providers."
+  steps={[
+    {
+      step: 1,
+      description: "Evaluate the PostgreSQL database. It needs filesystem IOPS, random read/write access, and must only be attached to one database server at a time. Which storage type? Which Docker equivalent?",
+      command: "# Block storage (EBS/Persistent Disk/Azure Disk) — same model as Docker named volume"
+    },
+    {
+      step: 2,
+      description: "Evaluate the product photos. They are uploaded by sellers, stored indefinitely, and served directly to buyers' browsers via the storefront. Does the storefront need a filesystem to serve them? What storage type scales to millions of photos without performance degradation?",
+      command: "# Object storage (S3/Cloud Storage/Azure Blob) — HTTP access, arbitrary scale, no filesystem needed"
+    },
+    {
+      step: 3,
+      description: "Evaluate the PDF invoices. Users click 'Download Invoice' on the account page and their browser downloads the file. Are these accessed via HTTP or via filesystem? Does the web server need them mounted locally?",
+      command: "# Object storage — generate a pre-signed URL in S3 or equivalent, browser downloads directly from storage. Web server never handles the bytes."
+    },
+    {
+      step: 4,
+      description: "What would go wrong if you used block storage (EBS) to store the product photos? Think about: what happens when you add a second app server, what happens at 1 million photos, what is the cost per GB of EBS vs S3?",
+      command: "# EBS attaches to one instance — second server cannot read photos. Doesn't scale to billions of files. EBS is ~$0.10/GB vs S3 ~$0.023/GB."
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "cld-04-block",
+        label: "Can explain why database files go in block storage, with the Docker named volume analogy",
+        hint: "Block storage = virtual disk with a filesystem. Databases need filesystem IOPS, random access, and single-writer semantics. Docker named volume is block storage under the hood."
+      },
+      {
+        id: "cld-04-object",
+        label: "Can explain what makes object storage different from block storage (access model, scale, no filesystem)",
+        hint: "Object storage: accessed via HTTP URL, scales to billions of objects, no filesystem operations. No Docker equivalent — this is cloud-native."
+      },
+      {
+        id: "cld-04-decision",
+        label: "Can explain why user-uploaded files should go in object storage, not block storage",
+        hint: "HTTP access from any client, arbitrary scale, lower cost per GB. Block storage requires a mounted instance — doesn't scale to multiple app servers and is expensive."
+      },
+      {
+        id: "cld-04-providers",
+        label: "Can name the block storage and object storage service for all three providers",
+        hint: "Block: EBS (AWS), Persistent Disk (GCP), Azure Disk. Object: S3 (AWS), Cloud Storage (GCP), Azure Blob Storage."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Storage Types",
+      items: [
+        { command: "Block Storage", description: "Virtual disk with filesystem. Attaches to one instance. Use for: databases, VM root disk. EBS (AWS), Persistent Disk (GCP), Azure Disk." },
+        { command: "Object Storage", description: "Key-value store accessed via HTTP. No filesystem. Scales infinitely. Use for: uploads, static assets, backups. S3 (AWS), Cloud Storage (GCP), Azure Blob." },
+        { command: "File Storage", description: "Managed NFS server. Multiple instances mount simultaneously. Use for: shared config, legacy apps. EFS (AWS), Filestore (GCP), Azure Files." }
+      ]
+    },
+    {
+      title: "Docker to Cloud Mapping",
+      items: [
+        { command: "docker volume create", description: "Cloud equivalent: allocating an EBS volume or Persistent Disk" },
+        { command: "docker run -v myvolume:/data", description: "Cloud equivalent: attaching a block volume to an EC2 instance at /dev/xvdf and mounting it" },
+        { command: "(no equivalent)", description: "Object storage is cloud-native. There is no local Docker equivalent — this is what cloud adds over local infrastructure." }
+      ]
+    },
+    {
+      title: "Decision Guide",
+      items: [
+        { command: "Database files?", description: "Block storage — needs filesystem ops and IOPS" },
+        { command: "Files served via HTTP (uploads, images, PDFs)?", description: "Object storage — HTTP access, scales infinitely, cheaper per GB" },
+        { command: "Multiple servers need shared filesystem access?", description: "File storage (NFS) — EFS, Filestore, Azure Files" }
+      ]
+    }
+  ]}
+/>
