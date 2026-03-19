@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-app-foundation-03-PLAN.md
-last_updated: "2026-03-19T03:09:07.642Z"
+stopped_at: Completed 01-app-foundation-02-PLAN.md
+last_updated: "2026-03-19T03:09:17.579Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
@@ -69,6 +69,9 @@ Recent decisions affecting current work:
 - [Phase 01-app-foundation]: Dark-first CSS pattern: :root defines dark values, .light class overrides to light; ThemeProvider defaultTheme=dark
 - [Phase 01-app-foundation]: Search index served as static API route with force-static: avoids bundling large MiniSearch JSON into page JS; loaded lazily on first Cmd+K open
 - [Phase 01-app-foundation]: Empty corpus for Phase 1 search index: /api/search-index returns valid but empty JSON; populated in Phase 2+ when MDX lesson files are added
+- [Phase 01-app-foundation]: Islands architecture for sidebar: Sidebar is a server component passing static Module[] to SidebarClient client component for interactivity without extra server round-trips
+- [Phase 01-app-foundation]: SheetTrigger without asChild: @base-ui/react (shadcn base-nova) does not support Radix-style asChild; SheetTrigger uses className prop directly for styling
+- [Phase 01-app-foundation]: Two-click confirmation for Reset Progress: first click enters confirming=true state (3s auto-cancel), second click calls resetProgress() — prevents accidental data loss
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:08:42.364Z
-Stopped at: Completed 01-app-foundation-03-PLAN.md
+Last session: 2026-03-19T03:09:17.576Z
+Stopped at: Completed 01-app-foundation-02-PLAN.md
 Resume file: None
