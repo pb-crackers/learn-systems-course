@@ -1,0 +1,225 @@
+---
+title: "CI/CD Cheat Sheet and Pipeline Reference"
+description: "Quick reference for GitHub Actions syntax, pipeline patterns, and deployment strategies — plus the complete CI/CD pipeline for the progressive Docker app"
+module: "CI/CD Pipelines"
+moduleSlug: "05-cicd"
+lessonSlug: "05-cheat-sheet"
+order: 5
+difficulty: "Foundation"
+estimatedMinutes: 10
+prerequisites: []
+tags: ["cheat-sheet", "cicd", "github-actions", "reference", "pipeline"]
+---
+
+## Overview
+
+All GitHub Actions syntax, pipeline patterns, and CI/CD concepts from this module in one place. The pipeline exercise section gives you a complete, production-quality workflow to copy into your own GitHub repository.
+
+## Your Pipeline Exercise
+
+This is the complete CI/CD pipeline for the Node.js app you built in the Docker module. Copy this workflow into your own GitHub repository to see it run.
+
+<CodeBlock language="yaml" title=".github/workflows/ci.yml — complete CI/CD pipeline for docker/app/">
+{`name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
+  build-push:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/\${{ github.repository }}:\${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max`}
+</CodeBlock>
+
+<ExerciseCard
+  title="Put Your Docker Knowledge to Work in a Real CI/CD Pipeline"
+  difficulty="Intermediate"
+  scenario="Put your Docker knowledge to work in a real CI/CD pipeline. Create a GitHub repository, push the progressive Docker app, and add this workflow to automate everything."
+  steps={[
+    {
+      step: 1,
+      description: "Create a new GitHub repository. You can do this at github.com/new — make it public so GitHub Actions is free.",
+      command: "# Go to github.com/new and create a new repository"
+    },
+    {
+      step: 2,
+      description: "Copy the docker/app/ files into your repository. You need app.js, package.json, package-lock.json, and Dockerfile.optimized.",
+      command: "cp -r docker/app/ your-repo/"
+    },
+    {
+      step: 3,
+      description: "Add the workflow YAML above to .github/workflows/ci.yml in your repository. Create the directory if it doesn't exist.",
+      command: "mkdir -p .github/workflows && cp ci.yml .github/workflows/ci.yml"
+    },
+    {
+      step: 4,
+      description: "Push your changes to the main branch to trigger the pipeline.",
+      command: "git add . && git commit -m 'ci: add CI/CD pipeline' && git push origin main"
+    },
+    {
+      step: 5,
+      description: "Watch the Actions tab in your GitHub repository. You should see the pipeline run with all three jobs: lint, test, and build-push.",
+      command: "# Open github.com/<your-username>/<your-repo>/actions"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Pipeline"
+    items={[
+      {
+        id: "workflow-triggers",
+        label: "Workflow triggers on push to main (visible in the Actions tab within seconds of pushing)",
+        hint: "If the Actions tab shows nothing, check that your workflow file is at .github/workflows/ci.yml (not .github/workflow/ or workflows/ci.yml)."
+      },
+      {
+        id: "lint-passes",
+        label: "Lint job passes (green checkmark on the lint job in the Actions run)",
+        hint: "If lint fails, check that your package.json has a 'lint' script. Add: \"lint\": \"eslint .\" and install eslint if needed."
+      },
+      {
+        id: "test-passes",
+        label: "Test job passes (green checkmark on the test job, which runs after lint)",
+        hint: "If test fails, check that your package.json has a 'test' script. Add: \"test\": \"echo 'no tests yet' && exit 0\" to get started."
+      },
+      {
+        id: "image-pushed",
+        label: "Docker image pushed to ghcr.io (visible in the Packages tab on your GitHub repository page)",
+        hint: "The image appears under your repository's Packages tab after the build-push job completes. It will be named ghcr.io/<username>/<repo>:<commit-sha>."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<Callout type="tip" title="No secrets setup required for ghcr.io">
+You do not need to set up any secrets for ghcr.io — the GITHUB_TOKEN is provided automatically by GitHub Actions with the permissions block in the workflow. The `packages: write` permission grants your workflow the right to push images to your repository's package registry without any manual secret creation.
+</Callout>
+
+## CI/CD Concepts
+
+<QuickReference
+  sections={[
+    {
+      title: "CI/CD Concepts (Lesson 1)",
+      items: [
+        { command: "Continuous Integration (CI)", description: "Automatically build and test code on every push — catches broken code before it reaches the main branch" },
+        { command: "Continuous Delivery (CD)", description: "Automatically deploy to a staging environment after every successful CI run — code is always in a deployable state" },
+        { command: "Continuous Deployment", description: "Automatically deploy to production after every successful test run — no human approval step. Higher automation, higher risk if tests miss something." },
+        { command: "Pipeline stage", description: "A discrete phase in the automation sequence: lint → test → build → push → deploy. Each stage must pass before the next runs." },
+        { command: "Artifact", description: "The output of a build step — a Docker image, compiled binary, or test report. Artifacts are versioned and traceable to the commit that produced them." },
+        { command: "Feedback loop", description: "How quickly a developer learns their code is broken. CI shrinks feedback loops from hours (manual QA) to minutes (automated pipeline)." },
+      ]
+    }
+  ]}
+/>
+
+## GitHub Actions
+
+<QuickReference
+  sections={[
+    {
+      title: "GitHub Actions (Lesson 2)",
+      items: [
+        { command: ".github/workflows/", description: "Directory where workflow YAML files live — GitHub automatically detects any .yml file here" },
+        { command: "on: push: branches: [main]", description: "Trigger on every push to the main branch", example: "on:\n  push:\n    branches: [main]" },
+        { command: "on: pull_request: branches: [main]", description: "Trigger on pull requests targeting the main branch — runs lint and test on every PR" },
+        { command: "on: workflow_dispatch:", description: "Allow manual trigger from the Actions tab — useful for deployment jobs that need human initiation" },
+        { command: "on: schedule: cron:", description: "Trigger on a cron schedule — useful for nightly builds, dependency updates, or scheduled reports", example: "schedule:\n  - cron: '0 2 * * *'  # 2 AM UTC daily" },
+        { command: "jobs.*.runs-on: ubuntu-latest", description: "Run the job on a GitHub-hosted Ubuntu runner — free for public repos, 2 vCPUs, 7GB RAM" },
+        { command: "steps uses:", description: "Run a pre-built action from the GitHub marketplace — e.g., uses: actions/checkout@v6", example: "- uses: actions/checkout@v6" },
+        { command: "steps run:", description: "Run a shell command directly on the runner", example: "- run: npm ci" },
+        { command: "${{ secrets.NAME }}", description: "Reference a repository secret by name — secrets are encrypted and never logged in plain text", example: "${{ secrets.DOCKER_PASSWORD }}" },
+        { command: "${{ github.* }}", description: "GitHub context — access metadata about the run", example: "${{ github.sha }}  # commit hash\n${{ github.repository }}  # org/repo\n${{ github.actor }}  # who triggered" },
+        { command: "GITHUB_TOKEN", description: "Auto-generated token for the current repository — scoped to the repo, no setup required. Grants read access to code and (with packages: write) push access to ghcr.io." },
+        { command: "needs: [job-name]", description: "Declare job dependency — this job waits for the named job to succeed before running", example: "needs: lint  # or needs: [lint, test]" },
+      ]
+    }
+  ]}
+/>
+
+## Building and Testing
+
+<QuickReference
+  sections={[
+    {
+      title: "Building & Testing (Lesson 3)",
+      items: [
+        { command: "actions/checkout@v6", description: "Clone the repository into the runner workspace — always the first step in every job that needs code" },
+        { command: "docker/setup-buildx-action@v4", description: "Enable BuildKit for the Docker daemon — required for layer caching (cache-from/cache-to) and multi-platform builds" },
+        { command: "docker/login-action@v4", description: "Authenticate to a container registry — supports ghcr.io, Docker Hub, ECR, and others", example: "- uses: docker/login-action@v4\n  with:\n    registry: ghcr.io\n    username: ${{ github.actor }}\n    password: ${{ secrets.GITHUB_TOKEN }}" },
+        { command: "docker/build-push-action@v7", description: "Build a Docker image and push to a registry in one step — integrates with BuildKit for caching" },
+        { command: "cache-from: type=gha", description: "Read BuildKit layer cache from GitHub Actions cache — subsequent runs skip unchanged layers" },
+        { command: "cache-to: type=gha,mode=max", description: "Write all layers (including intermediate build stages) to GitHub Actions cache for future runs" },
+        { command: "strategy: matrix:", description: "Run the job multiple times with different values — parallel execution for multi-version testing", example: "strategy:\n  matrix:\n    node-version: [18, 20, 22]" },
+        { command: "fail-fast: false", description: "Continue running remaining matrix jobs even if one fails — see the full compatibility picture in one run" },
+        { command: "npm ci", description: "Reproducible install from package-lock.json — fails if lock file is out of sync with package.json. Always prefer over npm install in CI." },
+        { command: "npm test", description: "Run the test suite — non-zero exit code fails the pipeline step and stops the job" },
+        { command: "npm run lint", description: "Run the linter — run before tests because linting is faster; catch style errors before spending time on test execution" },
+      ]
+    }
+  ]}
+/>
+
+## Deployment Strategies
+
+<QuickReference
+  sections={[
+    {
+      title: "Deployment Strategies (Lesson 4)",
+      items: [
+        { command: "Blue/Green deployment", description: "Run two identical environments (blue = current, green = new). Deploy to green, test it, then switch the load balancer. Instant rollback: flip back to blue. Cost: double the infrastructure while both run." },
+        { command: "Blue/Green: instant switch", description: "The load balancer flip takes milliseconds — zero downtime. All traffic moves at once (no mixed versions serving users simultaneously)." },
+        { command: "Blue/Green: rollback", description: "If green has a problem, flip the load balancer back to blue. The old version was never torn down — rollback is instant." },
+        { command: "Rolling deployment", description: "Replace instances one at a time (or in small batches). Both v1 and v2 serve traffic simultaneously during the rollout. Lower cost than blue/green but more complex rollback." },
+        { command: "Rolling: gradual", description: "Deploy to 1 of 5 instances → wait → deploy to 2 → wait → ... until all instances run the new version. Fails stop the rollout." },
+        { command: "Canary deployment", description: "Send a small percentage of traffic (e.g., 5%) to the new version. Monitor error rates and latency. If metrics are good, increase the percentage gradually until 100%." },
+        { command: "Canary: safest approach", description: "Real user traffic tests the new version before full rollout. A bug affecting 5% of users is caught before it affects everyone. Requires traffic-splitting infrastructure (load balancer rules or service mesh)." },
+        { command: "Strategy comparison", description: "Blue/Green: fast + safe rollback, expensive. Rolling: lower cost, mixed versions during rollout. Canary: safest for catching production bugs, most infrastructure complexity." },
+      ]
+    }
+  ]}
+/>
