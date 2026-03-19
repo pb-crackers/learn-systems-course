@@ -1,0 +1,533 @@
+---
+title: "Shell Scripting"
+description: "Variables, conditionals, loops, functions, error handling — automating tasks with bash"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "07-shell-scripting"
+order: 7
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["01-linux-fundamentals/06-shell-fundamentals"]
+tags: ["bash", "scripting", "automation", "functions", "error-handling"]
+---
+
+## Overview
+
+You need to provision 50 identical servers. Doing it manually means 50 chances for human error — a missed step, a typo, a wrong value in one environment variable. A well-written shell script does it identically every time, handles errors gracefully, and leaves a log of exactly what happened. Shell scripting transforms one-time manual operations into repeatable, auditable automation. That's the foundation of every CI/CD pipeline, every deployment script, every infrastructure management tool.
+
+## How It Works
+
+### Script Basics: The Shebang Line
+
+A shell script is a text file containing bash commands. The first line tells the kernel which interpreter to use:
+
+```bash filename="myscript.sh"
+#!/usr/bin/env bash
+
+# Your commands go here
+echo "Hello from a script"
+```
+
+The `#!` is called a **shebang**. When the kernel sees it, it reads the rest of the first line as the interpreter path and runs the file through it.
+
+**Why `#!/usr/bin/env bash` instead of `#!/bin/bash`?**
+
+`/usr/bin/env bash` searches your `PATH` for bash, which makes the script portable. On some systems (macOS, some Linux distros), bash might be at `/usr/local/bin/bash` rather than `/bin/bash`. Using `env` finds it wherever it is.
+
+Make a script executable before running it:
+
+```bash
+chmod +x myscript.sh
+./myscript.sh
+```
+
+### Variables: Assignment and Referencing
+
+```bash filename="variables.sh"
+#!/usr/bin/env bash
+
+# Assignment — NO spaces around the equals sign
+NAME="alice"
+COUNT=42
+FILE_PATH="/var/log/app.log"
+
+# Referencing with $
+echo "Hello, $NAME"
+echo "Count is: $COUNT"
+
+# Curly braces for disambiguation
+echo "File: ${FILE_PATH}.backup"  # without braces: $FILE_PATH.backup (same here, but...)
+echo "Files: ${NAME}s"            # without braces: $NAMEs — bash looks for variable NAMEs, not NAME
+
+# Readonly variables — cannot be changed
+readonly MAX_RETRIES=3
+
+# Local variables — only inside functions (covered in Functions section)
+```
+
+<Callout type="warning" title="Spaces Around = Are a Syntax Error">
+`NAME = "alice"` is not assignment — bash interprets it as running a command named `NAME` with arguments `=` and `"alice"`. Assignment in bash requires NO spaces: `NAME="alice"`. This is one of the most common errors in shell scripting.
+</Callout>
+
+### Conditionals: if/elif/else
+
+```bash filename="conditionals.sh"
+#!/usr/bin/env bash
+
+FILE="/etc/hosts"
+COUNT=5
+
+# Basic if/elif/else structure
+if [ -f "$FILE" ]; then
+  echo "$FILE exists and is a regular file"
+elif [ -d "$FILE" ]; then
+  echo "$FILE is a directory"
+else
+  echo "$FILE does not exist"
+fi
+
+# Numeric comparison
+if [ $COUNT -gt 3 ]; then
+  echo "Count exceeds threshold"
+fi
+
+# String comparison
+STATUS="running"
+if [ "$STATUS" = "running" ]; then
+  echo "Service is running"
+fi
+```
+
+**`[` vs `[[`:** The single `[` is an external command (a POSIX-compatible test utility). The double `[[` is a bash keyword with more features and safer behavior.
+
+| Feature | `[ ]` | `[[ ]]` |
+|---------|-------|---------|
+| Word splitting risk | Yes — quote everything | No — safer with unquoted vars |
+| Regex matching | No | Yes: `[[ "$var" =~ ^[0-9]+$ ]]` |
+| And/Or operators | `-a` `-o` (deprecated) | `&&` `\|\|` |
+| Empty string handling | Breaks without quotes | Safe unquoted |
+
+Prefer `[[ ]]` in bash scripts. Use `[ ]` only when writing for `sh` (POSIX portability).
+
+**Common test operators:**
+
+| Operator | Tests |
+|----------|-------|
+| `-f file` | File exists and is a regular file |
+| `-d file` | File exists and is a directory |
+| `-e file` | File or directory exists |
+| `-r file` | File is readable |
+| `-w file` | File is writable |
+| `-x file` | File is executable |
+| `-z string` | String is empty (zero length) |
+| `-n string` | String is non-empty (non-zero length) |
+| `str1 = str2` | Strings are equal |
+| `str1 != str2` | Strings are not equal |
+| `n1 -eq n2` | Numbers are equal |
+| `n1 -lt n2` | n1 less than n2 |
+| `n1 -gt n2` | n1 greater than n2 |
+
+### Loops: for, while, until
+
+```bash filename="loops.sh"
+#!/usr/bin/env bash
+
+# for loop — iterating over a list
+for server in web01 web02 web03; do
+  echo "Checking $server..."
+  ping -c 1 "$server" > /dev/null && echo "$server: OK" || echo "$server: UNREACHABLE"
+done
+
+# for loop — iterating over files
+for logfile in /var/log/*.log; do
+  echo "Processing: $logfile"
+done
+
+# C-style for loop
+for ((i = 1; i <= 5; i++)); do
+  echo "Iteration $i"
+done
+
+# while loop — condition-based
+RETRIES=0
+MAX=3
+while [ $RETRIES -lt $MAX ]; do
+  RETRIES=$((RETRIES + 1))
+  echo "Attempt $RETRIES..."
+  # Try something that might fail
+  curl -s https://api.example.com/health && break
+done
+
+# until loop — runs until condition is TRUE (opposite of while)
+until ping -c 1 db.internal > /dev/null 2>&1; do
+  echo "Waiting for database..."
+  sleep 5
+done
+echo "Database is reachable"
+```
+
+<Callout type="tip" title="Safe Line-by-Line File Reading">
+The safest pattern for reading a file line by line in bash is:
+
+```bash
+while IFS= read -r line; do
+  echo "Line: $line"
+done < /path/to/file
+```
+
+`IFS=` prevents leading/trailing whitespace from being stripped. `-r` prevents backslash interpretation. Without these, lines with leading spaces or backslashes are mangled. This pattern handles files with unusual content correctly.
+</Callout>
+
+Use `break` to exit a loop early. Use `continue` to skip the rest of the current iteration and move to the next.
+
+### Functions: Reusable Logic
+
+```bash filename="functions.sh"
+#!/usr/bin/env bash
+
+# Function declaration — no 'function' keyword required (though it works)
+log() {
+  local timestamp
+  timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+  echo "[$timestamp] $*" >&2  # log to stderr, not stdout
+}
+
+# Functions use 'local' to avoid polluting global scope
+validate_input() {
+  local input="$1"  # $1 is the first argument passed to the function
+  local min="$2"
+  local max="$3"
+
+  if [[ -z "$input" ]]; then
+    echo "Error: input is empty" >&2
+    return 1  # non-zero exit code = failure
+  fi
+
+  if [[ ! "$input" =~ ^[0-9]+$ ]]; then
+    echo "Error: '$input' is not a number" >&2
+    return 1
+  fi
+
+  if (( input < min || input > max )); then
+    echo "Error: $input is not in range [$min, $max]" >&2
+    return 1
+  fi
+
+  return 0  # success
+}
+
+# Functions return exit codes — use $? or conditional chaining
+if validate_input "$1" 1 100; then
+  echo "Input $1 is valid"
+else
+  echo "Validation failed"
+  exit 1
+fi
+
+# Functions return STRINGS via stdout, not via return value
+get_server_ip() {
+  local hostname="$1"
+  # Return a value by printing it
+  echo "192.168.1.$(( RANDOM % 254 + 1 ))"
+}
+
+# Capture string return value with command substitution
+SERVER_IP=$(get_server_ip "web01")
+echo "Server IP: $SERVER_IP"
+```
+
+**Important:** `return` only returns an exit code (0-255), not a string. To return a string from a function, print it to stdout and capture it with `$()`. This is a fundamental bash pattern.
+
+### Error Handling: set -euo pipefail
+
+The most important line in any production bash script:
+
+```bash filename="robust-script.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+Each flag changes bash's default (lenient) error behavior:
+
+| Flag | Default behavior | With flag |
+|------|-----------------|-----------|
+| `-e` | Script continues after a failing command | Script exits immediately on any non-zero exit code |
+| `-u` | Unset variables expand to empty string silently | Unset variables cause an immediate exit with error |
+| `-o pipefail` | Pipeline exit code = last command's exit | Pipeline exit code = first non-zero exit in pipeline |
+
+Without `set -euo pipefail`, a broken script will happily continue past errors, applying later steps to a partially-broken state. With it, the script fails loudly at the first problem.
+
+**Example of what `-u` catches:**
+
+```bash
+#!/usr/bin/env bash
+# Without set -u:
+echo "Backup dir: $BACKUP_DIR"  # prints: Backup dir:  (silently empty!)
+rm -rf "$BACKUP_DIR"/*           # rm -rf /* — deletes everything if BACKUP_DIR is empty!
+
+# With set -u:
+# script: line 2: BACKUP_DIR: unbound variable
+# Script exits before the dangerous rm runs
+```
+
+### trap: Cleanup on Exit
+
+`trap` registers a command to run when the script exits or receives a signal. This is how you ensure cleanup happens even if the script fails:
+
+```bash filename="cleanup-trap.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Create a temporary directory
+TMPDIR=$(mktemp -d)
+
+# Register cleanup — runs on EXIT (normal or error), INT (Ctrl+C), TERM (kill)
+cleanup() {
+  echo "Cleaning up $TMPDIR..."
+  rm -rf "$TMPDIR"
+}
+trap cleanup EXIT INT TERM
+
+# Do work using the temp directory
+cp /etc/hosts "$TMPDIR/hosts.bak"
+echo "Processing..."
+# ... more work ...
+
+# cleanup() runs automatically when script exits, even if something above fails
+```
+
+<Callout type="deep-dive" title="trap ERR with Stack Trace">
+For debugging, add a trap on ERR to print a stack trace when a command fails:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+err_handler() {
+  echo "Error on line $1" >&2
+  echo "Stack trace:" >&2
+  local i
+  for ((i=1; i<${#FUNCNAME[@]}; i++)); do
+    echo "  ${BASH_SOURCE[$i]}:${BASH_LINENO[$((i-1))]} in ${FUNCNAME[$i]}()" >&2
+  done
+}
+trap 'err_handler $LINENO' ERR
+```
+
+`BASH_SOURCE`, `BASH_LINENO`, and `FUNCNAME` are bash arrays that track the call stack. This pattern gives you a Python-like traceback in bash — invaluable when debugging complex scripts in CI/CD systems.
+</Callout>
+
+### Script Arguments
+
+Bash provides special variables for accessing command-line arguments:
+
+| Variable | Meaning |
+|----------|---------|
+| `$0` | Script name itself |
+| `$1`, `$2`, ... | Positional arguments |
+| `$#` | Number of arguments passed |
+| `$@` | All arguments as separate words |
+| `"$@"` | All arguments, each properly quoted |
+
+**Always use `"$@"` (quoted) when forwarding arguments.** Without quotes, arguments with spaces get split:
+
+```bash filename="args.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Print usage and exit
+usage() {
+  echo "Usage: $0 <environment> <version>" >&2
+  echo "  environment: staging|production" >&2
+  echo "  version:     semver string (e.g. 1.2.3)" >&2
+  exit 1
+}
+
+# Validate argument count
+if [[ $# -ne 2 ]]; then
+  usage
+fi
+
+ENV="$1"
+VERSION="$2"
+
+# Validate environment value
+if [[ "$ENV" != "staging" && "$ENV" != "production" ]]; then
+  echo "Error: environment must be 'staging' or 'production'" >&2
+  usage
+fi
+
+echo "Deploying version $VERSION to $ENV..."
+```
+
+### Debugging: -x and -n
+
+```bash
+# Trace every command as it executes (with expanded values)
+bash -x myscript.sh
+
+# Syntax check without running
+bash -n myscript.sh
+
+# Turn on tracing within a script for one section
+set -x
+# ... commands to trace ...
+set +x
+```
+
+`bash -x` prints each command with a `+` prefix before executing it, with all variables expanded. It's the fastest way to see exactly what your script is doing.
+
+<TerminalBlock
+  title="bash — debugging with set -x"
+  lines={[
+    { type: 'command', content: 'bash -x deploy.sh staging 1.2.3' },
+    { type: 'output', content: '+ set -euo pipefail' },
+    { type: 'output', content: "+ ENV=staging" },
+    { type: 'output', content: "+ VERSION=1.2.3" },
+    { type: 'output', content: '+ [[ staging != staging ]]' },
+    { type: 'output', content: '+ echo "Deploying version 1.2.3 to staging..."' },
+    { type: 'output', content: 'Deploying version 1.2.3 to staging...' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Write a Deployment Backup Script"
+  difficulty="Intermediate"
+  scenario="You are a platform engineer at a logistics company. The team currently deploys by manually copying config files — there is no backup step, no validation, and no record of what changed. You need to write a deployment script that validates inputs, backs up the existing config file before overwriting it, logs what happened, and exits with a meaningful code so the CI system knows if it succeeded."
+  objective="By the end of this exercise, you will be able to write a bash script with argument validation, conditional logic, functions, set -euo pipefail error handling, and trap-based cleanup."
+  steps={[
+    {
+      step: 1,
+      description: "Start a container to work in.",
+      command: "docker run -it --rm ubuntu:22.04 /bin/bash"
+    },
+    {
+      step: 2,
+      description: "Create a config file to simulate what's already deployed.",
+      command: "mkdir -p /etc/myapp && echo 'version=1.0.0' > /etc/myapp/config.env"
+    },
+    {
+      step: 3,
+      description: "Create your deployment script. Start with the shebang and error settings.",
+      command: "cat > /usr/local/bin/deploy.sh << 'EOF'\n#!/usr/bin/env bash\nset -euo pipefail\nEOF\nchmod +x /usr/local/bin/deploy.sh"
+    },
+    {
+      step: 4,
+      description: "Open the script in a text editor (vi or nano) and build it out: add a usage() function, argument validation ($# check), a backup() function that copies the config with a timestamp suffix, and a log() function that writes to stderr.",
+      command: "vi /usr/local/bin/deploy.sh"
+    },
+    {
+      step: 5,
+      description: "Add a trap for cleanup: create a TMPDIR with mktemp -d, register trap cleanup EXIT, and use the temp dir during deployment.",
+      command: "bash -n /usr/local/bin/deploy.sh && echo 'syntax OK'"
+    },
+    {
+      step: 6,
+      description: "Test the validation: run with no arguments and confirm the usage message appears.",
+      command: "/usr/local/bin/deploy.sh"
+    },
+    {
+      step: 7,
+      description: "Test a successful run: deploy a new config version and verify the backup was created.",
+      command: "/usr/local/bin/deploy.sh /etc/myapp/config.env 2.0.0 && ls /etc/myapp/"
+    },
+    {
+      step: 8,
+      description: "Check the exit code and verify it is 0 on success.",
+      command: "echo \"Exit code: $?\""
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "scripting-01",
+        label: "Your script starts with #!/usr/bin/env bash",
+        hint: "Run: head -1 /usr/local/bin/deploy.sh — should show the shebang line"
+      },
+      {
+        id: "scripting-02",
+        label: "Your script uses set -euo pipefail on the second line",
+        hint: "Run: head -3 /usr/local/bin/deploy.sh — the set flags should be there"
+      },
+      {
+        id: "scripting-03",
+        label: "Your script accepts at least one argument and validates it",
+        hint: "Run your script with no arguments — it should print usage and exit non-zero"
+      },
+      {
+        id: "scripting-04",
+        label: "Your script exits 0 on success and non-zero on failure",
+        hint: "Run: /usr/local/bin/deploy.sh valid-args && echo 'exit 0' — then run with bad args and check $?"
+      },
+      {
+        id: "scripting-05",
+        label: "Your script uses trap to register a cleanup function",
+        hint: "Run: grep 'trap' /usr/local/bin/deploy.sh — should show trap cleanup EXIT or similar"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Script Header",
+      items: [
+        { command: "#!/usr/bin/env bash", description: "Shebang — use env for portability, not #!/bin/bash" },
+        { command: "set -euo pipefail", description: "Exit on error, treat unset vars as errors, propagate pipe failures" },
+        { command: "set -x", description: "Trace mode — print each command before executing (debug)" },
+        { command: "bash -n script.sh", description: "Syntax check without running" },
+        { command: "bash -x script.sh", description: "Run with full trace output" }
+      ]
+    },
+    {
+      title: "Variables and Arguments",
+      items: [
+        { command: "VAR=value", description: "Assign variable (no spaces around =)" },
+        { command: "local VAR=value", description: "Declare variable local to a function" },
+        { command: "readonly VAR=value", description: "Declare immutable variable" },
+        { command: "$1 $2 ...", description: "Positional arguments passed to script or function" },
+        { command: "$#", description: "Number of arguments" },
+        { command: "\"$@\"", description: "All arguments, each properly quoted — use this, not $*" }
+      ]
+    },
+    {
+      title: "Test Operators",
+      items: [
+        { command: "-f file", description: "File exists and is a regular file" },
+        { command: "-d dir", description: "Directory exists" },
+        { command: "-z string", description: "String is empty" },
+        { command: "-n string", description: "String is non-empty" },
+        { command: "str1 = str2", description: "String equality (inside [ ] or [[ ]])" },
+        { command: "n1 -eq n2", description: "Numeric equality" },
+        { command: "n1 -lt n2", description: "Numeric less than" },
+        { command: "n1 -gt n2", description: "Numeric greater than" }
+      ]
+    },
+    {
+      title: "Control Flow",
+      items: [
+        { command: "if [[ cond ]]; then ... fi", description: "Conditional block" },
+        { command: "for x in list; do ... done", description: "Iterate over a list" },
+        { command: "while [[ cond ]]; do ... done", description: "Loop while condition is true" },
+        { command: "while IFS= read -r line; do ... done < file", description: "Safe line-by-line file reading" }
+      ]
+    },
+    {
+      title: "Functions and Cleanup",
+      items: [
+        { command: "fname() { ... }", description: "Declare a function" },
+        { command: "return N", description: "Return exit code N from function (0 = success)" },
+        { command: "echo value", description: "Return a string from a function (capture with $())" },
+        { command: "trap 'cmd' EXIT", description: "Run cmd when script exits (normal or error)" },
+        { command: "trap 'cmd' INT TERM", description: "Run cmd on Ctrl+C or kill signal" }
+      ]
+    }
+  ]}
+/>

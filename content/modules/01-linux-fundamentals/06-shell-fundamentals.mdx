@@ -1,0 +1,377 @@
+---
+title: "Shell Fundamentals"
+description: "Bash, environment variables, PATH, pipes, redirects — your primary interface to Linux"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "06-shell-fundamentals"
+order: 6
+difficulty: "Intermediate"
+estimatedMinutes: 22
+prerequisites: ["01-linux-fundamentals/05-processes"]
+tags: ["bash", "shell", "environment", "PATH", "pipes", "redirects"]
+---
+
+## Overview
+
+A CI/CD pipeline failed because an environment variable wasn't set in the deployment container. The fix took thirty seconds once you understood how the shell manages its environment — but finding the cause took two hours without that knowledge. The shell is the primary interface between you and Linux: every command you type, every script that runs, every automated job executes through it. Understanding how bash finds commands, propagates environment variables, and connects processes through pipes is foundational to every DevOps task you'll ever do.
+
+## How It Works
+
+### What is a Shell
+
+A shell is a program that reads commands from stdin (your terminal or a script), interprets them, and calls the kernel's `fork`/`exec` system calls to run them (covered in Lesson 5 — Processes). The shell is not a special privileged program; it's just a user-space process that knows how to read text, find binaries, and spawn children.
+
+There are many shells: `sh` (POSIX-compliant baseline), `bash` (the most common), `zsh` (macOS default), `fish`, `dash`. For scripting, **bash is the standard**. It's installed on virtually every Linux server, its behavior is well-documented, and it has features (`[[`, arrays, process substitution) that `sh` lacks. When you see `#!/bin/bash` in a script, the author chose bash specifically.
+
+### Shell Startup: Which File Runs When
+
+This is a common source of confusion. Bash reads different configuration files depending on how it was started:
+
+| Mode | What triggers it | Files read |
+|------|-----------------|------------|
+| Login shell | SSH login, `su -`, terminal emulator "login" option | `/etc/profile`, then `~/.bash_profile` (or `~/.profile`) |
+| Interactive non-login | Opening a new terminal tab, `bash` without `-l` | `~/.bashrc` |
+| Non-interactive | Scripts, cron jobs, CI pipelines | Nothing automatically |
+
+**Why this matters:** If you add something to `~/.bashrc` and it doesn't take effect when you SSH in, it's because SSH creates a login shell which reads `~/.bash_profile`. The common fix: put `source ~/.bashrc` at the bottom of `~/.bash_profile`, so both cases run your `.bashrc`.
+
+### Environment Variables
+
+The shell maintains two kinds of variables:
+
+- **Shell variables**: exist only in the current shell process. Set with `VARNAME=value`. Not visible to child processes.
+- **Environment variables**: inherited by all child processes. Set with `export VARNAME=value` or `export VARNAME`.
+
+```bash filename="variables.sh"
+# Shell-only variable — child processes cannot see this
+MY_LOCAL="hello"
+
+# Environment variable — exported to child processes
+export MY_EXPORTED="world"
+
+# Show the difference: run a subshell and check
+bash -c 'echo "local: $MY_LOCAL"'     # prints: local: (empty)
+bash -c 'echo "exported: $MY_EXPORTED"' # prints: exported: world
+```
+
+The `env` command prints all current environment variables. `printenv VARNAME` prints a single variable's value.
+
+**Key environment variables every engineer should know:**
+
+| Variable | Purpose |
+|----------|---------|
+| `HOME` | Your home directory (`/home/user` or `/root`) |
+| `USER` | Your username |
+| `SHELL` | Path to your current shell (`/bin/bash`) |
+| `LANG` | Default locale for character encoding |
+| `PATH` | Ordered list of directories to search for commands |
+
+### PATH: How the Shell Finds Commands
+
+When you type `ls`, the shell doesn't know where `ls` lives. It searches through the directories listed in `PATH` — in order, left to right — until it finds an executable file named `ls`.
+
+```bash
+echo $PATH
+# /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+```
+
+The shell tries each directory in sequence and runs the first match. This is why **order matters**. If `/usr/local/bin` comes before `/usr/bin`, a version of `python3` in `/usr/local/bin` will take precedence over the system default in `/usr/bin`.
+
+<Callout type="deep-dive" title="The PATH Lookup Algorithm">
+When you type a command, bash performs these steps in order:
+
+1. **Check for alias**: `type -a ls` shows if `ls` is aliased
+2. **Check for shell builtin**: `cd`, `echo`, `export`, `type` are built into bash itself — no binary lookup needed
+3. **Check hash table**: bash caches the full path of recently used commands in an internal hash table for speed. `hash` prints it; `hash -r` clears it.
+4. **Search PATH**: for each directory in `$PATH`, check if `$dir/$command` exists and is executable (using `access(2)` syscall). Use the first match found.
+5. **Not found**: bash prints `command not found`
+
+The hash table is why you sometimes need to `hash -r` after installing a new binary — bash cached the "not found" result or the old path.
+</Callout>
+
+To add a directory to PATH:
+
+```bash filename="~/.bashrc"
+# Add a custom bin directory to the front of PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+# The :$PATH at the end preserves all existing directories
+# Without it, you'd replace PATH entirely — breaking everything
+```
+
+To discover where a command lives: `which ls` returns `/usr/bin/ls`. `type ls` gives more detail including aliases.
+
+### Command Types: Built-ins vs External Commands
+
+Not all commands work the same way:
+
+- **External commands** (`ls`, `grep`, `git`): actual binary files on disk that the shell forks and execs
+- **Built-in commands** (`cd`, `echo`, `export`, `source`, `type`): implemented inside bash itself
+
+**Why does `cd` have to be a built-in?** If `cd` were an external binary, bash would fork a child process to run it, that child would change its own working directory, then exit. The parent shell's working directory would be unchanged — `cd` would do nothing. Because `cd` is a built-in, it runs inside the shell process itself, changing the shell's own state.
+
+### Pipes: Connecting Processes
+
+The pipe operator `|` connects the standard output (stdout) of one command to the standard input (stdin) of the next:
+
+```bash
+ps aux | grep nginx | awk '{print $11}'
+```
+
+This creates three processes running **concurrently** (not sequentially). The kernel creates a pipe buffer between each pair. Data flows through as soon as it's produced — the downstream process doesn't wait for the upstream to finish.
+
+<Callout type="deep-dive" title="Pipe Buffer and Blocking Behavior">
+A pipe is an in-kernel circular buffer, typically 64KB on Linux. When a writing process fills the buffer, it **blocks** (the `write()` syscall returns EAGAIN or blocks, depending on O_NONBLOCK). The reader must drain the buffer before the writer can continue.
+
+This means pipelines can deadlock if both ends are blocked — rare in practice but possible with bidirectional communication patterns. It also means that in `cmd1 | cmd2`, if `cmd2` exits early (e.g., `head -5` got its 5 lines), the kernel sends SIGPIPE to `cmd1`, causing it to terminate.
+
+In a pipeline, all processes are in the same **process group**. The exit code of the entire pipeline is normally the exit code of the last command (`cmd2`). Set `pipefail` in scripts to propagate failures from any stage.
+</Callout>
+
+### Redirects: Controlling Input and Output
+
+Every process has three standard file descriptors:
+- **stdin** (fd 0): standard input
+- **stdout** (fd 1): standard output
+- **stderr** (fd 2): standard error
+
+Redirects tell the shell to connect these file descriptors to files instead of the terminal:
+
+| Operator | Effect |
+|----------|--------|
+| `>` | Redirect stdout to file (overwrite) |
+| `>>` | Redirect stdout to file (append) |
+| `<` | Redirect stdin from file |
+| `2>` | Redirect stderr to file |
+| `2>&1` | Redirect stderr to the same destination as stdout |
+| `&>` | Redirect both stdout and stderr to file |
+
+<Callout type="warning" title="The > Operator Truncates Before Running">
+`command > file.txt` truncates `file.txt` to zero bytes **before** `command` even starts. This means `sort file.txt > file.txt` destroys your file — the redirect empties it before `sort` reads a single byte. Always redirect to a temporary file, then rename: `sort file.txt > file.txt.tmp && mv file.txt.tmp file.txt`.
+</Callout>
+
+Common redirect patterns:
+
+```bash filename="redirects.sh"
+# Capture command output to a file
+ls -la /var/log > filelist.txt
+
+# Append logs instead of overwriting
+echo "$(date): backup started" >> backup.log
+
+# Discard output entirely
+noisy_command > /dev/null 2>&1
+
+# Capture both stdout and stderr together
+make build &> build.log
+
+# Use a file as stdin
+sort < unsorted.txt > sorted.txt
+```
+
+### Command Substitution
+
+Command substitution captures a command's stdout as a string value:
+
+```bash
+# Modern syntax (preferred — nests cleanly)
+CURRENT_DATE=$(date +%Y-%m-%d)
+LOG_DIR="/var/log/app/$(date +%Y)"
+
+# Legacy backtick syntax (still works, harder to nest)
+CURRENT_DATE=`date +%Y-%m-%d`
+```
+
+Always prefer `$(...)` over backticks. Backticks don't nest — you'd need escaping hell for `$(cmd1 $(cmd2))`.
+
+### Quoting: Controlling Word Splitting and Expansion
+
+The shell performs several transformations on unquoted text: variable expansion, word splitting (split on spaces/tabs/newlines), and glob expansion (`*` matches files). Quoting controls which transformations apply:
+
+| Quoting | Expansion | Word splitting | Glob |
+|---------|-----------|----------------|------|
+| No quotes | Yes | Yes | Yes |
+| Double quotes `"..."` | Yes | No | No |
+| Single quotes `'...'` | No | No | No |
+
+<Callout type="tip" title="When In Doubt, Double-Quote Your Variables">
+Always quote variables that might contain spaces: `"$FILENAME"` not `$FILENAME`. Without quotes, a filename like `my file.txt` becomes two arguments (`my` and `file.txt`), breaking most commands. The rule of thumb: every variable reference should be `"$VAR"` unless you specifically need word splitting.
+</Callout>
+
+```bash
+FILENAME="my file.txt"
+
+# Wrong — word splits on the space, passes two args to rm
+rm $FILENAME
+
+# Correct — treated as one argument
+rm "$FILENAME"
+
+# Single quotes — no expansion at all
+echo '$USER'  # prints literally: $USER
+echo "$USER"  # prints: phillip
+```
+
+### Exit Codes and Control Operators
+
+Every command exits with a numeric code: `0` means success, anything else means failure. The special variable `$?` holds the last command's exit code.
+
+The `&&` and `||` operators let you chain commands based on success or failure:
+
+```bash
+# Only run the second command if the first succeeded (exit 0)
+apt-get update && apt-get install -y nginx
+
+# Only run the second command if the first failed (non-zero exit)
+ping -c 1 server.example.com || echo "Server is unreachable"
+
+# Chain: update, install, then start — all must succeed
+apt-get update && apt-get install -y nginx && systemctl start nginx
+```
+
+<TerminalBlock
+  title="bash — exit codes"
+  lines={[
+    { type: 'command', content: 'ls /etc/hosts' },
+    { type: 'output', content: '/etc/hosts' },
+    { type: 'command', content: 'echo $?' },
+    { type: 'output', content: '0' },
+    { type: 'command', content: 'ls /nonexistent' },
+    { type: 'output', content: 'ls: cannot access \'/nonexistent\': No such file or directory' },
+    { type: 'command', content: 'echo $?' },
+    { type: 'output', content: '2' },
+    { type: 'comment', content: 'Use && to run next command only if previous succeeded' },
+    { type: 'command', content: 'mkdir /tmp/mydir && echo "Directory created"' },
+    { type: 'output', content: 'Directory created' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Diagnose a Broken PATH and Build a Pipeline"
+  difficulty="Intermediate"
+  scenario="You are a DevOps engineer at a fintech startup. A deployment container is failing with 'command not found' errors for tools that are definitely installed. You need to diagnose the PATH issue, fix the environment, and then build a monitoring pipeline that extracts process information from the running container."
+  objective="By the end of this exercise, you will be able to inspect and modify the shell environment, trace how PATH affects command resolution, build multi-stage pipelines, and control stdout/stderr with redirects."
+  steps={[
+    {
+      step: 1,
+      description: "Start a fresh container to simulate the deployment environment.",
+      command: "docker run -it --rm ubuntu:22.04 /bin/bash"
+    },
+    {
+      step: 2,
+      description: "Inspect the current environment. Run env and examine PATH. Notice which directories are included.",
+      command: "env | grep -E '^(PATH|HOME|USER|SHELL)'"
+    },
+    {
+      step: 3,
+      description: "Simulate a broken PATH: remove /usr/bin from PATH and try to run ls. Then restore it.",
+      command: "export PATH=/usr/local/sbin:/usr/local/bin && ls"
+    },
+    {
+      step: 4,
+      description: "Restore the PATH by adding /usr/bin back. Verify that ls works again. Use 'which ls' to confirm where it resolves.",
+      command: "export PATH=$PATH:/usr/sbin:/usr/bin:/sbin:/bin && which ls"
+    },
+    {
+      step: 5,
+      description: "Build a 3-stage pipeline: list all running processes, filter for bash, then extract just the process IDs.",
+      command: "ps aux | grep bash | awk '{print $2}'"
+    },
+    {
+      step: 6,
+      description: "Redirect the pipeline output to a file, and also capture any errors. Then view the file.",
+      command: "ps aux | grep bash | awk '{print $2}' > pids.txt 2>&1 && cat pids.txt"
+    },
+    {
+      step: 7,
+      description: "Practice exit code chaining: create a directory only if it doesn't exist, then create a file inside it.",
+      command: "mkdir -p /tmp/lab && echo 'lab ready' > /tmp/lab/status.txt && cat /tmp/lab/status.txt"
+    },
+    {
+      step: 8,
+      description: "Use command substitution to embed dynamic values. Create a timestamped log entry.",
+      command: "echo \"[$(date +%H:%M:%S)] deployment completed on $(hostname)\" >> /tmp/lab/deploy.log && cat /tmp/lab/deploy.log"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "shell-01",
+        label: "You can display the current PATH and explain what each directory is for",
+        hint: "Run: echo $PATH — then try: echo $PATH | tr ':' '\\n' to see one per line"
+      },
+      {
+        id: "shell-02",
+        label: "You created a 3-stage pipeline using ps, grep, and awk",
+        hint: "Run: ps aux | grep bash | awk '{print $2}' — you should see process IDs"
+      },
+      {
+        id: "shell-03",
+        label: "You redirected both stdout and stderr to a file using 2>&1",
+        hint: "Run: some_command > output.txt 2>&1 — check the file contains both outputs"
+      },
+      {
+        id: "shell-04",
+        label: "You used command substitution $() to embed a command result in a string",
+        hint: "Run: echo \"Today is $(date +%Y-%m-%d)\" and verify the date appears in the output"
+      },
+      {
+        id: "shell-05",
+        label: "You used && to chain commands that depend on each other succeeding",
+        hint: "Run: mkdir /tmp/test-dir && echo 'success' — the echo only runs if mkdir succeeded"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Environment",
+      items: [
+        { command: "echo $VAR", description: "Print value of variable VAR", example: "echo $PATH" },
+        { command: "export VAR=value", description: "Set environment variable (visible to child processes)", example: "export NODE_ENV=production" },
+        { command: "env", description: "Print all environment variables" },
+        { command: "printenv VAR", description: "Print value of one variable", example: "printenv HOME" },
+        { command: "unset VAR", description: "Remove a variable from the environment" }
+      ]
+    },
+    {
+      title: "Command Resolution",
+      items: [
+        { command: "which cmd", description: "Show full path of a command", example: "which python3" },
+        { command: "type cmd", description: "Show command type (alias, builtin, file)", example: "type cd" },
+        { command: "hash -r", description: "Clear bash command path cache" },
+        { command: "export PATH=\"$dir:$PATH\"", description: "Prepend a directory to PATH", example: "export PATH=\"$HOME/.local/bin:$PATH\"" }
+      ]
+    },
+    {
+      title: "Pipes and Redirects",
+      items: [
+        { command: "cmd1 | cmd2", description: "Pipe stdout of cmd1 to stdin of cmd2" },
+        { command: "> file", description: "Redirect stdout to file (overwrite)" },
+        { command: ">> file", description: "Redirect stdout to file (append)" },
+        { command: "2> file", description: "Redirect stderr to file" },
+        { command: "2>&1", description: "Redirect stderr to same destination as stdout" },
+        { command: "&> file", description: "Redirect both stdout and stderr to file" },
+        { command: "< file", description: "Use file as stdin" },
+        { command: "> /dev/null", description: "Discard output" }
+      ]
+    },
+    {
+      title: "Control Operators",
+      items: [
+        { command: "$?", description: "Exit code of last command (0 = success, non-zero = failure)" },
+        { command: "cmd1 && cmd2", description: "Run cmd2 only if cmd1 succeeded (exit 0)" },
+        { command: "cmd1 || cmd2", description: "Run cmd2 only if cmd1 failed (non-zero exit)" },
+        { command: "$(cmd)", description: "Command substitution — capture stdout as value", example: "DATE=$(date +%Y-%m-%d)" }
+      ]
+    }
+  ]}
+/>

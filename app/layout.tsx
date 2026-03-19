@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes'
 import { ProgressProvider } from '@/components/progress/ProgressProvider'
 import { AppShell } from '@/components/layout/AppShell'
 import { MobileSidebar } from '@/components/layout/MobileSidebar'
+import { Sidebar } from '@/components/layout/Sidebar'
 import { SearchProvider } from '@/components/search/SearchProvider'
 import './globals.css'
 
@@ -38,7 +39,9 @@ export default function RootLayout({
             <AppShell>
               {/* Mobile header bar */}
               <div className="md:hidden flex items-center h-14 px-4 border-b border-border sticky top-0 z-40 bg-background">
-                <MobileSidebar />
+                <MobileSidebar>
+                  <Sidebar />
+                </MobileSidebar>
                 <span className="ml-3 text-sm font-semibold">Learn Systems</span>
               </div>
               {children}

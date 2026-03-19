@@ -3,9 +3,12 @@ import { useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { Sidebar } from './Sidebar'
 
-export function MobileSidebar() {
+interface MobileSidebarProps {
+  children: React.ReactNode
+}
+
+export function MobileSidebar({ children }: MobileSidebarProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -21,7 +24,7 @@ export function MobileSidebar() {
         <Menu className="h-5 w-5" />
       </SheetTrigger>
       <SheetContent side="left" className="w-72 p-0">
-        <Sidebar />
+        {children}
       </SheetContent>
     </Sheet>
   )

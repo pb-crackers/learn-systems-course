@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import matter from 'gray-matter'
 import readingTime from 'reading-time'
 import type { LessonFrontmatter } from '@/types/content'
@@ -47,9 +49,21 @@ export async function getLessonContent(
   lessonSlug: string
 ): Promise<{ default: React.ComponentType; frontmatter: LessonFrontmatter } | null> {
   try {
-    // Dynamic import of compiled MDX module
+    // Dynamic import of compiled MDX module (provides the React component)
     const mod = await import(`@/content/modules/${moduleSlug}/${lessonSlug}.mdx`)
-    return mod as { default: React.ComponentType; frontmatter: LessonFrontmatter }
+
+    // @next/mdx does not export frontmatter — read it from the raw file via gray-matter
+    const filePath = path.join(
+      process.cwd(),
+      'content',
+      'modules',
+      moduleSlug,
+      `${lessonSlug}.mdx`
+    )
+    const raw = fs.readFileSync(filePath, 'utf-8')
+    const frontmatter = extractFrontmatter(raw)
+
+    return { default: mod.default as React.ComponentType, frontmatter }
   } catch {
     return null
   }
