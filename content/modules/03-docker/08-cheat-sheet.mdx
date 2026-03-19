@@ -1,0 +1,208 @@
+---
+title: "Docker & Containerization Cheat Sheet"
+description: "Quick reference for all Docker commands, Dockerfile instructions, and Compose syntax covered in this module"
+module: "Docker & Containerization"
+moduleSlug: "03-docker"
+lessonSlug: "08-cheat-sheet"
+order: 8
+difficulty: "Foundation"
+estimatedMinutes: 5
+prerequisites: []
+tags: ["cheat-sheet", "reference", "docker", "commands", "dockerfile"]
+---
+
+## Overview
+
+All Docker commands and concepts from this module in one place. Bookmark this page — you will come back to it every time you write a Dockerfile, set up a Compose stack, or debug a container.
+
+## Container Internals
+
+<QuickReference
+  sections={[
+    {
+      title: "Container Internals (Lesson 1)",
+      items: [
+        { command: "PID namespace (CLONE_NEWPID)", description: "Isolates process IDs — container's first process is PID 1; host sees a different PID" },
+        { command: "NET namespace (CLONE_NEWNET)", description: "Isolates network interfaces, routing tables, and iptables rules per container" },
+        { command: "MNT namespace (CLONE_NEWNS)", description: "Isolates filesystem mount points — container sees its own root filesystem tree" },
+        { command: "UTS namespace (CLONE_NEWUTS)", description: "Isolates hostname — container can have its own hostname independent of the host" },
+        { command: "IPC namespace (CLONE_NEWIPC)", description: "Isolates System V IPC and POSIX message queues" },
+        { command: "USER namespace (CLONE_NEWUSER)", description: "Maps container root (UID 0) to an unprivileged user on the host" },
+        { command: "memory.max", description: "cgroup file: max memory in bytes. OOM killer fires when container exceeds this.", example: "cat /sys/fs/cgroup/docker/<id>/memory.max" },
+        { command: "cpu.max", description: "cgroup file: CPU quota/period — '50000 100000' = 50% of one core", example: "cat /sys/fs/cgroup/docker/<id>/cpu.max" },
+        { command: "pids.max", description: "cgroup file: max number of processes inside the container (prevents fork bombs)" },
+        { command: "docker inspect <name> --format \"{{.State.Pid}}\"", description: "Get the container's PID in the host's PID namespace" },
+        { command: "ls -la /proc/<PID>/ns/", description: "View namespace symbolic links for a process — inode numbers identify each namespace instance" },
+        { command: "docker inspect <name> --format \"{{.GraphDriver.Data}}\"", description: "Show overlay filesystem paths: LowerDir (image layers), UpperDir (writable), MergedDir (container view)" },
+      ]
+    }
+  ]}
+/>
+
+## Docker Images
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Images (Lesson 2)",
+      items: [
+        { command: "docker build -t <name>:<tag> <context>", description: "Build an image from a Dockerfile in the given context directory", example: "docker build -t myapp:v1 ." },
+        { command: "docker build -f <Dockerfile> <context>", description: "Specify a non-default Dockerfile path", example: "docker build -f docker/app/Dockerfile.basic docker/app/" },
+        { command: "docker build --no-cache", description: "Force a clean build — ignores cached layers. Use for accurate size and timing comparisons." },
+        { command: "docker images", description: "List locally available images with repository, tag, ID, created time, and size" },
+        { command: "docker pull <image>:<tag>", description: "Download an image from a registry (Docker Hub by default)", example: "docker pull node:20-alpine" },
+        { command: "docker tag <source> <target>", description: "Tag an image for pushing to a registry", example: "docker tag myapp:v1 myrepo/myapp:v1" },
+        { command: "docker image inspect <image>", description: "Show full image metadata including layers, environment, entrypoint, and overlay paths" },
+        { command: "docker image inspect --format '{{len .RootFS.Layers}}'", description: "Count the number of layers in an image", example: "docker image inspect myapp:v1 --format '{{len .RootFS.Layers}}'" },
+        { command: "docker rmi <image>", description: "Remove a local image. Add -f to force removal if containers reference it." },
+        { command: "docker image prune", description: "Remove all dangling images (untagged build artifacts)", example: "docker image prune -f" },
+        { command: "FROM <image>", description: "Dockerfile: set the base image — imports all its layers", example: "FROM node:20-alpine" },
+        { command: "RUN <command>", description: "Dockerfile: execute a shell command and commit the result as a new layer", example: "RUN npm ci --omit=dev" },
+        { command: "COPY <src> <dst>", description: "Dockerfile: copy files from the build context into the image", example: "COPY package*.json ./" },
+        { command: "CMD [\"exec\", \"form\"]", description: "Dockerfile: default command to run — exec form makes it PID 1 and receives signals correctly", example: "CMD [\"node\", \"app.js\"]" },
+        { command: "EXPOSE <port>", description: "Dockerfile: documents the port the app listens on — does NOT publish it (use -p at runtime)" },
+        { command: "WORKDIR /path", description: "Dockerfile: set working directory for RUN, COPY, and CMD — creates directory if missing", example: "WORKDIR /app" },
+        { command: "ENV KEY=value", description: "Dockerfile: set an environment variable baked into the image", example: "ENV NODE_ENV=production" },
+        { command: "ENTRYPOINT [\"exec\", \"form\"]", description: "Dockerfile: fixed command that always runs — CMD provides default arguments to ENTRYPOINT", example: "ENTRYPOINT [\"node\"]" },
+      ]
+    }
+  ]}
+/>
+
+## Docker Containers
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Containers (Lesson 3)",
+      items: [
+        { command: "docker run -d --name <name> <image>", description: "Create and start a container in detached (background) mode with a readable name", example: "docker run -d --name myapp myapp:v1" },
+        { command: "-p <host>:<container>", description: "Publish a container port to the host — required to access a service from outside the container", example: "docker run -p 3000:3000 myapp:v1" },
+        { command: "-e KEY=value", description: "Set an environment variable in the container at runtime", example: "docker run -e NODE_ENV=production myapp:v1" },
+        { command: "--name <name>", description: "Assign a human-readable name — used with exec, logs, stop, rm commands" },
+        { command: "--rm", description: "Automatically remove the container when it exits — useful for one-off tasks" },
+        { command: "-v <host>:<container>", description: "Mount a volume or bind mount — see Volumes section for syntax", example: "docker run -v mydata:/app/data myapp:v1" },
+        { command: "--network <name>", description: "Connect the container to a specific Docker network", example: "docker run --network mynet myapp:v1" },
+        { command: "--memory=<limit>", description: "Set memory limit — container is killed by OOM killer if it exceeds this", example: "docker run --memory=256m myapp:v1" },
+        { command: "--cpus=<value>", description: "Limit CPU usage — 0.5 = 50% of one core", example: "docker run --cpus=0.5 myapp:v1" },
+        { command: "docker exec -it <name> <cmd>", description: "Run a command in a running container — -it for interactive terminal", example: "docker exec -it myapp sh" },
+        { command: "docker logs <name>", description: "Show container stdout/stderr output", example: "docker logs -f myapp" },
+        { command: "docker logs -f", description: "Follow logs in real time (like tail -f)" },
+        { command: "docker stop <name>", description: "Send SIGTERM to PID 1, then SIGKILL after 10s — graceful shutdown" },
+        { command: "docker start <name>", description: "Restart a stopped container (same configuration, same overlay FS)" },
+        { command: "docker rm <name>", description: "Remove a stopped container. Add -f to force-remove a running container." },
+        { command: "docker stats", description: "Live resource usage: CPU%, memory, network I/O per container", example: "docker stats myapp" },
+        { command: "docker inspect <name>", description: "Full container metadata in JSON: networking, mounts, state, environment, overlay FS paths" },
+      ]
+    }
+  ]}
+/>
+
+## Docker Volumes
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Volumes (Lesson 4)",
+      items: [
+        { command: "docker volume create <name>", description: "Create a named volume managed by Docker — data survives container removal", example: "docker volume create mydata" },
+        { command: "docker volume ls", description: "List all named volumes on the host" },
+        { command: "docker volume inspect <name>", description: "Show volume details: driver, mount point on host, labels", example: "docker volume inspect mydata" },
+        { command: "docker volume rm <name>", description: "Remove a volume — only works if no containers are using it" },
+        { command: "-v <volume>:<container-path>", description: "Mount a named volume — data persists across container restarts and removal", example: "docker run -v pgdata:/var/lib/postgresql/data postgres:16-alpine" },
+        { command: "-v /host/path:/container/path", description: "Bind mount — links a host directory directly into the container; changes visible on both sides immediately", example: "docker run -v $(pwd)/src:/app/src myapp:v1" },
+        { command: "Named volume", description: "Docker manages the storage location. Recommended for databases and persistent app state. Data survives docker rm." },
+        { command: "Bind mount", description: "Host directory mounted into container. Ideal for development (edit on host, see changes immediately in container)." },
+        { command: "tmpfs mount", description: "In-memory only — data is lost when container stops. Use for secrets or temporary scratch space that should never hit disk.", example: "docker run --tmpfs /tmp myapp:v1" },
+      ]
+    }
+  ]}
+/>
+
+## Docker Networking
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Networking (Lesson 5)",
+      items: [
+        { command: "docker network create <name>", description: "Create a custom bridge network — containers on it can resolve each other by service name", example: "docker network create mynet" },
+        { command: "docker network ls", description: "List all Docker networks: bridge (default), host, none, and custom networks" },
+        { command: "docker network inspect <name>", description: "Show network details: driver, subnet, connected containers and their IPs" },
+        { command: "docker network rm <name>", description: "Remove a custom network — all containers must be disconnected first" },
+        { command: "--network <name>", description: "Connect a container to a specific network at run time", example: "docker run --network mynet myapp:v1" },
+        { command: "bridge driver", description: "Default for single-host networking — a Linux bridge interface (virtual switch) connects containers on the same host" },
+        { command: "host driver", description: "Container shares host network namespace — no port publishing needed, but no network isolation" },
+        { command: "none driver", description: "No network interface except loopback — maximum network isolation" },
+        { command: "Container DNS resolution", description: "On custom bridge networks, Docker's embedded DNS (127.0.0.11) resolves service names to container IPs automatically" },
+        { command: "docker exec <name> ping api", description: "Test container-to-container connectivity by service name — only works on custom bridge networks", example: "docker exec web ping -c 2 api" },
+        { command: "-p <host>:<container>", description: "Publish a port: Docker creates iptables DNAT rules to forward host traffic to the container", example: "docker run -p 8080:80 nginx:alpine" },
+      ]
+    }
+  ]}
+/>
+
+## Docker Compose
+
+<QuickReference
+  sections={[
+    {
+      title: "Docker Compose (Lesson 6)",
+      items: [
+        { command: "docker compose up -d", description: "Create and start all services in detached mode — builds images if needed" },
+        { command: "docker compose down", description: "Stop and remove containers and networks. Volumes are preserved unless -v is added." },
+        { command: "docker compose down -v", description: "Stop and remove everything including named volumes — use with caution, data is lost" },
+        { command: "docker compose ps", description: "List service containers with status, ports, and health state" },
+        { command: "docker compose logs -f <service>", description: "Follow logs from a specific service (or all services if service is omitted)", example: "docker compose logs -f api" },
+        { command: "docker compose exec -T <service> <cmd>", description: "Run a command in a running service container — use -T in shell scripts to avoid TTY allocation", example: "docker compose exec -T api node --version" },
+        { command: "docker compose restart <service>", description: "Restart a specific service without touching others", example: "docker compose restart db" },
+        { command: "docker compose build", description: "Build (or rebuild) service images without starting containers" },
+        { command: "services:", description: "compose.yml: top-level key — each entry defines one container (service)" },
+        { command: "volumes:", description: "compose.yml: top-level key — declare named volumes used by services" },
+        { command: "networks:", description: "compose.yml: top-level key — declare custom networks; default network is created automatically" },
+        { command: "depends_on: condition: service_healthy", description: "compose.yml: wait for a service's healthcheck to pass before starting the dependent service" },
+        { command: "environment:", description: "compose.yml: set environment variables inline, equivalent to -e flags on docker run" },
+        { command: "env_file:", description: "compose.yml: load environment variables from a .env file", example: "env_file: [.env]" },
+        { command: "healthcheck:", description: "compose.yml: define how Compose tests service health — test, interval, timeout, retries", example: "healthcheck: { test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health'], interval: 10s }" },
+        { command: "profiles:", description: "compose.yml: optional services that only start when explicitly included", example: "docker compose --profile debug up" },
+      ]
+    }
+  ]}
+/>
+
+## Dockerfile Best Practices
+
+<QuickReference
+  sections={[
+    {
+      title: "Dockerfile Best Practices (Lesson 7)",
+      items: [
+        { command: "FROM <image> AS <name>", description: "Multi-stage: name a build stage for reference in later COPY --from instructions", example: "FROM node:20-alpine AS builder" },
+        { command: "COPY --from=<stage> <src> <dst>", description: "Multi-stage: copy only the output of a prior stage — intermediate build tools are excluded from the final image", example: "COPY --from=builder /app ." },
+        { command: "COPY package*.json ./", description: "Cache-friendly order: copy dependency manifests before source — npm install is cached unless packages change" },
+        { command: "RUN npm ci --omit=dev", description: "Reproducible install from package-lock.json — faster and safer than npm install in CI/CD" },
+        { command: "node_modules", description: ".dockerignore entry: exclude local node_modules from build context — container installs its own" },
+        { command: ".git", description: ".dockerignore entry: exclude git history from build context — never needed in the image" },
+        { command: ".env", description: ".dockerignore entry: CRITICAL — never send secrets to the build context" },
+        { command: "RUN addgroup -S appgroup && adduser -S appuser -G appgroup", description: "Create a non-root system user — all subsequent instructions including CMD run as this user" },
+        { command: "USER appuser", description: "Switch to non-root user — prevents container breakout from granting host root access" },
+        { command: "HEALTHCHECK --interval=30s --timeout=3s CMD ...", description: "Define a health probe — docker ps shows (healthy)/(unhealthy); Compose uses it for depends_on: condition: service_healthy" },
+        { command: "wget -qO- http://localhost:3000/health || exit 1", description: "Preferred HEALTHCHECK command on Alpine — wget is pre-installed; curl is not" },
+        { command: "node:20-alpine (~140MB)", description: "Minimal base image — Alpine Linux with Node.js; smallest option for most Node.js apps" },
+        { command: "node:20-slim (~250MB)", description: "Debian-based, stripped of build tools — use if Alpine's musl libc causes native package issues" },
+        { command: "node:20 (~1.1GB)", description: "Full Debian — only for the intentionally-oversized 'before' comparison in best practices lessons; never use in production" },
+        { command: "docker build --no-cache", description: "Force clean build — required for accurate before/after size comparisons; without it Docker reuses cached layers" },
+        { command: "docker image inspect --format '{{len .RootFS.Layers}}'", description: "Count layers — multi-stage builds produce fewer layers in the final image" },
+      ]
+    }
+  ]}
+/>
+
+<Callout type="tip" title="What's Next: Foundation Capstone">
+You are now ready for the Foundation Capstone — an open-ended project that combines Linux,
+networking, and Docker skills. You will take a real three-service application (web, API,
+database), write the Dockerfiles, wire up the Compose network, automate deployment with a
+shell script, and verify the entire stack with a comprehensive verification script. No
+step-by-step guide — you figure out the how. After that, the System Administration module
+will show you how to manage the services these containers are running at the OS level.
+</Callout>
