@@ -1,0 +1,29 @@
+groups:
+  - name: capstone-alerts
+    rules:
+      - alert: AppDown
+        expr: up{job="app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Capstone app is down"
+          description: "{{ $labels.instance }} unreachable for 1+ minute"
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="app"} > 200000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage on capstone app"
+          description: "Memory at {{ $value | humanize }}B — possible memory leak"
+
+      - alert: HeapGrowthAnomaly
+        expr: rate(nodejs_heap_used_bytes{job="app"}[5m]) > 50000
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Heap growing steadily"
+          description: "Heap growth rate is {{ $value | humanize }}B/s — investigate for memory leak"
