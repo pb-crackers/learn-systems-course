@@ -1,0 +1,408 @@
+---
+title: "GitHub Actions: Workflows, Triggers, Jobs, and Steps"
+description: "GitHub Actions runs automated pipelines directly in your repository. Learn how workflows, triggers, jobs, steps, secrets, and artifacts compose into a complete CI/CD system."
+module: "CI/CD Pipelines"
+moduleSlug: "05-cicd"
+lessonSlug: "02-github-actions"
+order: 2
+difficulty: "Foundation"
+estimatedMinutes: 30
+prerequisites: ["05-cicd/01-cicd-concepts"]
+tags: ["github-actions", "workflows", "yaml", "triggers", "jobs", "steps", "secrets", "artifacts"]
+---
+
+## Overview
+
+GitHub Actions is CI/CD infrastructure built into GitHub. When you push code, GitHub Actions can automatically run your pipeline — no external CI server to configure, no separate service to pay for and maintain. The pipeline is defined as YAML files in your repository, version-controlled alongside the code it builds.
+
+This lesson traces the complete YAML hierarchy: a **workflow** contains **triggers** (when to run) and **jobs** (what to run). Each job contains **steps** that either call reusable **actions** or run shell commands. Understanding this hierarchy unlocks the ability to read any existing workflow and write new ones.
+
+## How It Works
+
+### Where Workflows Live
+
+GitHub Actions workflows are YAML files in `.github/workflows/` at the root of your repository. GitHub scans this directory automatically — any `.yml` or `.yaml` file is treated as a workflow definition.
+
+```
+.github/
+└── workflows/
+    ├── ci.yml          ← runs on every push
+    ├── deploy.yml      ← runs on release tags
+    └── nightly.yml     ← runs on a schedule
+```
+
+You can have multiple workflows. They run independently and can be triggered by different events.
+
+### The YAML Hierarchy
+
+Every GitHub Actions workflow follows this structure:
+
+```yaml
+name: [workflow name]
+
+on:                    # triggers — when this workflow runs
+  push:
+    branches: [main]
+
+jobs:                  # what to run — top level map of job IDs
+  build:               # job ID — arbitrary name, used in "needs" references
+    runs-on: ubuntu-latest   # runner — the machine type
+    steps:             # ordered list of tasks within this job
+      - uses: actions/checkout@v6   # call a reusable action
+      - run: npm test               # run a shell command
+```
+
+The hierarchy is:
+1. **Workflow** — the file itself. Has a name, triggers, and a map of jobs.
+2. **Job** — a named unit of work that runs on a single machine. Jobs run in parallel by default unless linked with `needs`.
+3. **Step** — a single task within a job. Either `uses` (a reusable action) or `run` (a shell command). Steps run sequentially within a job.
+
+### Triggers (`on:`)
+
+The `on:` key defines what events start the workflow. You can combine multiple triggers.
+
+**Push and Pull Request triggers:**
+
+<CodeBlock language="yaml" title=".github/workflows/ci.yml — push and PR triggers">
+{`on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'        # only trigger if files in src/ changed
+      - 'package.json'
+  pull_request:
+    branches: [main]    # trigger on PRs targeting main
+    types: [opened, synchronize, reopened]`}
+</CodeBlock>
+
+`push` triggers on direct commits to the branch. `pull_request` triggers when a PR is opened or updated. Both can be scoped to specific branches and file paths — if only documentation changed, you can skip the build.
+
+**Manual trigger with inputs (`workflow_dispatch`):**
+
+<CodeBlock language="yaml" title="Manual trigger with environment selection">
+{`on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: \${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v6
+      - run: echo "Deploying to \${{ inputs.environment }}"`}
+</CodeBlock>
+
+`workflow_dispatch` adds a "Run workflow" button in the GitHub Actions UI. Inputs let users select options before triggering. This is used for manual deployments where you want human confirmation before pushing to production.
+
+**Schedule trigger (cron syntax):**
+
+<CodeBlock language="yaml" title="Nightly scheduled job">
+{`on:
+  schedule:
+    - cron: '0 2 * * *'  # Run at 2 AM UTC every day
+
+jobs:
+  nightly-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm run test:integration`}
+</CodeBlock>
+
+Schedule uses standard cron syntax (minute, hour, day-of-month, month, day-of-week). Useful for nightly builds, security scans, or performance benchmarks that would slow down per-commit pipelines.
+
+### Jobs: Running on Machines
+
+Each job runs on a fresh **runner** — a virtual machine spun up by GitHub. The runner is discarded after the job completes. This guarantees a clean environment every time.
+
+**`runs-on`** specifies the runner type:
+- `ubuntu-latest` — Ubuntu Linux (most common; use this unless you need something specific)
+- `windows-latest` — Windows Server
+- `macos-latest` — macOS
+
+**Job parallelism:** By default, jobs run in parallel. This speeds up pipelines — lint and test can run simultaneously if they're independent.
+
+**Job dependencies with `needs`:**
+
+<CodeBlock language="yaml" title="Sequential jobs using needs">
+{`jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm run lint
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint         # test only runs if lint passes
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm test
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test         # build only runs if test passes
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build .`}
+</CodeBlock>
+
+`needs: lint` means the `test` job will not start until `lint` completes successfully. This creates the pipeline chain: lint → test → build.
+
+**Matrix strategy — test across multiple versions:**
+
+<CodeBlock language="yaml" title="Matrix: test against Node.js 18, 20, and 22">
+{`jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node-version }}
+      - run: npm ci && npm test`}
+</CodeBlock>
+
+The matrix runs one job per combination. With three Node.js versions, you get three parallel test jobs. If the `node-version: 20` job fails but `18` and `22` pass, you know exactly which version has a compatibility issue.
+
+### Steps: Actions vs Shell Commands
+
+Each step is either:
+
+- **`uses`** — calls a reusable action from the GitHub Marketplace or a local path
+- **`run`** — executes a shell command (bash by default on Linux runners)
+
+<CodeBlock language="yaml" title="Steps using both uses and run">
+{`steps:
+  - uses: actions/checkout@v6          # reusable action: clone the repo
+  - uses: actions/setup-node@v4        # reusable action: install Node.js
+    with:
+      node-version: '20'
+      cache: 'npm'                      # with: passes input parameters to the action
+  - run: npm ci                         # shell: clean install
+  - run: npm test                       # shell: run tests
+  - name: Run linter                    # name: gives the step a label in the UI
+    run: npm run lint`}
+</CodeBlock>
+
+Reusable actions handle boilerplate that would otherwise require many shell commands: `actions/checkout@v6` clones the repository into the right directory, handles authentication, and sets up git configuration. Without it, you'd need to write all of that yourself.
+
+The `with:` key passes input parameters to actions (like function arguments). `actions/setup-node@v4` accepts `node-version` and `cache` inputs.
+
+<Callout type="warning" title="YAML is whitespace-sensitive — tabs are not allowed">
+YAML uses spaces for indentation, never tabs. A single tab character anywhere in your workflow file will cause a cryptic parse error: `mapping values are not allowed here` or `unexpected character`. Use 2-space indentation consistently throughout the file. Most code editors can be configured to insert spaces when you press Tab in YAML files.
+
+If your workflow fails to parse, the first thing to check is whether any lines have tab characters. Run: `cat -A .github/workflows/ci.yml | grep $'\t'` to find them.
+</Callout>
+
+### GITHUB_TOKEN and Secrets
+
+**GITHUB_TOKEN** is an automatic authentication token available in every workflow run. GitHub creates it before the job starts and revokes it when the job ends. No manual configuration required.
+
+It has repository-scoped permissions: read access to the repo contents, write access to packages (for ghcr.io pushes), and ability to create comments on issues and PRs. For most CI tasks, GITHUB_TOKEN is all you need.
+
+Reference it as `${{ secrets.GITHUB_TOKEN }}` in your workflow YAML.
+
+**Custom secrets** for external services (database passwords, API keys, deploy credentials) are stored in the repository's Settings → Secrets and variables → Actions. They are never exposed in logs and are only available to workflows from the same repository.
+
+<CodeBlock language="yaml" title="Using GITHUB_TOKEN and a custom secret">
+{`steps:
+  - uses: docker/login-action@v4
+    with:
+      registry: ghcr.io
+      username: \${{ github.actor }}         # built-in context: who triggered the run
+      password: \${{ secrets.GITHUB_TOKEN }} # auto-generated token
+
+  - name: Deploy to production
+    run: ./deploy.sh
+    env:
+      DEPLOY_KEY: \${{ secrets.DEPLOY_PRIVATE_KEY }}  # custom secret you added in Settings`}
+</CodeBlock>
+
+### Context Variables
+
+GitHub Actions provides **context objects** that give access to metadata about the run:
+
+| Expression | Value |
+|-----------|-------|
+| `${{ github.sha }}` | Full commit SHA (e.g., `a1b2c3d4e5...`) |
+| `${{ github.ref_name }}` | Branch or tag name (e.g., `main`, `v1.2.3`) |
+| `${{ github.event_name }}` | Event that triggered the run (e.g., `push`, `pull_request`) |
+| `${{ github.actor }}` | GitHub username of the person who triggered the run |
+| `${{ github.repository }}` | `owner/repo` format (e.g., `myorg/myapp`) |
+| `${{ github.run_number }}` | Sequential run number for this workflow |
+
+### Artifacts: Passing Files Between Jobs
+
+Jobs run on separate machines. A file created in the `build` job is not automatically available in the `deploy` job. **Artifacts** bridge this gap.
+
+<CodeBlock language="yaml" title="Upload artifact in build job, download in deploy job">
+{`jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: npm run build           # creates dist/ directory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: dist/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output         # downloads dist/ back into workspace
+      - run: ./deploy.sh dist/`}
+</CodeBlock>
+
+Artifacts are stored by GitHub for 90 days by default. They appear in the workflow run UI and can be downloaded manually. For Docker pipelines, you push the image to a registry instead of uploading it as an artifact — the registry is the artifact store.
+
+### A Minimal "Hello World" Workflow
+
+Before writing real pipelines, start with this — it will run immediately on any push to main:
+
+<CodeBlock language="yaml" title=".github/workflows/hello.yml">
+{`name: Hello World
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Print run info
+        run: |
+          echo "Commit SHA: \${{ github.sha }}"
+          echo "Branch: \${{ github.ref_name }}"
+          echo "Event: \${{ github.event_name }}"
+          echo "Triggered by: \${{ github.actor }}"`}
+</CodeBlock>
+
+This workflow has all the essential pieces: trigger, job, steps mixing `uses` and `run`, and context variables. Reading the output in the GitHub Actions UI confirms the pipeline ran and shows you the values of each context variable.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Write a GitHub Actions Workflow with Context Variables"
+  difficulty="Foundation"
+  scenario="You want to verify that you can write a valid GitHub Actions workflow from scratch. Start with a minimal workflow that runs on push to main, prints commit metadata, and confirms the structure is correct before building a real CI pipeline."
+  objective="By the end of this exercise, you will have written a syntactically correct GitHub Actions workflow that runs on push to main and prints the commit SHA, branch name, and event type using GitHub context variables."
+  steps={[
+    {
+      step: 1,
+      description: "Create the workflows directory. This path is fixed — GitHub only looks in .github/workflows/.",
+      command: "mkdir -p .github/workflows"
+    },
+    {
+      step: 2,
+      description: "Create the workflow file. Use 2-space indentation. No tabs anywhere.",
+      command: "# Create .github/workflows/hello.yml with the content from the lesson"
+    },
+    {
+      step: 3,
+      description: "Validate the YAML structure locally before pushing. Python's yaml module parses it without running the workflow. This catches indentation errors immediately.",
+      command: "python3 -c \"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\""
+    },
+    {
+      step: 4,
+      description: "Commit and push to main. GitHub Actions will detect the new workflow file and queue a run.",
+      command: "git add .github/workflows/hello.yml && git commit -m 'ci: add hello world workflow' && git push"
+    },
+    {
+      step: 5,
+      description: "Open the GitHub Actions tab in your repository (github.com/owner/repo/actions). You should see the workflow run appear within seconds. Click on the run to see the output of each step.",
+      command: "# Navigate to: github.com/<owner>/<repo>/actions"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "yaml-valid",
+        label: "The YAML parses without error (python3 yaml.safe_load returns no exception)",
+        hint: "Run: python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/hello.yml')); print('valid')\". A YAML error will show the line number and character where it failed."
+      },
+      {
+        id: "trigger-correct",
+        label: "The trigger is 'on: push: branches: [main]' — runs only on pushes to main",
+        hint: "Check the on: key at the top of the file. It should be: on:\\n  push:\\n    branches: [main]"
+      },
+      {
+        id: "context-variables",
+        label: "The workflow uses ${{ github.sha }}, ${{ github.ref_name }}, and ${{ github.event_name }}",
+        hint: "These context variables are only interpolated by GitHub — locally you can validate YAML syntax but the values won't be substituted."
+      },
+      {
+        id: "workflow-ran",
+        label: "The workflow appears in the GitHub Actions tab and shows a green checkmark",
+        hint: "Go to github.com/<owner>/<repo>/actions. If the workflow doesn't appear, check that the file is in .github/workflows/ and the YAML is valid."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<Callout type="info" title="GitHub Actions requires a remote repository">
+The workflow file must be pushed to a GitHub repository — GitHub Actions does not run locally. Copy this YAML into a real GitHub repo to see it run. If you don't have a GitHub account, create one at github.com (free). The Actions free tier gives 2,000 minutes per month for public repositories and 2,000 minutes for private repositories.
+</Callout>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Trigger Types",
+      items: [
+        { command: "on: push: branches: [main]", description: "Trigger on push to main branch" },
+        { command: "on: pull_request: branches: [main]", description: "Trigger when a PR targeting main is opened or updated" },
+        { command: "on: workflow_dispatch:", description: "Add a manual 'Run workflow' button in the GitHub Actions UI" },
+        { command: "on: schedule: - cron: '0 2 * * *'", description: "Run on a schedule — daily at 2 AM UTC" },
+      ]
+    },
+    {
+      title: "Job Configuration",
+      items: [
+        { command: "runs-on: ubuntu-latest", description: "Use the latest Ubuntu runner (most common choice)" },
+        { command: "needs: [lint, test]", description: "This job only runs after lint and test jobs succeed" },
+        { command: "strategy: matrix: node-version: [18, 20, 22]", description: "Run this job once per matrix entry (3 parallel jobs)" },
+        { command: "if: github.ref == 'refs/heads/main'", description: "Only run this job when on the main branch" },
+      ]
+    },
+    {
+      title: "Step Types",
+      items: [
+        { command: "- uses: actions/checkout@v6", description: "Clone the repository into the runner workspace" },
+        { command: "- uses: actions/setup-node@v4\n  with:\n    node-version: '20'\n    cache: 'npm'", description: "Install Node.js 20 with npm caching" },
+        { command: "- run: npm ci", description: "Run a shell command (bash on Linux runners)" },
+        { command: "- name: My step\n  run: echo 'hello'", description: "Named step — label appears in the GitHub Actions UI" },
+      ]
+    },
+    {
+      title: "Context Variables",
+      items: [
+        { command: "${{ github.sha }}", description: "Full commit SHA — use as Docker image tag for traceability" },
+        { command: "${{ github.ref_name }}", description: "Branch or tag name (e.g., 'main', 'v1.2.3')" },
+        { command: "${{ github.actor }}", description: "GitHub username who triggered the workflow" },
+        { command: "${{ github.repository }}", description: "owner/repo format — used for ghcr.io image naming" },
+        { command: "${{ secrets.GITHUB_TOKEN }}", description: "Auto-generated token for repo operations (no manual setup)" },
+        { command: "${{ secrets.MY_SECRET }}", description: "Custom secret stored in repo Settings → Secrets" },
+      ]
+    }
+  ]}
+/>

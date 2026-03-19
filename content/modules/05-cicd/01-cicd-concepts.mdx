@@ -1,0 +1,202 @@
+---
+title: "CI/CD: Automating the Path from Code to Production"
+description: "Manual deploy pipelines are slow and error-prone. CI/CD automates the build, test, and deploy lifecycle so every code push is safely integrated and deployable."
+module: "CI/CD Pipelines"
+moduleSlug: "05-cicd"
+lessonSlug: "01-cicd-concepts"
+order: 1
+difficulty: "Foundation"
+estimatedMinutes: 20
+prerequisites: ["04-sysadmin/02-systemd", "03-docker/07-dockerfile-best-practices"]
+tags: ["cicd", "continuous-integration", "continuous-delivery", "continuous-deployment", "pipelines", "automation"]
+---
+
+## Overview
+
+Your team ships code by SSH-ing into a server, running `git pull`, crossing fingers, and hoping nothing breaks. It works — until it doesn't. A missing dependency on the server, a test that only runs on the developer's machine, a deployment at 11pm that takes the site down for 20 minutes. These are symptoms of a manual process that doesn't scale.
+
+**CI/CD (Continuous Integration / Continuous Delivery or Deployment)** is the practice of automating the entire journey from code commit to running production software. Every push triggers a pipeline: build the code, run tests, and deploy — automatically, reproducibly, with full visibility into what happened and why.
+
+This lesson explains the concepts. The next two lessons make them concrete with GitHub Actions and a real Docker pipeline.
+
+## How It Works
+
+### The Problem CI/CD Solves
+
+Without automation, software delivery has predictable failure modes:
+
+- **Integration hell:** Developers work in isolation for days or weeks, then merge everything at once. Conflicts and bugs multiply.
+- **"Works on my machine":** The server has different software versions, environment variables, or dependencies than the developer's laptop.
+- **Manual steps get skipped:** Under pressure, someone skips the test suite. A bug ships.
+- **Infrequent deployments are scary:** If you deploy rarely, each deployment is a large, risky event. Teams avoid deploying, which makes each deployment even larger and riskier.
+
+CI/CD solves this by making integration and deployment routine, automated, and small.
+
+### Continuous Integration (CI)
+
+**Continuous Integration** means every code push to the shared repository triggers an automated build and test run. The system validates the code immediately, before anyone else pulls it.
+
+The key properties:
+- **Triggered automatically:** No human remembers to run the tests — the system does it on every push.
+- **Runs in a clean environment:** The build runs on a fresh machine (not anyone's laptop), with exactly the dependencies specified in the repository.
+- **Fails fast and notifies:** If the build or tests fail, the developer is notified immediately — when the change is still fresh in their mind, not three days later.
+
+CI catches integration bugs in minutes instead of days. When every developer integrates their changes multiple times per day against a known-good baseline, the scope of any conflict is tiny.
+
+### Continuous Delivery vs Continuous Deployment
+
+"CD" is used for two related but distinct practices:
+
+**Continuous Delivery:** The pipeline builds and tests every commit, producing a deployment-ready **artifact** (a Docker image, a compiled binary, a release package). Deployment to production is a manual decision — but the artifact is always ready to deploy. The team can ship at any time with confidence.
+
+**Continuous Deployment:** Goes one step further. If the build and tests pass, the artifact is automatically deployed to production. No human approval step. This requires high confidence in the test suite.
+
+Most organizations practice Continuous Delivery. Continuous Deployment is common for SaaS products with strong test coverage and mature monitoring.
+
+### Pipeline Stages
+
+A pipeline is a sequence of stages. Each stage gates the next — if a stage fails, the pipeline stops and reports the failure. No broken code advances.
+
+```
+Push → [Build] → [Test] → [Deploy to Staging] → [Deploy to Prod]
+         ↓ fail    ↓ fail
+       [Notify]  [Notify]
+```
+
+**Build:** Compile the code, install dependencies, create the artifact. For a Node.js app with Docker, this means running `npm ci` and `docker build`. For a Go binary, `go build`. If the build fails, there is nothing to test.
+
+**Test:** Run the automated test suite. Unit tests, integration tests, linting. If tests fail, the artifact is not promoted.
+
+**Deploy to Staging:** Deploy the artifact to a staging environment — a copy of production, but not customer-facing. Run smoke tests against the live staging service.
+
+**Deploy to Production:** Deploy the same artifact to production. Because it has already passed build, test, and staging, confidence is high.
+
+### Artifacts: The Output of a Build
+
+An **artifact** is the output of the Build stage — something concrete that can be stored, versioned, and deployed. Artifacts travel through pipeline stages rather than being rebuilt at each step. This guarantees that exactly what was tested is exactly what gets deployed.
+
+Common artifact types:
+| Type | Example | Storage |
+|------|---------|---------|
+| Container image | `ghcr.io/myorg/myapp:a1b2c3d` | Container registry (ghcr.io, Docker Hub) |
+| Compiled binary | `myapp-linux-amd64` | Object storage (S3, GCS) |
+| Package | `myapp-1.2.3.tar.gz` | Package registry (npm, PyPI) |
+| Test report | `junit.xml` | Pipeline artifact storage |
+
+The Docker image tag includes the commit SHA (`a1b2c3d`) — you can always trace a running container back to the exact commit that produced it.
+
+<Callout type="deep-dive" title="Why sysadmin knowledge matters for CI/CD">
+When a CI/CD pipeline "deploys," it is managing services on a machine — starting processes, checking health, handling failures. Everything you learned about systemd, logging, and monitoring applies directly.
+
+A deployment step is essentially: stop the old service, pull the new artifact, start the new service, verify the health endpoint. That is systemd lifecycle management plus Docker image management. The pipeline automates what a sysadmin would do manually. When a deployment fails at 3am and wakes you up, you debug it using the same tools: `journalctl`, `systemctl status`, container logs, health check endpoints.
+
+A pipeline is just an automated sysadmin.
+</Callout>
+
+### The Feedback Loop: Why Speed Matters
+
+The value of CI/CD is proportional to how fast the feedback loop is. A pipeline that takes 45 minutes to run is better than no pipeline, but not much. A pipeline that reports results in 3 minutes changes how developers work.
+
+When feedback is fast:
+- Developers fix bugs while the change is still in working memory
+- Broken builds block everyone, so the team fixes them immediately
+- Frequent small deployments become normal — the "scary deployment" problem disappears
+
+Pipeline speed is an engineering investment. Caching dependencies, running tests in parallel, and keeping build images small all exist to keep the feedback loop tight.
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Map Your Manual Process to a CI/CD Pipeline"
+  difficulty="Foundation"
+  scenario="Your team ships code by SSH-ing into a production server and running git pull. This works for small projects but has caused three incidents this quarter: a missing npm package crashed the app, an untested config change took the site down for 40 minutes, and a developer accidentally deployed from the wrong branch. The CTO wants CI/CD. Map out what a pipeline would look like."
+  objective="By the end of this exercise, you will be able to identify CI vs CD stages, name what each pipeline stage does, and explain the artifact concept — all without writing any YAML yet."
+  steps={[
+    {
+      step: 1,
+      description: "List every manual step currently done when shipping code. Include everything: local test runs, git operations, SSH commands, npm commands, service restarts, health checks.",
+      command: "# Write these down: checkout code, npm install, run tests, npm run build, copy files, restart service, verify health"
+    },
+    {
+      step: 2,
+      description: "Classify each step: is it CI (validate the code) or CD (deploy the artifact)? The boundary is the artifact — everything before creating the artifact is CI, everything after is CD.",
+      command: "# CI: checkout, install deps, run tests, build. CD: deploy to staging, deploy to prod."
+    },
+    {
+      step: 3,
+      description: "Identify the artifact in your pipeline. For a Node.js Docker app, the artifact is the Docker image. What information should be in the image tag to make it traceable?",
+      command: "# Example tag: ghcr.io/myorg/myapp:abc1234 where abc1234 is the commit SHA"
+    },
+    {
+      step: 4,
+      description: "Draw the pipeline stages in order, showing what happens on failure at each stage. What should happen if the tests fail? What should happen if the staging deploy fails?",
+      command: "# Push → [Build] → [Test] → [Staging Deploy] → [Prod Deploy]\n# Each stage: fail → notify, stop pipeline"
+    },
+    {
+      step: 5,
+      description: "Identify which of the three incidents would have been caught by the pipeline. The missing npm package: caught in Build (npm ci fails). Wrong branch: caught by trigger (pipeline only runs on main). Untested config change: depends — was it in the test suite?",
+      command: "# Incident 1: npm ci would have failed. Incident 3: would depend on test coverage."
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Understanding"
+    items={[
+      {
+        id: "ci-cd-distinction",
+        label: "You can explain the difference between CI (validate code) and CD (deploy artifact)",
+        hint: "CI = build + test on every push. CD = the artifact is always deployable (delivery) or automatically deployed (deployment)."
+      },
+      {
+        id: "pipeline-stages",
+        label: "You can name the four main pipeline stages in order",
+        hint: "Build → Test → Deploy to Staging → Deploy to Production. Each gates the next."
+      },
+      {
+        id: "artifact-concept",
+        label: "You understand why artifacts matter — the same built thing goes through all stages",
+        hint: "The artifact (Docker image tagged with commit SHA) is built once in CI, then deployed through staging and production. What's tested is what ships."
+      },
+      {
+        id: "feedback-loop",
+        label: "You can explain why pipeline speed matters for developer workflow",
+        hint: "Fast feedback (3-5 min) means bugs are fixed while the code is fresh. Slow feedback (45 min) means developers have moved on and context-switching is expensive."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "CI/CD Concepts",
+      items: [
+        { command: "Continuous Integration (CI)", description: "Every push triggers automated build + test. Catches integration bugs immediately." },
+        { command: "Continuous Delivery (CD)", description: "Every passing build produces a deployment-ready artifact. Deployment to production is a manual decision." },
+        { command: "Continuous Deployment (CD)", description: "Passing builds are automatically deployed to production. Requires high test coverage and monitoring confidence." },
+        { command: "Pipeline", description: "Ordered sequence of stages (build → test → deploy). Each stage gates the next — failure stops the pipeline." },
+        { command: "Artifact", description: "The output of a build stage. Docker image, compiled binary, or package. Tagged with commit SHA for traceability." },
+        { command: "Feedback loop", description: "Time from push to result. Faster loops (3-5 min) change developer behavior — bugs fixed while change is fresh." },
+      ]
+    },
+    {
+      title: "Pipeline Stage Purposes",
+      items: [
+        { command: "Build stage", description: "Install dependencies, compile code, create the artifact. Fails here = nothing to test." },
+        { command: "Test stage", description: "Run automated tests (unit, integration, lint). Fails here = artifact not promoted." },
+        { command: "Staging deploy", description: "Deploy artifact to production-like environment, run smoke tests against live service." },
+        { command: "Production deploy", description: "Deploy the same artifact that passed all previous stages. High confidence because it's already been tested." },
+      ]
+    },
+    {
+      title: "Common Artifact Tags",
+      items: [
+        { command: "ghcr.io/org/app:abc1234", description: "Docker image tagged with commit SHA — traceable to exact code revision", example: "docker pull ghcr.io/myorg/myapp:abc1234" },
+        { command: "ghcr.io/org/app:latest", description: "Points to most recent build — convenient but not reproducible for rollbacks" },
+        { command: "ghcr.io/org/app:v1.2.3", description: "Semantic version tag — used alongside SHA tag for release tracking" },
+      ]
+    }
+  ]}
+/>
