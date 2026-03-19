@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-monitoring-advanced-capstone-02-PLAN.md
-last_updated: "2026-03-19T15:51:44.119Z"
+stopped_at: Completed 07-monitoring-advanced-capstone-01-PLAN.md
+last_updated: "2026-03-19T15:58:19.203Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 27
-  completed_plans: 25
+  completed_plans: 26
   percent: 25
 ---
 
@@ -74,6 +74,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 06-infrastructure-as-code-cloud P04 | 5min | 2 tasks | 5 files |
 | Phase 06-infrastructure-as-code-cloud P02 | 6min | 2 tasks | 14 files |
 | Phase 07-monitoring-advanced-capstone P02 | 5min | 2 tasks | 18 files |
+| Phase 07-monitoring-advanced-capstone P01 | 12min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -141,6 +142,9 @@ Recent decisions affecting current work:
 - [Phase 07-monitoring-advanced-capstone]: Loki/Promtail use compose profiles so they are not started by default docker compose up — reduces RAM overhead for learners not doing the log aggregation lesson
 - [Phase 07-monitoring-advanced-capstone]: Alertmanager webhook receiver points to http://app:3000/alert-webhook — creates visible notification path without requiring Slack/PagerDuty credentials for lab exercises
 - [Phase 07-monitoring-advanced-capstone]: Lesson stubs 03-05 created in plan 07-02 to unblock module count test — plan 07-01 only produced lessons 01 and 02
+- [Phase 07-monitoring-advanced-capstone]: MON-01-02 Foundation difficulty, MON-03-05 Intermediate difficulty — matches CONTEXT.md locked decision
+- [Phase 07-monitoring-advanced-capstone]: node-exporter macOS incompatibility documented in MON-02 with explicit callout — use cAdvisor instead
+- [Phase 07-monitoring-advanced-capstone]: Grafana at localhost:3001 documented in MON-03 to prevent port conflict with app at 3000
 
 ### Pending Todos
 
@@ -154,6 +158,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T15:51:44.116Z
-Stopped at: Completed 07-monitoring-advanced-capstone-02-PLAN.md
+Last session: 2026-03-19T15:58:19.200Z
+Stopped at: Completed 07-monitoring-advanced-capstone-01-PLAN.md
 Resume file: None
