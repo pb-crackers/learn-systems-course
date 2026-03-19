@@ -159,7 +159,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Networking Foundations | 2/4 | In Progress|  |
 | 4. Docker & Foundation Capstone | 3/4 | In Progress|  |
 | 5. System Administration & CI/CD | 4/4 | Complete   | 2026-03-19 |
-| 6. Infrastructure as Code & Cloud | 1/4 | In Progress|  |
+| 6. Infrastructure as Code & Cloud | 2/4 | In Progress|  |
 | 7. Monitoring & Advanced Capstone | 0/3 | Not started | - |
 
 ---

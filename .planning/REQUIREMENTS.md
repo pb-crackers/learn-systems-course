@@ -98,11 +98,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 7: Cloud Fundamentals
 
-- [ ] **CLD-01**: Lesson on cloud computing concepts — IaaS/PaaS/SaaS, regions, availability zones
-- [ ] **CLD-02**: Lesson on compute — VMs, containers, serverless (mapped to prior Docker knowledge)
-- [ ] **CLD-03**: Lesson on cloud networking — VPCs, subnets, load balancers (mapped to prior networking knowledge)
-- [ ] **CLD-04**: Lesson on cloud storage — object, block, file storage types and use cases
-- [ ] **CLD-05**: Lesson on IAM — policies, roles, least privilege (mapped to prior Linux permissions knowledge)
+- [x] **CLD-01**: Lesson on cloud computing concepts — IaaS/PaaS/SaaS, regions, availability zones
+- [x] **CLD-02**: Lesson on compute — VMs, containers, serverless (mapped to prior Docker knowledge)
+- [x] **CLD-03**: Lesson on cloud networking — VPCs, subnets, load balancers (mapped to prior networking knowledge)
+- [x] **CLD-04**: Lesson on cloud storage — object, block, file storage types and use cases
+- [x] **CLD-05**: Lesson on IAM — policies, roles, least privilege (mapped to prior Linux permissions knowledge)
 - [ ] **CLD-06**: Hands-on exercises with conceptual mapping to local Docker equivalents
 - [ ] **CLD-07**: Module cheat sheet with cloud concepts and service mappings
 
@@ -218,11 +218,11 @@ Requirements for initial release. Each maps to roadmap phases.
 | IAC-04 | Phase 6 | Complete |
 | IAC-05 | Phase 6 | Pending |
 | IAC-06 | Phase 6 | Pending |
-| CLD-01 | Phase 6 | Pending |
-| CLD-02 | Phase 6 | Pending |
-| CLD-03 | Phase 6 | Pending |
-| CLD-04 | Phase 6 | Pending |
-| CLD-05 | Phase 6 | Pending |
+| CLD-01 | Phase 6 | Complete |
+| CLD-02 | Phase 6 | Complete |
+| CLD-03 | Phase 6 | Complete |
+| CLD-04 | Phase 6 | Complete |
+| CLD-05 | Phase 6 | Complete |
 | CLD-06 | Phase 6 | Pending |
 | CLD-07 | Phase 6 | Pending |
 | MON-01 | Phase 7 | Pending |

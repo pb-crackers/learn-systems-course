@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 06-infrastructure-as-code-cloud-01-PLAN.md
-last_updated: "2026-03-19T13:59:08.931Z"
+stopped_at: Completed 06-infrastructure-as-code-cloud-03-PLAN.md
+last_updated: "2026-03-19T14:00:59.409Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 5
   total_plans: 24
-  completed_plans: 21
+  completed_plans: 22
   percent: 25
 ---
 
@@ -70,6 +70,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 05-system-administration-ci-cd P04 | 2min | 2 tasks | 2 files |
 | Phase 05-system-administration-ci-cd P02 | 10min | 2 tasks | 16 files |
 | Phase 06-infrastructure-as-code-cloud P01 | 5 | 2 tasks | 4 files |
+| Phase 06-infrastructure-as-code-cloud P03 | 7min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -128,6 +129,9 @@ Recent decisions affecting current work:
 - [Phase 06-infrastructure-as-code-cloud]: terraform{} block taught (not opentofu{}) — works in both tools, what job postings show; HCL variable validation block included showing safety-net pattern
 - [Phase 06-infrastructure-as-code-cloud]: State file shown as actual JSON excerpt in IAC-03; remote backends covered conceptually with S3/GCS/Azure examples without requiring cloud accounts
 - [Phase 06-infrastructure-as-code-cloud]: Module-as-function analogy: variables.tf = function signature, main.tf = implementation, outputs.tf = return value
+- [Phase 06-infrastructure-as-code-cloud]: CLD-01-02 Foundation, CLD-03-05 Intermediate difficulty — matches CONTEXT.md locked decision for cloud module
+- [Phase 06-infrastructure-as-code-cloud]: Object storage has no Docker equivalent — the gap is explicit in lesson 4 as a cloud-native concept (what cloud adds over local infra)
+- [Phase 06-infrastructure-as-code-cloud]: IAM policy JSON shown side-by-side with chmod command — explicit syntax comparison for strongest conceptual bridge
 
 ### Pending Todos
 
@@ -141,6 +145,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:58:57.478Z
-Stopped at: Completed 06-infrastructure-as-code-cloud-01-PLAN.md
+Last session: 2026-03-19T14:00:59.405Z
+Stopped at: Completed 06-infrastructure-as-code-cloud-03-PLAN.md
 Resume file: None
