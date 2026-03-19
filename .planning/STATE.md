@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 01-app-foundation-01-PLAN.md
-last_updated: "2026-03-19T02:46:16.223Z"
-last_activity: 2026-03-18 — Roadmap created, requirements mapped, STATE.md initialized
+status: executing
+stopped_at: Completed 01-app-foundation-03-PLAN.md
+last_updated: "2026-03-19T03:09:07.642Z"
+last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 3
   percent: 25
 ---
 
@@ -50,6 +50,8 @@ Progress: [███░░░░░░░] 25%
 - Trend: Baseline established
 
 *Updated after each plan completion*
+| Phase 01-app-foundation P03 | 18min | 2 tasks | 14 files |
+| Phase 01-app-foundation P02 | 20min | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -65,6 +67,8 @@ Recent decisions affecting current work:
 - [Phase 01-app-foundation]: Build/dev scripts use --webpack flag: Next.js 16 defaults to Turbopack incompatible with rehype-pretty-code
 - [Phase 01-app-foundation]: vitest@4.1.0 used instead of plan-specified 2.2.0: version 2.2.0 does not exist on npm registry
 - [Phase 01-app-foundation]: Dark-first CSS pattern: :root defines dark values, .light class overrides to light; ThemeProvider defaultTheme=dark
+- [Phase 01-app-foundation]: Search index served as static API route with force-static: avoids bundling large MiniSearch JSON into page JS; loaded lazily on first Cmd+K open
+- [Phase 01-app-foundation]: Empty corpus for Phase 1 search index: /api/search-index returns valid but empty JSON; populated in Phase 2+ when MDX lesson files are added
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T02:46:16.221Z
-Stopped at: Completed 01-app-foundation-01-PLAN.md
+Last session: 2026-03-19T03:08:42.364Z
+Stopped at: Completed 01-app-foundation-03-PLAN.md
 Resume file: None

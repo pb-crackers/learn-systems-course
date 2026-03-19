@@ -15,12 +15,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **APP-04**: Progress tracking persisted in localStorage (lesson completion, exercise completion)
 - [x] **APP-05**: Dark mode support with system preference detection
 - [ ] **APP-06**: Mobile-responsive layout that works on desktop and tablet
-- [ ] **APP-07**: Search functionality across all course content
-- [ ] **APP-08**: Syntax-highlighted code blocks with copy-to-clipboard functionality
+- [x] **APP-07**: Search functionality across all course content
+- [x] **APP-08**: Syntax-highlighted code blocks with copy-to-clipboard functionality
 
 ### Content Framework
 
-- [ ] **CONT-01**: MDX-based lesson content with rich formatting, diagrams, and interactive elements
+- [x] **CONT-01**: MDX-based lesson content with rich formatting, diagrams, and interactive elements
 - [ ] **CONT-02**: Each lesson has thorough "How It Works" explanation sections before exercises
 - [ ] **CONT-03**: Each lesson has explicit prerequisites listed and linked
 - [ ] **CONT-04**: Interactive terminal/code components embedded in lessons for try-it-yourself moments
@@ -158,9 +158,9 @@ Requirements for initial release. Each maps to roadmap phases.
 | APP-04 | Phase 1 | Pending |
 | APP-05 | Phase 1 | Complete |
 | APP-06 | Phase 1 | Pending |
-| APP-07 | Phase 1 | Pending |
-| APP-08 | Phase 1 | Pending |
-| CONT-01 | Phase 1 | Pending |
+| APP-07 | Phase 1 | Complete |
+| APP-08 | Phase 1 | Complete |
+| CONT-01 | Phase 1 | Complete |
 | CONT-02 | Phase 1 | Pending |
 | CONT-03 | Phase 1 | Pending |
 | CONT-04 | Phase 1 | Pending |
