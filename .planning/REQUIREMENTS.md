@@ -68,9 +68,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 4: Containerization with Docker
 
-- [ ] **DOC-01**: Lesson on what containers are — namespaces, cgroups, how containers actually work under the hood
-- [ ] **DOC-02**: Lesson on Docker images — layers, Dockerfile, build process, registries
-- [ ] **DOC-03**: Lesson on Docker containers — lifecycle, exec, logs, resource limits
+- [x] **DOC-01**: Lesson on what containers are — namespaces, cgroups, how containers actually work under the hood
+- [x] **DOC-02**: Lesson on Docker images — layers, Dockerfile, build process, registries
+- [x] **DOC-03**: Lesson on Docker containers — lifecycle, exec, logs, resource limits
 - [ ] **DOC-04**: Lesson on Docker volumes — bind mounts, named volumes, data persistence
 - [ ] **DOC-05**: Lesson on Docker networking — bridge, host, overlay, DNS between containers
 - [ ] **DOC-06**: Lesson on Docker Compose — multi-service apps, depends_on, environment variables, profiles
@@ -188,9 +188,9 @@ Requirements for initial release. Each maps to roadmap phases.
 | NET-07 | Phase 3 | Complete |
 | NET-08 | Phase 3 | Complete |
 | NET-09 | Phase 3 | Complete |
-| DOC-01 | Phase 4 | Pending |
-| DOC-02 | Phase 4 | Pending |
-| DOC-03 | Phase 4 | Pending |
+| DOC-01 | Phase 4 | Complete |
+| DOC-02 | Phase 4 | Complete |
+| DOC-03 | Phase 4 | Complete |
 | DOC-04 | Phase 4 | Pending |
 | DOC-05 | Phase 4 | Pending |
 | DOC-06 | Phase 4 | Pending |

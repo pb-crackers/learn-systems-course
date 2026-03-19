@@ -157,7 +157,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. App Foundation | 4/4 | Complete    | 2026-03-19 |
 | 2. Linux Fundamentals | 4/4 | Complete   | 2026-03-19 |
 | 3. Networking Foundations | 2/4 | In Progress|  |
-| 4. Docker & Foundation Capstone | 0/4 | Not started | - |
+| 4. Docker & Foundation Capstone | 1/4 | In Progress|  |
 | 5. System Administration & CI/CD | 0/4 | Not started | - |
 | 6. Infrastructure as Code & Cloud | 0/4 | Not started | - |
 | 7. Monitoring & Advanced Capstone | 0/3 | Not started | - |
