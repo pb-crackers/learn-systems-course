@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-app-foundation-04-PLAN.md
-last_updated: "2026-03-19T03:20:27.701Z"
+stopped_at: Completed 02-linux-fundamentals-02-PLAN.md
+last_updated: "2026-03-19T10:49:19.428Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 8
+  completed_plans: 6
   percent: 25
 ---
 
@@ -53,6 +53,8 @@ Progress: [███░░░░░░░] 25%
 | Phase 01-app-foundation P03 | 18min | 2 tasks | 14 files |
 | Phase 01-app-foundation P02 | 20min | 3 tasks | 16 files |
 | Phase 01-app-foundation P04 | 14min | 2 tasks | 16 files |
+| Phase 02-linux-fundamentals P02 | 12min | 2 tasks | 7 files |
+| Phase 02-linux-fundamentals P01 | 11min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -76,6 +78,11 @@ Recent decisions affecting current work:
 - [Phase 01-app-foundation]: CodeBlock copy uses data-copy-target attribute on pre element to extract text without traversing rehype-pretty-code nested span structure
 - [Phase 01-app-foundation]: ExerciseCard/VerificationChecklist use local useState — not ProgressContext. ProgressContext tracks lesson/exercise completion at a higher level
 - [Phase 01-app-foundation]: TableOfContents renders null when fewer than 3 headings — prevents unnecessary sidebar chrome on short lessons
+- [Phase 02-linux-fundamentals]: @next/mdx does not export frontmatter — getLessonContent reads raw MDX via fs/gray-matter at render time
+- [Phase 02-linux-fundamentals]: MobileSidebar accepts children instead of importing Sidebar — prevents fs module bundling into client component graph
+- [Phase 02-linux-fundamentals]: @next/mdx frontmatter: getLessonContent() reads raw .mdx file via fs.readFileSync for frontmatter since @next/mdx does not auto-export YAML frontmatter without remark-mdx-frontmatter plugin
+- [Phase 02-linux-fundamentals]: Lesson discovery: filesystem scan of content/modules/<slug>/*.mdx via readdirSync; filter out 00- templates; sort alphabetically — adding MDX files requires no code changes
+- [Phase 02-linux-fundamentals]: Search body cleaning: JSX tags stripped with /<[^>]+>/g before indexing — sufficient for full-text search without installing additional remark plugins
 
 ### Pending Todos
 
@@ -89,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T03:16:18.543Z
-Stopped at: Completed 01-app-foundation-04-PLAN.md
+Last session: 2026-03-19T10:49:09.603Z
+Stopped at: Completed 02-linux-fundamentals-02-PLAN.md
 Resume file: None

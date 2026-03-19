@@ -36,10 +36,10 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **LNX-03**: Lesson on the Linux filesystem — hierarchy, mount points, inodes, everything is a file
 - [ ] **LNX-04**: Lesson on file permissions and ownership — users, groups, chmod, chown, sticky bits
 - [ ] **LNX-05**: Lesson on processes — PID, fork/exec, process states, signals, ps, top, kill
-- [ ] **LNX-06**: Lesson on shell fundamentals — bash, environment variables, PATH, pipes, redirects
-- [ ] **LNX-07**: Lesson on shell scripting — variables, conditionals, loops, functions, error handling
-- [ ] **LNX-08**: Lesson on text processing — grep, sed, awk, sort, uniq, cut, xargs
-- [ ] **LNX-09**: Lesson on package management — apt/yum, repositories, dependencies
+- [x] **LNX-06**: Lesson on shell fundamentals — bash, environment variables, PATH, pipes, redirects
+- [x] **LNX-07**: Lesson on shell scripting — variables, conditionals, loops, functions, error handling
+- [x] **LNX-08**: Lesson on text processing — grep, sed, awk, sort, uniq, cut, xargs
+- [x] **LNX-09**: Lesson on package management — apt/yum, repositories, dependencies
 - [ ] **LNX-10**: Hands-on exercises for each Linux lesson with Docker-based lab environments
 - [ ] **LNX-11**: Module cheat sheet with essential Linux commands and concepts
 
@@ -173,10 +173,10 @@ Requirements for initial release. Each maps to roadmap phases.
 | LNX-03 | Phase 2 | Pending |
 | LNX-04 | Phase 2 | Pending |
 | LNX-05 | Phase 2 | Pending |
-| LNX-06 | Phase 2 | Pending |
-| LNX-07 | Phase 2 | Pending |
-| LNX-08 | Phase 2 | Pending |
-| LNX-09 | Phase 2 | Pending |
+| LNX-06 | Phase 2 | Complete |
+| LNX-07 | Phase 2 | Complete |
+| LNX-08 | Phase 2 | Complete |
+| LNX-09 | Phase 2 | Complete |
 | LNX-10 | Phase 2 | Pending |
 | LNX-11 | Phase 2 | Pending |
 | NET-01 | Phase 3 | Pending |
