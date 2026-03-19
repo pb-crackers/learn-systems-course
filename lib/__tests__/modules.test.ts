@@ -78,4 +78,10 @@ describe('getAllLessonPaths', () => {
     const cloudPaths = paths.filter(p => p.moduleSlug === '07-cloud')
     expect(cloudPaths).toHaveLength(6)
   })
+
+  it('monitoring module has 7 lessons', () => {
+    const paths = getAllLessonPaths()
+    const monitoringPaths = paths.filter(p => p.moduleSlug === '08-monitoring')
+    expect(monitoringPaths).toHaveLength(7)
+  })
 })
