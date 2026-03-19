@@ -1,0 +1,170 @@
+---
+title: "Linux Fundamentals Cheat Sheet"
+description: "Quick reference for all essential Linux commands and concepts from this module"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "10-cheat-sheet"
+order: 10
+difficulty: "Foundation"
+estimatedMinutes: 5
+prerequisites: []
+tags: ["cheat-sheet", "reference", "commands"]
+---
+
+## Overview
+
+This is your quick reference for all Linux commands and concepts covered in this module. Bookmark this page — you'll come back to it often.
+
+<QuickReference
+  sections={[
+    {
+      title: "Hardware & System Info (Lesson 1)",
+      items: [
+        { command: "lscpu", description: "Display CPU architecture: cores, threads, sockets, cache sizes", example: "lscpu" },
+        { command: "free -h", description: "Show memory usage in human-readable format (total, used, available)", example: "free -h" },
+        { command: "lsblk", description: "List block devices (disks and partitions) as a tree", example: "lsblk" },
+        { command: "df -h", description: "Show filesystem disk space usage in human-readable units", example: "df -h /" },
+        { command: "cat /proc/cpuinfo", description: "Detailed CPU information from the kernel (one block per logical CPU)", example: "grep 'model name' /proc/cpuinfo | uniq" },
+        { command: "cat /proc/meminfo", description: "Detailed memory statistics from the kernel (total, available, swap)", example: "grep -E 'MemTotal|MemAvailable' /proc/meminfo" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Kernel & OS (Lesson 2)",
+      items: [
+        { command: "uname -a", description: "Print all system information: kernel version, hostname, architecture", example: "uname -a" },
+        { command: "strace <cmd>", description: "Trace all system calls made by a command", example: "strace ls /tmp 2>&1 | head -20" },
+        { command: "strace -c <cmd>", description: "Count and summarize system calls — useful for profiling", example: "strace -c find /usr 2>&1" },
+        { command: "dmesg | tail -20", description: "Print last 20 lines of kernel ring buffer (hardware events, errors)", example: "dmesg -T | grep -i error" },
+        { command: "/proc/[pid]/", description: "Per-process information directory exposed by the kernel", example: "ls /proc/1/" },
+        { command: "cat /proc/loadavg", description: "1, 5, 15-minute load averages and running thread counts", example: "cat /proc/loadavg" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Filesystem (Lesson 3)",
+      items: [
+        { command: "ls -lai", description: "List files with inode numbers, permissions, link count, owner, size", example: "ls -lai /etc" },
+        { command: "stat <file>", description: "Display complete inode metadata: size, permissions, timestamps, link count", example: "stat /etc/passwd" },
+        { command: "ln <target> <link>", description: "Create a hard link (same inode, same filesystem only)", example: "ln original.txt hardlink.txt" },
+        { command: "ln -s <target> <link>", description: "Create a symbolic link (stores path, cross-filesystem allowed)", example: "ln -s /path/to/target symlink" },
+        { command: "findmnt", description: "Show mounted filesystems as a tree with source, type, and options", example: "findmnt --real" },
+        { command: "df -i", description: "Show inode usage for all filesystems — check for inode exhaustion", example: "df -i" },
+        { command: "du -sh <dir>", description: "Show total disk usage of a directory in human-readable units", example: "du -sh /var/log" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "File Permissions (Lesson 4)",
+      items: [
+        { command: "chmod 755 <file>", description: "Change file permissions using numeric (octal) mode: owner=rwx, group=r-x, other=r-x", example: "chmod 755 script.sh" },
+        { command: "chmod u+x,g-w <file>", description: "Change permissions using symbolic mode — add/remove specific bits", example: "chmod u+x,g-w file" },
+        { command: "chown <user>:<group> <file>", description: "Change file owner and group simultaneously", example: "chown app:www-data /opt/app" },
+        { command: "umask", description: "Display or set the default permission mask for new files", example: "umask 022" },
+        { command: "id", description: "Display current user's UID, GID, and supplementary group memberships", example: "id" },
+        { command: "whoami", description: "Print the current username", example: "whoami" },
+        { command: "chmod +t <dir>", description: "Set sticky bit on a directory: only file owner can delete files inside", example: "chmod +t /tmp/shared/" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Processes (Lesson 5)",
+      items: [
+        { command: "ps aux", description: "List all running processes with user, PID, CPU%, MEM%, state, command", example: "ps aux | grep nginx" },
+        { command: "top", description: "Real-time process monitor (press q to quit, M for memory sort, P for CPU sort)", example: "top" },
+        { command: "kill <pid>", description: "Send SIGTERM (15) to process — request graceful shutdown", example: "kill 1234" },
+        { command: "kill -9 <pid>", description: "Send SIGKILL — immediate forced termination (last resort, no cleanup)", example: "kill -9 1234" },
+        { command: "kill -l", description: "List all signal names and their numbers", example: "kill -l" },
+        { command: "jobs / fg / bg", description: "List background jobs, bring to foreground, or resume in background", example: "jobs && fg %1" },
+        { command: "/proc/[pid]/cmdline", description: "Read a process's command line arguments from the kernel interface", example: "cat /proc/1/cmdline | tr '\\0' ' '" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Shell Fundamentals (Lesson 6)",
+      items: [
+        { command: "echo $PATH", description: "Display the PATH variable — colon-separated directories searched for commands", example: "echo $PATH" },
+        { command: "export VAR=value", description: "Set an environment variable visible to all child processes", example: "export DB_HOST=localhost" },
+        { command: "which / type", description: "Find where a command lives (which) or show its type including aliases (type)", example: "which python3 && type cd" },
+        { command: "cmd1 | cmd2", description: "Pipe stdout of cmd1 to stdin of cmd2 — processes run concurrently", example: "ps aux | grep node" },
+        { command: "cmd > file", description: "Redirect stdout to file, overwriting it (truncates before command runs)", example: "ls > files.txt" },
+        { command: "cmd >> file", description: "Redirect stdout to file, appending to it", example: "echo 'line' >> log.txt" },
+        { command: "cmd 2>&1", description: "Merge stderr into stdout — both streams go to the same destination", example: "cmd > out.txt 2>&1" },
+        { command: "$?", description: "Exit code of the last command (0 = success, non-zero = failure)", example: "echo $?" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Shell Scripting (Lesson 7)",
+      items: [
+        { command: "#!/usr/bin/env bash", description: "Portable shebang line — uses PATH to find bash, works on all systems" },
+        { command: "set -euo pipefail", description: "Strict error handling: exit on error, treat unset vars as errors, propagate pipe failures" },
+        { command: "if [[ cond ]]; then ... fi", description: "Conditional execution using double brackets (preferred over single [ ])" },
+        { command: "for item in list; do ... done", description: "Loop over a list of items" },
+        { command: "fname() { ... }", description: "Define a reusable function (use local for internal variables)" },
+        { command: "trap 'cleanup' EXIT", description: "Register a cleanup command to run when the script exits (normal or error)" },
+        { command: "$1, $2, $#, \"$@\"", description: "Script arguments: first, second, count, all (quoted — use $@ not $*)" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Text Processing (Lesson 8)",
+      items: [
+        { command: "grep 'pattern' file", description: "Filter lines matching a pattern — non-matching lines are discarded", example: "grep 'ERROR' app.log" },
+        { command: "grep -r 'pattern' dir/", description: "Recursive search across all files in a directory", example: "grep -r 'TODO' src/" },
+        { command: "sed 's/old/new/g' file", description: "Replace all occurrences of a pattern in each line (global substitution)", example: "sed 's/http/https/g' urls.txt" },
+        { command: "awk '{print $1}' file", description: "Print the first whitespace-delimited field of each line", example: "awk '{print $1}' access.log" },
+        { command: "sort -rn", description: "Sort numerically in reverse (descending) — essential for frequency counts", example: "sort -rn counts.txt" },
+        { command: "sort | uniq -c", description: "Count adjacent duplicates — always sort first to bring duplicates together", example: "sort log.txt | uniq -c | sort -rn" },
+        { command: "cut -d: -f1", description: "Extract field 1 from colon-delimited input", example: "cut -d: -f1 /etc/passwd" },
+        { command: "cmd | xargs rm", description: "Convert stdin lines to command arguments — bridges pipe gap for non-stdin commands", example: "find . -name '*.tmp' | xargs rm" }
+      ]
+    }
+  ]}
+/>
+
+<QuickReference
+  sections={[
+    {
+      title: "Package Management (Lesson 9)",
+      items: [
+        { command: "apt-get update", description: "Refresh the local package index from all configured repositories (always run first)" },
+        { command: "apt-get install -y pkg", description: "Install a package non-interactively, resolving all dependencies", example: "apt-get install -y curl" },
+        { command: "apt-get remove pkg", description: "Remove a package but preserve its configuration files in /etc/", example: "apt-get remove nginx" },
+        { command: "apt-get purge pkg", description: "Remove a package and delete all its configuration files", example: "apt-get purge nginx" },
+        { command: "apt-cache search keyword", description: "Search available packages by name or description", example: "apt-cache search json" },
+        { command: "apt-cache show pkg", description: "Display full metadata for a package: version, description, dependencies", example: "apt-cache show curl" },
+        { command: "dpkg -l | grep pkg", description: "Check if a specific package is currently installed", example: "dpkg -l | grep nginx" },
+        { command: "dpkg -L pkg", description: "List all files installed by a package on this system", example: "dpkg -L curl" }
+      ]
+    }
+  ]}
+/>
