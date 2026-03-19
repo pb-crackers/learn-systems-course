@@ -1,0 +1,30 @@
+# This Compose stack mirrors a cloud architecture.
+# Each component maps to a cloud service — the lesson teaches the mapping.
+services:
+  loadbalancer:          # Cloud: ALB (AWS) / Cloud Load Balancing (GCP) / Azure Load Balancer
+    image: nginx:1.25
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+
+  app1:                  # Cloud: EC2/ECS task (AWS) / GCE/Cloud Run (GCP) / Azure VM/Container
+    image: nginx:1.25    # Represents "AZ-1 replica"
+    expose:
+      - "80"
+
+  app2:                  # Cloud: EC2/ECS task (AWS) / GCE/Cloud Run (GCP) / Azure VM/Container
+    image: nginx:1.25    # Represents "AZ-2 replica"
+    expose:
+      - "80"
+
+volumes:
+  app-data:              # Cloud: EBS (AWS) / Persistent Disk (GCP) / Azure Disk Storage
+    driver: local
+
+networks:
+  default:               # Cloud: VPC with private subnet
+    driver: bridge
