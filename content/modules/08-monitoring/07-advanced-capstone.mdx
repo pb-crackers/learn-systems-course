@@ -1,6 +1,6 @@
 ---
 title: "Advanced Capstone: Full-Stack Monitoring Pipeline"
-description: "Deploy a complete application with CI/CD, IaC, and monitoring — then diagnose an intentional failure"
+description: "Deploy a complete application with CI/CD, IaC, and monitoring — then diagnose an intentional failure using everything you have learned"
 module: "Monitoring & Observability"
 moduleSlug: "08-monitoring"
 lessonSlug: "07-advanced-capstone"
@@ -8,9 +8,206 @@ order: 7
 difficulty: "Challenge"
 estimatedMinutes: 90
 prerequisites: ["08-monitoring/05-incident-response"]
-tags: ["capstone", "advanced", "monitoring", "cicd", "iac", "docker", "prometheus", "grafana"]
+tags: ["capstone", "advanced", "monitoring", "cicd", "iac", "docker", "prometheus", "grafana", "memory-leak", "incident-response"]
 ---
 
-## Advanced Capstone
+## Overview
 
-*Full content will be added in plan 07-03.*
+You just joined a startup as their first DevOps engineer. They have a Node.js API that is
+"working fine in production" — but users report intermittent slowness. The previous developer
+left no monitoring, no dashboards, no alerting. Your mission: set up the full observability
+pipeline and diagnose the hidden problem.
+
+<Callout type="tip" title="The Course Finale">
+This is the final project of the course. Everything you have learned — Linux fundamentals,
+networking, Docker, CI/CD, IaC, and monitoring — comes together here. There are no
+step-by-step instructions. You have a brief, starter code, and a verification script.
+</Callout>
+
+## What You Will Build
+
+The capstone integrates all eight modules into a complete system:
+
+- **Application layer:** Node.js API instrumented with prom-client (Docker, from Module 3)
+- **CI/CD pipeline:** GitHub Actions workflow that lints and builds the app (from Module 5)
+- **Infrastructure as Code:** OpenTofu config provisioning Prometheus via Docker provider (from Module 6)
+- **Monitoring:** Prometheus scraping app metrics, Grafana dashboards, Alertmanager routing (from Module 8)
+- **The Challenge:** An intentional failure hidden in the application that you must diagnose using your monitoring stack
+
+### Architecture
+
+```
+[GitHub Actions CI]
+       |
+       v
+  [Docker Build]
+       |
+       v
+  [Docker Compose Stack]
+  +-----------+    +------------+    +---------+
+  |   App     |--->| Prometheus |--->| Grafana |
+  | (Node.js) |    | (scrape)   |    | (dash)  |
+  +-----------+    +------------+    +---------+
+       |                |
+       v                v
+  [/metrics]      [Alert Rules]
+                       |
+                       v
+                [Alertmanager]
+                       |
+                       v
+                [Webhook -> App logs]
+```
+
+All four services run in a single Docker Compose network called `capstone`. Prometheus scrapes
+the app's `/metrics` endpoint every 15 seconds. Alert rules evaluate on the same interval.
+When an alert fires, Alertmanager routes it to a webhook receiver on the app itself — creating
+a visible notification loop without requiring Slack or PagerDuty credentials.
+
+## The Capstone Brief
+
+<ExerciseCard
+  title="Advanced Capstone: Full-Stack Monitoring Pipeline"
+  difficulty="Challenge"
+  scenario="You are the new DevOps engineer. The app works but users report mysterious slowness. Set up the full monitoring pipeline, build a Grafana dashboard showing the four golden signals, and find the problem hidden in the application metrics. No step-by-step guidance — use everything you have learned."
+  objective="Connect a Dockerized Node.js app to CI/CD, IaC, Prometheus, Grafana, and Alertmanager. Build a dashboard. Diagnose an intentional failure using PromQL. Write a postmortem."
+  steps={[
+    {
+      step: 1,
+      description: "Navigate to docker/advanced-capstone/ and read README.md for the full capstone brief."
+    },
+    {
+      step: 2,
+      description: "Start the stack: docker compose up -d"
+    },
+    {
+      step: 3,
+      description: "Verify all services are running: docker compose ps"
+    },
+    {
+      step: 4,
+      description: "Open Prometheus at http://localhost:9090 — check the Targets page to confirm the app is being scraped (status should show UP)"
+    },
+    {
+      step: 5,
+      description: "Open Grafana at http://localhost:3001 — verify the Prometheus datasource is auto-provisioned (no login required)"
+    },
+    {
+      step: 6,
+      description: "Build a Grafana dashboard with 4 panels: request rate, P95 latency, error rate, and memory usage"
+    },
+    {
+      step: 7,
+      description: "Generate traffic: for i in $(seq 1 100); do curl -s http://localhost:3000/ > /dev/null; curl -s http://localhost:3000/slow > /dev/null; done"
+    },
+    {
+      step: 8,
+      description: "Let the app run for 5-10 minutes. Watch your dashboard. Something is wrong — use PromQL to identify the issue."
+    },
+    {
+      step: 9,
+      description: "Write the diagnostic PromQL query that proves the problem exists."
+    },
+    {
+      step: 10,
+      description: "Find the root cause in the source code (docker/advanced-capstone/app/app.js)."
+    },
+    {
+      step: 11,
+      description: "Write a postmortem document following the template from the Incident Response lesson (Module 8, Lesson 5)."
+    },
+    {
+      step: 12,
+      description: "(Optional) Run tofu init && tofu apply in the iac/ directory to provision Prometheus via OpenTofu. Examine the state file it creates."
+    },
+    {
+      step: 13,
+      description: "Run bash verify.sh from the docker/advanced-capstone/ directory to check your progress."
+    },
+  ]}
+>
+  <VerificationChecklist
+    title="Success Criteria"
+    items={[
+      {
+        id: "adv-cap-01",
+        label: "All 4 Docker Compose services running (app, prometheus, grafana, alertmanager)",
+        hint: "Run: docker compose ps — all four services should show State: running. If a service exits immediately, check logs: docker compose logs <service-name>"
+      },
+      {
+        id: "adv-cap-02",
+        label: "Prometheus scrapes app successfully (Targets page shows UP)",
+        hint: "Open http://localhost:9090/targets — the app target should show State: UP. If it shows DOWN, check that the app container is running and that prometheus.yml has job_name: 'app' with target app:3000"
+      },
+      {
+        id: "adv-cap-03",
+        label: "Grafana dashboard has panels for the four golden signals",
+        hint: "Open http://localhost:3001. Create a new dashboard with panels using: rate(http_requests_total[5m]) for traffic, histogram_quantile(0.95, ...) for latency, rate(http_requests_total{status_code=~'5..'}[5m]) for errors, and process_resident_memory_bytes for saturation"
+      },
+      {
+        id: "adv-cap-04",
+        label: "PromQL query identifies the memory leak (increase(nodejs_heap_used_bytes[5m]) is growing)",
+        hint: "In Prometheus, run: increase(nodejs_heap_used_bytes[5m]) — if this value is consistently positive and growing, you have found the symptom. Compare it to a healthy process where heap should fluctuate but not trend upward indefinitely."
+      },
+      {
+        id: "adv-cap-05",
+        label: "Root cause identified: leakStore array in app.js accumulating objects via setInterval",
+        hint: "Open docker/advanced-capstone/app/app.js and look for a module-scope array. A setInterval calling a function that pushes objects onto that array runs every second. Those objects are never removed, so memory grows without bound."
+      },
+      {
+        id: "adv-cap-06",
+        label: "Postmortem written with Summary, Timeline, Root Cause, and Action Items sections",
+        hint: "Use the postmortem template from Lesson 5 (Incident Response). Key sections: 1-sentence summary, timeline of when the issue started vs when detected, technical root cause explanation, and 2-3 specific action items to prevent recurrence"
+      },
+    ]}
+  />
+</ExerciseCard>
+
+## Skills Integrated
+
+<Callout type="deep-dive" title="Eight Modules in One Project">
+Count the modules you are applying in this capstone:
+
+1. **Linux Fundamentals** — reading logs, understanding processes, memory management concepts
+2. **Networking** — HTTP endpoints, port mapping, DNS resolution between containers (app resolves to `app:3000` inside the Compose network)
+3. **Docker** — Compose stack with 4 services, multi-stage Dockerfile, HEALTHCHECK, resource limits (`mem_limit: 256m`)
+4. **System Administration** — service management, log analysis, resource monitoring
+5. **CI/CD** — GitHub Actions pipeline for linting and building the container image
+6. **Infrastructure as Code** — OpenTofu provisioning Docker resources using the kreuzwerker/docker provider
+7. **Cloud Fundamentals** — the local Docker setup maps directly to what cloud engineers do with managed Kubernetes, CloudWatch, and Terraform
+8. **Monitoring** — Prometheus metrics, PromQL queries, Grafana dashboards, Alertmanager routing, incident response and postmortem writing
+
+This is what real-world DevOps looks like. Not one tool, not one module — the whole stack working together.
+</Callout>
+
+## Quick Reference
+
+<QuickReference title="Capstone Module-to-Skill Map">
+  | Module | Key Skill Used in Capstone | Where It Appears |
+  |--------|---------------------------|------------------|
+  | 01 — Linux Fundamentals | Process management, shell scripting | verify.sh, reading Docker logs, diagnosing the leak |
+  | 02 — Networking | Port mapping, DNS between services | `app:3000` in prometheus.yml, `prometheus:9090` in Grafana |
+  | 03 — Docker | Compose, Dockerfile, health checks | compose.yml, app/Dockerfile with mem_limit |
+  | 04 — System Administration | Resource monitoring, log analysis | Watching memory metrics, docker compose logs |
+  | 05 — CI/CD | GitHub Actions pipeline | .github/workflows/ci.yml lint + build workflow |
+  | 06 — Infrastructure as Code | OpenTofu Docker provider | iac/main.tf provisioning Prometheus container |
+  | 07 — Cloud Fundamentals | Cloud-local mapping | Understanding how this stack maps to ECS/GKE/AKS |
+  | 08 — Monitoring | Prometheus, Grafana, Alertmanager, postmortem | The entire capstone monitoring stack |
+</QuickReference>
+
+<Callout type="tip" title="Congratulations on Completing Learn Systems">
+You have built the entire stack from bare Linux concepts to production monitoring. Every tool
+you used — Docker, Prometheus, Grafana, OpenTofu, GitHub Actions — is the same toolchain used
+by real DevOps teams at companies ranging from startups to large enterprises.
+
+The difference between a junior and senior engineer is not knowing more tools; it is
+understanding WHY each tool exists and HOW it works under the hood. You now have that
+foundation. The memory leak you diagnosed in this capstone is a real class of production
+incident that has caused outages at companies you use every day. You found it with PromQL and
+identified the root cause in source code — that is real observability work.
+
+What comes next is practice. Pick a personal project, instrument it, and watch the metrics.
+Build a pipeline for something you care about. Provision infrastructure with code and
+understand what `tofu apply` is actually doing to your containers and networks. The tools are
+the same — the skill is in using them deliberately.
+</Callout>
