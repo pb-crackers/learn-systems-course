@@ -1,0 +1,32 @@
+services:
+  dns:
+    image: coredns/coredns:latest
+    volumes:
+      - ./Corefile:/Corefile:ro
+    networks:
+      lab-net:
+        ipv4_address: 10.0.0.2
+    command: -conf /Corefile
+    healthcheck:
+      test: ["CMD", "sh", "-c", "echo | nc -u -w1 127.0.0.1 53"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+  client:
+    build: ..
+    depends_on:
+      dns:
+        condition: service_healthy
+    dns: ["10.0.0.2"]
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+      - ./verify.sh:/verify/03-dns.sh:ro
+    networks:
+      - lab-net
+    command: sleep infinity
+networks:
+  lab-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24

@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ..
+    networks:
+      lab-net:
+        ipv4_address: 10.0.0.10
+    command: sleep infinity
+  client:
+    build: ..
+    volumes:
+      - ./setup.sh:/setup.sh:ro
+      - ./verify.sh:/verify/02-tcp-ip.sh:ro
+    networks:
+      lab-net:
+        ipv4_address: 10.0.0.20
+    command: sleep infinity
+networks:
+  lab-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24

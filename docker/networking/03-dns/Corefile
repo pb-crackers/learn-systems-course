@@ -1,0 +1,34 @@
+# CoreDNS configuration for learn-systems DNS lab
+# learn.local zone — serves A records for lab hostnames + PTR reverse records
+# All other queries forwarded to 8.8.8.8
+
+learn.local {
+    hosts {
+        10.0.0.10 app.learn.local
+        10.0.0.11 db.learn.local
+        10.0.0.12 web.learn.local
+        ttl 30
+        fallthrough
+    }
+    log
+    errors
+}
+
+0.0.10.in-addr.arpa {
+    hosts {
+        10.0.0.10 app.learn.local
+        10.0.0.11 db.learn.local
+        10.0.0.12 web.learn.local
+        ttl 30
+        fallthrough
+    }
+    log
+    errors
+}
+
+. {
+    forward . 8.8.8.8
+    log
+    errors
+    cache 30
+}
