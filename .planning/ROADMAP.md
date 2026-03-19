@@ -1,0 +1,167 @@
+# Roadmap: Learn Systems
+
+## Overview
+
+This roadmap builds a modern Next.js web application delivering a comprehensive, hands-on DevOps and systems engineering course. The first phase establishes the application shell and content framework before any curriculum is written. Subsequent phases add curriculum modules in dependency order — Linux gates everything, networking gates Docker, Docker gates CI/CD — ensuring each phase delivers a complete, verifiable capability the learner can use immediately. The final phase closes with monitoring and an advanced capstone that integrates all prior modules.
+
+## Phases
+
+**Phase Numbering:**
+- Integer phases (1, 2, 3): Planned milestone work
+- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+
+Decimal phases appear between their surrounding integers in numeric order.
+
+- [ ] **Phase 1: App Foundation** - Next.js application shell with navigation, progress tracking, content framework, and modern UI
+- [ ] **Phase 2: Linux Fundamentals** - Complete Linux module with mechanism-first lessons, Docker-based labs, and verified exercises
+- [ ] **Phase 3: Networking Foundations** - Complete networking module with TCP/IP through SSH and firewall lessons with multi-container labs
+- [ ] **Phase 4: Docker & Foundation Capstone** - Complete Docker/containerization module plus cross-module foundation capstone project
+- [ ] **Phase 5: System Administration & CI/CD** - Sysadmin module (systemd, logging, disk) combined with CI/CD pipelines module
+- [ ] **Phase 6: Infrastructure as Code & Cloud** - OpenTofu/IaC module and cloud fundamentals module mapped to prior knowledge
+- [ ] **Phase 7: Monitoring & Advanced Capstone** - Prometheus/Grafana monitoring module and full-stack advanced capstone project
+
+## Phase Details
+
+### Phase 1: App Foundation
+**Goal**: The Next.js application is running with a polished UI, full course navigation, progress tracking, and a content framework that every subsequent curriculum module can drop into
+**Depends on**: Nothing (first phase)
+**Requirements**: APP-01, APP-02, APP-03, APP-04, APP-05, APP-06, APP-07, APP-08, CONT-01, CONT-02, CONT-03, CONT-04, CONT-05, CONT-06, CONT-07, CONT-08
+**Success Criteria** (what must be TRUE):
+  1. Learner can navigate the full course sidebar, see all modules and lessons with progress indicators, and track completion across browser sessions via localStorage
+  2. Any lesson page displays rich MDX content with syntax-highlighted, copyable code blocks, embedded interactive components, and clear prerequisite links
+  3. Learner can toggle dark mode and the preference persists; the layout is fully usable on desktop and tablet
+  4. Learner can search across all course content and navigate to matching lessons from the results
+  5. Every lesson template enforces "How It Works" explanation sections, explicit prerequisites, difficulty-labeled exercises with real-world scenarios, and a quick reference section per module
+**Plans**: TBD
+
+Plans:
+- [ ] 01-01: Next.js project scaffold with TypeScript, Tailwind CSS, shadcn/ui, and 21st.dev components
+- [ ] 01-02: Course navigation, sidebar, and localStorage progress tracking
+- [ ] 01-03: MDX content pipeline with syntax highlighting, interactive components, and search
+- [ ] 01-04: Content framework — lesson template, exercise template, difficulty labels, module cheat sheet structure
+
+### Phase 2: Linux Fundamentals
+**Goal**: Learners can complete all Linux Fundamentals lessons with Docker-based lab environments, verifiable exercises, and the "explain the mechanism before the command" pattern established for all subsequent modules
+**Depends on**: Phase 1
+**Requirements**: LNX-01, LNX-02, LNX-03, LNX-04, LNX-05, LNX-06, LNX-07, LNX-08, LNX-09, LNX-10, LNX-11
+**Success Criteria** (what must be TRUE):
+  1. Learner can open any Linux lesson and read a thorough mechanism-first explanation (how the kernel/subsystem actually works) before any commands are shown
+  2. Learner can launch a Docker-based lab environment for each Linux lesson and complete the exercise entirely within that container
+  3. Learner can run the exercise verification and receive explicit PASS/FAIL feedback telling them whether they succeeded — no guessing required
+  4. Learner can reference the module cheat sheet and find all essential Linux commands and concepts from the module in one place
+  5. Progress indicators in the sidebar update correctly when Linux lessons and exercises are marked complete
+**Plans**: TBD
+
+Plans:
+- [ ] 02-01: Module 1 lesson content — CPU/OS/filesystem/permissions/processes (LNX-01 through LNX-05)
+- [ ] 02-02: Module 1 lesson content — shell/scripting/text tools/packages (LNX-06 through LNX-09)
+- [ ] 02-03: Docker lab environments and verified exercises for all Linux lessons (LNX-10)
+- [ ] 02-04: Module cheat sheet and progress integration (LNX-11)
+
+### Phase 3: Networking Foundations
+**Goal**: Learners can complete all Networking Foundations lessons with multi-container lab environments and understand how Docker networking (covered next) builds on these primitives
+**Depends on**: Phase 2
+**Requirements**: NET-01, NET-02, NET-03, NET-04, NET-05, NET-06, NET-07, NET-08, NET-09
+**Success Criteria** (what must be TRUE):
+  1. Learner can follow a packet from physical layer through the TCP/IP stack and articulate what happens at each layer, not just name the layers
+  2. Learner can complete DNS, HTTP/HTTPS, and SSH lessons including hands-on exercises using dig, curl, and ssh within Docker Compose lab environments
+  3. Learner can complete the firewall lesson and write iptables/ufw rules in a lab container that verifiably block or allow the expected traffic
+  4. Learner can use the network troubleshooting lesson's tools (ping, traceroute, tcpdump, ss) to diagnose a deliberately broken network scenario and identify the fault
+  5. Learner can reference the networking cheat sheet for all commands and concepts from the module
+**Plans**: TBD
+
+Plans:
+- [ ] 03-01: Module 2 lesson content — physical/TCP-IP/DNS (NET-01, NET-02, NET-03)
+- [ ] 03-02: Module 2 lesson content — HTTP/SSH/firewalls/troubleshooting (NET-04, NET-05, NET-06, NET-07)
+- [ ] 03-03: Multi-container Docker Compose lab environments and verified exercises (NET-08)
+- [ ] 03-04: Module cheat sheet and progress integration (NET-09)
+
+### Phase 4: Docker & Foundation Capstone
+**Goal**: Learners can build, run, and compose Docker-based applications with full understanding of the Linux primitives underneath, and can complete a cross-module foundation capstone that integrates Linux, networking, and Docker skills without step-by-step guidance
+**Depends on**: Phase 3
+**Requirements**: DOC-01, DOC-02, DOC-03, DOC-04, DOC-05, DOC-06, DOC-07, DOC-08, DOC-09, CAP-01
+**Success Criteria** (what must be TRUE):
+  1. Learner can explain namespaces and cgroups as the mechanism behind containers before writing a single Dockerfile
+  2. Learner can build a multi-stage Docker image, run a container with resource limits, mount volumes correctly, and configure container networking — all using verified exercises
+  3. Learner can write a Docker Compose file for a multi-service application with correct service dependencies, environment variables, and named volumes
+  4. Learner can complete the foundation capstone: deploy a Dockerized web app, diagnose a network issue using skills from Module 2, and automate the setup with a shell script from Module 1 — without step-by-step guidance
+  5. Learner can reference the Docker cheat sheet for all Docker and Compose commands from the module
+**Plans**: TBD
+
+Plans:
+- [ ] 04-01: Module 4 lesson content — containers/images/lifecycle (DOC-01, DOC-02, DOC-03)
+- [ ] 04-02: Module 4 lesson content — volumes/networking/Compose/best practices (DOC-04, DOC-05, DOC-06, DOC-07)
+- [ ] 04-03: Docker lab environments and verified exercises with real application scenarios (DOC-08)
+- [ ] 04-04: Module cheat sheet and foundation capstone project (DOC-09, CAP-01)
+
+### Phase 5: System Administration & CI/CD
+**Goal**: Learners can manage Linux services with systemd, understand logging and disk management, and build real CI/CD pipelines that build and deploy Docker images using GitHub Actions
+**Depends on**: Phase 4
+**Requirements**: SYS-01, SYS-02, SYS-03, SYS-04, SYS-05, SYS-06, SYS-07, SYS-08, CICD-01, CICD-02, CICD-03, CICD-04, CICD-05, CICD-06
+**Success Criteria** (what must be TRUE):
+  1. Learner can manage systemd services (start, stop, enable, view status and journal logs) and write a simple service unit file using verified lab exercises
+  2. Learner can diagnose disk usage, manage mounts, configure cron/systemd timers, and monitor system resources using the sysadmin lessons' verified exercises
+  3. Learner can write a GitHub Actions workflow that builds a Docker image, runs tests, and deploys — and can trace what each step is actually doing in the underlying system
+  4. Learner can describe blue/green, rolling, and canary deployment strategies and explain the tradeoffs without consulting the lesson
+  5. Learner can reference both the sysadmin and CI/CD cheat sheets for commands and pipeline patterns
+**Plans**: TBD
+
+Plans:
+- [ ] 05-01: Module 3 lesson content — users/systemd/logging/disk/scheduling/monitoring (SYS-01 through SYS-06)
+- [ ] 05-02: Sysadmin lab environments, verified exercises, and cheat sheet (SYS-07, SYS-08)
+- [ ] 05-03: Module 5 lesson content — CI/CD concepts/GitHub Actions/build-test-deploy/strategies (CICD-01 through CICD-04)
+- [ ] 05-04: CI/CD hands-on pipeline exercises and cheat sheet (CICD-05, CICD-06)
+
+### Phase 6: Infrastructure as Code & Cloud
+**Goal**: Learners can write OpenTofu/Terraform HCL to provision infrastructure declaratively using local Docker targets, and understand cloud fundamentals by mapping cloud services to the networking, IaC, and container concepts they already know
+**Depends on**: Phase 5
+**Requirements**: IAC-01, IAC-02, IAC-03, IAC-04, IAC-05, IAC-06, CLD-01, CLD-02, CLD-03, CLD-04, CLD-05, CLD-06, CLD-07
+**Success Criteria** (what must be TRUE):
+  1. Learner can write an OpenTofu configuration from scratch — providers, resources, variables, outputs — and apply it to provision local Docker resources without following a step-by-step tutorial
+  2. Learner can explain Terraform state, perform state management operations, and describe why remote backends and state locking exist
+  3. Learner can write a reusable Terraform module and compose it with other modules
+  4. Learner can map each major cloud service category (compute, networking, storage, IAM) to a concept they learned in prior modules and explain the mapping without consulting the lesson
+  5. Learner can reference both the IaC and cloud cheat sheets for OpenTofu commands and cloud service patterns
+**Plans**: TBD
+
+Plans:
+- [ ] 06-01: Module 6 lesson content — IaC concepts/HCL basics/state/modules (IAC-01 through IAC-04)
+- [ ] 06-02: IaC hands-on exercises with Docker provider, cheat sheet (IAC-05, IAC-06)
+- [ ] 06-03: Module 7 lesson content — cloud concepts/compute/networking/storage/IAM (CLD-01 through CLD-05)
+- [ ] 06-04: Cloud conceptual exercises mapped to local Docker equivalents, cheat sheet (CLD-06, CLD-07)
+
+### Phase 7: Monitoring & Advanced Capstone
+**Goal**: Learners can instrument a Dockerized application with Prometheus and Grafana, set up alerting, and complete an advanced capstone that integrates all prior modules into a full pipeline with an intentional failure scenario to diagnose
+**Depends on**: Phase 6
+**Requirements**: MON-01, MON-02, MON-03, MON-04, MON-05, MON-06, MON-07, CAP-02
+**Success Criteria** (what must be TRUE):
+  1. Learner can explain the three pillars of observability (metrics, logs, traces) and articulate when to use each
+  2. Learner can write PromQL queries against a running Prometheus instance and create a Grafana dashboard for a Dockerized application using the Docker Compose monitoring stack
+  3. Learner can configure an alerting rule in Prometheus and trace the alert path from metric threshold to notification
+  4. Learner can complete the advanced capstone: a Dockerized application with a CI/CD pipeline, infrastructure provisioned with OpenTofu, monitoring with Prometheus/Grafana, and an intentional failure scenario they must diagnose and resolve without guidance
+  5. Learner can reference the monitoring cheat sheet for Prometheus, Grafana, and log aggregation tools
+**Plans**: TBD
+
+Plans:
+- [ ] 07-01: Module 8 lesson content — observability concepts/Prometheus/Grafana/log aggregation/incident response (MON-01 through MON-05)
+- [ ] 07-02: Monitoring Docker Compose stack exercises and cheat sheet (MON-06, MON-07)
+- [ ] 07-03: Advanced capstone project — full pipeline with intentional failure scenario (CAP-02)
+
+## Progress
+
+**Execution Order:**
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 1. App Foundation | 0/4 | Not started | - |
+| 2. Linux Fundamentals | 0/4 | Not started | - |
+| 3. Networking Foundations | 0/4 | Not started | - |
+| 4. Docker & Foundation Capstone | 0/4 | Not started | - |
+| 5. System Administration & CI/CD | 0/4 | Not started | - |
+| 6. Infrastructure as Code & Cloud | 0/4 | Not started | - |
+| 7. Monitoring & Advanced Capstone | 0/3 | Not started | - |
+
+---
+*Roadmap created: 2026-03-18*
+*Requirements coverage: 80/80 v1 requirements mapped*
