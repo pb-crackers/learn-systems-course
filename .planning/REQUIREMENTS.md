@@ -103,8 +103,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CLD-03**: Lesson on cloud networking — VPCs, subnets, load balancers (mapped to prior networking knowledge)
 - [x] **CLD-04**: Lesson on cloud storage — object, block, file storage types and use cases
 - [x] **CLD-05**: Lesson on IAM — policies, roles, least privilege (mapped to prior Linux permissions knowledge)
-- [ ] **CLD-06**: Hands-on exercises with conceptual mapping to local Docker equivalents
-- [ ] **CLD-07**: Module cheat sheet with cloud concepts and service mappings
+- [x] **CLD-06**: Hands-on exercises with conceptual mapping to local Docker equivalents
+- [x] **CLD-07**: Module cheat sheet with cloud concepts and service mappings
 
 ### Module 8: Monitoring & Observability
 
@@ -223,8 +223,8 @@ Requirements for initial release. Each maps to roadmap phases.
 | CLD-03 | Phase 6 | Complete |
 | CLD-04 | Phase 6 | Complete |
 | CLD-05 | Phase 6 | Complete |
-| CLD-06 | Phase 6 | Pending |
-| CLD-07 | Phase 6 | Pending |
+| CLD-06 | Phase 6 | Complete |
+| CLD-07 | Phase 6 | Complete |
 | MON-01 | Phase 7 | Pending |
 | MON-02 | Phase 7 | Pending |
 | MON-03 | Phase 7 | Pending |
