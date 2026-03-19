@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Application Foundation
 
-- [ ] **APP-01**: Next.js App Router application with TypeScript, Tailwind CSS, and shadcn/ui
-- [ ] **APP-02**: Modern, polished responsive design using shadcn/ui and 21st.dev components
+- [x] **APP-01**: Next.js App Router application with TypeScript, Tailwind CSS, and shadcn/ui
+- [x] **APP-02**: Modern, polished responsive design using shadcn/ui and 21st.dev components
 - [ ] **APP-03**: Course navigation with sidebar showing all modules and lessons with progress indicators
 - [ ] **APP-04**: Progress tracking persisted in localStorage (lesson completion, exercise completion)
-- [ ] **APP-05**: Dark mode support with system preference detection
+- [x] **APP-05**: Dark mode support with system preference detection
 - [ ] **APP-06**: Mobile-responsive layout that works on desktop and tablet
 - [ ] **APP-07**: Search functionality across all course content
 - [ ] **APP-08**: Syntax-highlighted code blocks with copy-to-clipboard functionality
@@ -152,11 +152,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| APP-01 | Phase 1 | Pending |
-| APP-02 | Phase 1 | Pending |
+| APP-01 | Phase 1 | Complete |
+| APP-02 | Phase 1 | Complete |
 | APP-03 | Phase 1 | Pending |
 | APP-04 | Phase 1 | Pending |
-| APP-05 | Phase 1 | Pending |
+| APP-05 | Phase 1 | Complete |
 | APP-06 | Phase 1 | Pending |
 | APP-07 | Phase 1 | Pending |
 | APP-08 | Phase 1 | Pending |
