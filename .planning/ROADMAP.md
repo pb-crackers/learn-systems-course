@@ -86,13 +86,13 @@ Plans:
   3. Learner can write a Docker Compose file for a multi-service application with correct service dependencies, environment variables, and named volumes
   4. Learner can complete the foundation capstone: deploy a Dockerized web app, diagnose a network issue using skills from Module 2, and automate the setup with a shell script from Module 1 — without step-by-step guidance
   5. Learner can reference the Docker cheat sheet for all Docker and Compose commands from the module
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 04-01: Module 4 lesson content — containers/images/lifecycle (DOC-01, DOC-02, DOC-03)
-- [ ] 04-02: Module 4 lesson content — volumes/networking/Compose/best practices (DOC-04, DOC-05, DOC-06, DOC-07)
-- [ ] 04-03: Docker lab environments and verified exercises with real application scenarios (DOC-08)
-- [ ] 04-04: Module cheat sheet and foundation capstone project (DOC-09, CAP-01)
+- [ ] 04-01-PLAN.md — Lessons 1-3 (container internals, images, containers) + progressive Node.js exercise app (Wave 1, parallel with 04-02)
+- [ ] 04-02-PLAN.md — Lessons 4-7 (volumes, networking, Compose, best practices) + optimized Dockerfile (Wave 1, parallel with 04-01)
+- [ ] 04-03-PLAN.md — Exercise verify scripts for all 7 Docker lessons + integration test (Wave 2, parallel with 04-04)
+- [ ] 04-04-PLAN.md — Module cheat sheet + foundation capstone project with verify.sh (Wave 2, parallel with 04-03)
 
 ### Phase 5: System Administration & CI/CD
 **Goal**: Learners can manage Linux services with systemd, understand logging and disk management, and build real CI/CD pipelines that build and deploy Docker images using GitHub Actions
@@ -168,3 +168,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 *Phase 1 planned: 2026-03-18 — 4 plans, 3 waves*
 *Phase 2 planned: 2026-03-19 — 4 plans, 2 waves*
 *Phase 3 planned: 2026-03-19 — 4 plans, 2 waves*
+*Phase 4 planned: 2026-03-19 — 4 plans, 2 waves*
