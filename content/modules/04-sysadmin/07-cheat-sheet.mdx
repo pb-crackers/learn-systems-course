@@ -1,0 +1,182 @@
+---
+title: "System Administration Cheat Sheet"
+description: "Quick reference for all sysadmin commands and concepts covered in this module"
+module: "System Administration"
+moduleSlug: "04-sysadmin"
+lessonSlug: "07-cheat-sheet"
+order: 7
+difficulty: "Foundation"
+estimatedMinutes: 10
+prerequisites: []
+tags: ["cheat-sheet", "sysadmin", "reference", "commands"]
+---
+
+## Overview
+
+All system administration commands and concepts from this module in one place. Bookmark this page — you will return to it every time you manage users, configure services, debug logs, partition disks, schedule tasks, or diagnose performance issues.
+
+## User Management
+
+<QuickReference
+  sections={[
+    {
+      title: "User Management (Lesson 1)",
+      items: [
+        { command: "useradd -m -s /bin/bash <username>", description: "Create a new user with a home directory (-m) and bash shell (-s). Always specify both flags.", example: "useradd -m -s /bin/bash alice" },
+        { command: "usermod -aG <group> <username>", description: "Add user to a supplementary group. -a (append) is mandatory — without it you replace all groups.", example: "usermod -aG devteam alice" },
+        { command: "passwd <username>", description: "Set or change a user's password. Prompts twice — stored as hash in /etc/shadow, never plaintext." },
+        { command: "id <username>", description: "Show user's UID, primary GID, and all group memberships", example: "id alice → uid=1001(alice) gid=1001(alice) groups=1001(alice),1002(devteam)" },
+        { command: "groups <username>", description: "List group memberships in human-readable form" },
+        { command: "userdel -r <username>", description: "Delete a user and their home directory (-r). Omitting -r leaves /home/<username> as an orphaned directory." },
+        { command: "/etc/passwd format", description: "7 fields: username:x:UID:GID:comment:/home/dir:/shell. The 'x' in field 2 means password is in /etc/shadow." },
+        { command: "/etc/shadow format", description: "Hashed passwords with aging info. Readable only by root. Hash format: $algorithm$salt$hash" },
+        { command: "/etc/group format", description: "4 fields: groupname:x:GID:member1,member2. Shows supplementary group members." },
+        { command: "visudo", description: "Safe editor for /etc/sudoers — validates syntax before saving. ALWAYS use visudo, never edit /etc/sudoers directly." },
+        { command: "echo \"<user> ALL=(ALL) NOPASSWD:ALL\" | tee /etc/sudoers.d/<user>", description: "Create a sudoers drop-in file for a user. Drop-in files in /etc/sudoers.d/ are included automatically.", example: "echo \"alice ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/alice" },
+        { command: "chmod 440 /etc/sudoers.d/<file>", description: "Required permission for sudoers drop-in files. sudo refuses files that are world-readable or group-writable." },
+        { command: "sudo -l -U <username>", description: "List what commands a user is allowed to run via sudo — useful for auditing access", example: "sudo -l -U alice" },
+      ]
+    }
+  ]}
+/>
+
+## systemd
+
+<QuickReference
+  sections={[
+    {
+      title: "systemd (Lesson 2)",
+      items: [
+        { command: "systemctl start <unit>", description: "Start a unit immediately. Does not affect whether it starts on boot.", example: "systemctl start nginx" },
+        { command: "systemctl stop <unit>", description: "Stop a running unit. Sends SIGTERM, then SIGKILL after timeout." },
+        { command: "systemctl restart <unit>", description: "Stop then start a unit — brief downtime. Use reload if the service supports it." },
+        { command: "systemctl reload <unit>", description: "Send SIGHUP (or equivalent) to reload config without stopping the process — zero downtime if supported" },
+        { command: "systemctl enable <unit>", description: "Create symlink so the unit starts on next boot. Does NOT start it now.", example: "systemctl enable nginx" },
+        { command: "systemctl disable <unit>", description: "Remove the boot symlink. Does NOT stop the running unit." },
+        { command: "systemctl enable --now <unit>", description: "Enable and start in one command — the most common way to activate a new service" },
+        { command: "systemctl status <unit>", description: "Show unit state, recent log lines, PID, and memory usage", example: "systemctl status sshd" },
+        { command: "systemctl daemon-reload", description: "Tell systemd to re-read all unit files from disk. Required after creating or editing unit files." },
+        { command: "systemctl is-active <unit>", description: "Returns 'active' if running, 'inactive' otherwise. Exit code 0 = active (useful in scripts)." },
+        { command: "systemctl is-enabled <unit>", description: "Returns 'enabled' if will start on boot. Exit code 0 = enabled." },
+        { command: "systemctl list-timers --all", description: "List all systemd timers with next/last trigger times" },
+        { command: "journalctl -u <unit>", description: "Show all journal entries for a specific unit", example: "journalctl -u nginx" },
+        { command: "journalctl -u <unit> -f", description: "Follow journal output for a unit in real time (like tail -f)" },
+        { command: "journalctl -b", description: "Show logs from the current boot only" },
+        { command: "journalctl --since \"1 hour ago\"", description: "Time-bounded log view. Also accepts: --until, ISO timestamps, 'yesterday', 'today'" },
+        { command: "journalctl -p err", description: "Show only error-level and above (emerg, alert, crit, err). Also: -p warning, -p debug" },
+        { command: "Unit file skeleton", description: "[Unit] Description= After= / [Service] Type=simple ExecStart= Restart=on-failure / [Install] WantedBy=multi-user.target" },
+        { command: "Unit file location", description: "/etc/systemd/system/<name>.service — put custom units here. /lib/systemd/system/ is for package-installed units (do not edit)." },
+      ]
+    }
+  ]}
+/>
+
+## Logging
+
+<QuickReference
+  sections={[
+    {
+      title: "Logging (Lesson 3)",
+      items: [
+        { command: "journalctl -u <unit> --no-pager", description: "Show all logs for a service without opening a pager — useful for piping or scripting" },
+        { command: "journalctl -p err --since today", description: "Show errors and above from today — combine -p and --since for focused debugging" },
+        { command: "journalctl -t <syslog-tag>", description: "Filter by syslog identifier — useful for logs written by logger or applications that set a tag", example: "journalctl -t myapp" },
+        { command: "journalctl -f", description: "Follow the journal in real time across all units (combines syslog + service output into one stream)" },
+        { command: "logger -t <tag> \"<message>\"", description: "Write a message to the system journal from a script or shell", example: "logger -t myapp 'Deployment complete'" },
+        { command: "logger -p user.error \"<message>\"", description: "Write with explicit priority (facility.severity). Priorities: emerg, alert, crit, err, warning, notice, info, debug" },
+        { command: "/var/log/ layout", description: "auth.log (sudo/ssh), syslog (rsyslog output), kern.log (kernel), dmesg (boot hardware), apt/ (package manager)" },
+        { command: "/etc/logrotate.d/<name>", description: "Drop-in logrotate config for an application. logrotate reads all files in this directory on its daily cron run." },
+        { command: "logrotate config: daily, rotate 7", description: "Rotate daily, keep 7 rotated copies. Other intervals: weekly, monthly, size 100M." },
+        { command: "logrotate config: compress / delaycompress", description: "compress: gzip rotated files. delaycompress: skip the most recent rotation (lets the app close the old file first)." },
+        { command: "logrotate config: missingok / notifempty", description: "missingok: don't error if log file is missing. notifempty: skip rotation if file is empty." },
+        { command: "logrotate config: create 644 root root", description: "Create a fresh empty log file after rotation with the specified permissions and owner" },
+        { command: "logrotate -d /etc/logrotate.d/<file>", description: "Dry-run — show what logrotate would do without changing any files. Use before deploying a new config." },
+        { command: "logrotate -f /etc/logrotate.d/<file>", description: "Force rotation now, ignoring schedule. Useful for testing that the config actually works." },
+      ]
+    }
+  ]}
+/>
+
+## Disk Management
+
+<QuickReference
+  sections={[
+    {
+      title: "Disk Management (Lesson 4)",
+      items: [
+        { command: "lsblk", description: "List block devices in a tree view — shows disk, partition, and mount point hierarchy", example: "lsblk -f  # includes filesystem type and UUID" },
+        { command: "blkid <device>", description: "Show UUID and filesystem type for a block device. Use UUID in fstab — device names (/dev/sda) can change at boot.", example: "blkid /dev/sda1" },
+        { command: "fdisk <device>", description: "Interactive partition editor. Use n (new), p (primary), w (write). Requires --privileged or physical device access.", example: "fdisk /dev/sda" },
+        { command: "mkfs.ext4 <partition>", description: "Format a partition with ext4 filesystem. Destroys all existing data — always double-check the device.", example: "mkfs.ext4 /dev/sda1" },
+        { command: "mount <device> <mountpoint>", description: "Attach a filesystem to the directory tree. Mount point must exist.", example: "mount /dev/sda1 /mnt/data" },
+        { command: "umount <mountpoint>", description: "Detach a mounted filesystem. Fails if any process has files open on it — use lsof or fuser to find them." },
+        { command: "df -h", description: "Show disk space usage for all mounted filesystems in human-readable sizes (GB, MB)", example: "df -h /mnt/data" },
+        { command: "du -sh <directory>", description: "Show total disk usage of a directory in human-readable form. -s = summarize (not per-file).", example: "du -sh /var/log" },
+        { command: "/etc/fstab format", description: "6 fields: UUID=<uuid> /mountpoint fstype options dump pass. Example: UUID=abc123 /mnt/data ext4 defaults,nofail 0 2" },
+        { command: "mount -a", description: "Mount all entries in /etc/fstab that are not yet mounted. Use to test fstab without rebooting." },
+        { command: "fstab option: nofail", description: "Boot continues even if this mount fails — important for non-critical mounts that prevent boot on failure" },
+        { command: "fstab option: defaults", description: "Shorthand for: rw, suid, dev, exec, auto, nouser, async — the standard set for most mounts" },
+        { command: "truncate -s 512M /tmp/disk.img", description: "Create a sparse 512MB file for loopback device practice — no actual space is allocated until written" },
+        { command: "losetup /dev/loop0 /tmp/disk.img", description: "Attach a file as a loopback block device — allows fdisk/mkfs/mount on a file instead of a real disk" },
+      ]
+    }
+  ]}
+/>
+
+## Scheduling
+
+<QuickReference
+  sections={[
+    {
+      title: "Scheduling (Lesson 5)",
+      items: [
+        { command: "crontab -e", description: "Edit your personal crontab using $EDITOR. Changes take effect immediately — no daemon restart needed." },
+        { command: "crontab -l", description: "List your current crontab entries" },
+        { command: "crontab -r", description: "Remove your entire crontab. No confirmation prompt — be careful." },
+        { command: "Cron syntax: min hour day month weekday", description: "5 fields before the command: 0-59, 0-23, 1-31, 1-12, 0-7 (0 and 7 both = Sunday)" },
+        { command: "*/5 * * * * /path/cmd", description: "Run every 5 minutes. * = every valid value, */N = every N units", example: "0 2 * * * /usr/local/bin/backup.sh  # 2 AM daily" },
+        { command: "0 9 * * 1-5 /path/cmd", description: "Run at 9 AM on weekdays (Monday=1, Friday=5)" },
+        { command: "at now + 10 minutes", description: "Schedule a one-off command 10 minutes from now. Interactive: type command, then Ctrl+D to submit." },
+        { command: "atq", description: "List pending at jobs for the current user" },
+        { command: "atrm <job-number>", description: "Cancel a pending at job by its number from atq" },
+        { command: "nice -n 10 <command>", description: "Start a command with lower priority (niceness 10 = less CPU). Range: -20 (highest) to 19 (lowest). -20 requires root." },
+        { command: "renice -n 15 -p <PID>", description: "Change priority of a running process. Regular users can only increase niceness (reduce priority)." },
+        { command: "systemd timer: .timer + .service pair", description: "Timers need two unit files: backup.timer (schedule) and backup.service (what to run)" },
+        { command: "OnCalendar=*-*-* 02:30:00", description: "systemd timer daily at 2:30 AM. Format: year-month-day hour:min:sec. Use * for any value." },
+        { command: "Persistent=true", description: "In [Timer]: if the system was off when the timer should have fired, run it immediately on next boot" },
+        { command: "systemd-analyze calendar \"*-*-* 02:30:00\"", description: "Validate and preview next trigger times for a calendar expression before using it in a .timer file" },
+      ]
+    }
+  ]}
+/>
+
+## System Monitoring
+
+<QuickReference
+  sections={[
+    {
+      title: "System Monitoring (Lesson 6)",
+      items: [
+        { command: "uptime", description: "Show current time, how long the system has been running, number of users, and load averages (1, 5, 15 min)" },
+        { command: "Load average interpretation", description: "Load average = number of processes waiting for CPU (or I/O). Value > number of CPU cores = saturation. Check: nproc for core count." },
+        { command: "top", description: "Interactive process monitor. Key columns: PID, %CPU, %MEM, TIME+, COMMAND. Press q to quit, k to kill, r to renice." },
+        { command: "top: load avg row", description: "First line of top shows 1/5/15 min load averages. High 1-min + low 15-min = sudden spike. All high = sustained problem." },
+        { command: "top: wa (I/O wait)", description: "In the %Cpu(s) row: wa = percentage of time CPU is idle waiting for I/O. >20% wa = I/O bottleneck." },
+        { command: "vmstat 1 5", description: "5 samples at 1-second intervals. Key fields: r (run queue), b (blocked on I/O), us (user CPU), wa (I/O wait)", example: "vmstat 1 10  # 10 samples for a longer view" },
+        { command: "vmstat: r column", description: "Processes waiting for CPU. r > number of CPUs = CPU bottleneck. Combined with high 'us'." },
+        { command: "vmstat: b column", description: "Processes blocked waiting for I/O. b > 0 consistently = I/O bottleneck. Combined with high 'wa'." },
+        { command: "vmstat: si / so columns", description: "Swap in / swap out (kilobytes/sec). Any non-zero si/so = system is swapping = memory pressure." },
+        { command: "iostat -x 1 5", description: "Extended I/O statistics per device, 5 samples at 1 second. From sysstat package.", example: "iostat -x 1" },
+        { command: "iostat: %util column", description: "Percentage of time the device was busy. >80% = disk saturation. Combined with high b and wa in vmstat." },
+        { command: "iostat: await column", description: "Average time (ms) for I/O requests to complete. High await + high %util = disk is the bottleneck." },
+        { command: "Bottleneck pattern: CPU-bound", description: "High load, high 'us' in vmstat, top shows process consuming %CPU, vmstat 'r' > nproc" },
+        { command: "Bottleneck pattern: I/O-bound", description: "High 'wa' in vmstat, high 'b', iostat %util near 100%, top shows process in D state (disk wait)" },
+        { command: "Bottleneck pattern: memory pressure", description: "Low 'free' in vmstat, non-zero 'si'/'so', system response slows as swap usage grows" },
+      ]
+    }
+  ]}
+/>
+
+<Callout type="tip" title="What's Next: CI/CD Pipelines">
+You now have the system administration foundation. The next module covers CI/CD — how code moves from a developer's machine through automated pipelines to a running service managed by the tools you just learned. GitHub Actions pipelines trigger deployments that interact directly with systemd services, cron jobs, and the disk management patterns covered here.
+</Callout>

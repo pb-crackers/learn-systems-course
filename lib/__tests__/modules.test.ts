@@ -55,6 +55,12 @@ describe('getAllLessonPaths', () => {
     expect(dockerPaths).toHaveLength(9)
   })
 
+  it('sysadmin module has 7 lessons', () => {
+    const paths = getAllLessonPaths()
+    const sysadminPaths = paths.filter(p => p.moduleSlug === '04-sysadmin')
+    expect(sysadminPaths).toHaveLength(7)
+  })
+
   it('cicd module has 5 lessons', () => {
     const paths = getAllLessonPaths()
     const cicdPaths = paths.filter(p => p.moduleSlug === '05-cicd')
