@@ -1,0 +1,132 @@
+---
+title: "Lesson Title Here"
+description: "One-sentence description of what this lesson covers"
+module: "Linux Fundamentals"
+moduleSlug: "01-linux-fundamentals"
+lessonSlug: "00-template"
+order: 0
+difficulty: "Foundation"
+estimatedMinutes: 20
+prerequisites: []
+tags: ["template"]
+---
+
+## Overview
+
+Brief 2-3 sentence overview of what the learner will learn and why it matters.
+
+## How It Works
+
+This section is MANDATORY and must come before exercises. Explain the underlying mechanism
+thoroughly. The learner should understand how the system actually works, not just commands.
+
+### The Mechanism
+
+Explain the theory. Use diagrams where helpful. Cover:
+- What happens under the hood
+- Why it works this way
+- Common misconceptions
+
+<Callout type="deep-dive" title="Under the Hood">
+Use this component to go deeper on a technical detail. This is where learners who want
+to truly understand the internals can go. Example: explaining kernel system calls,
+memory layout, or network packet structure.
+</Callout>
+
+<Callout type="tip">
+Use this for practical tips that make the learner's life easier.
+</Callout>
+
+<Callout type="warning">
+Use this for common mistakes or dangerous operations the learner should be careful about.
+</Callout>
+
+### Command Reference Preview
+
+Show the key commands with syntax highlighting:
+
+```bash filename="example.sh"
+# This is a bash code block with filename header
+ls -la /etc
+cat /etc/passwd
+```
+
+Use `TerminalBlock` for showing expected command/output pairs:
+
+<TerminalBlock
+  title="bash"
+  lines={[
+    { type: 'comment', content: 'Check your current directory' },
+    { type: 'command', content: 'pwd' },
+    { type: 'output', content: '/home/user' },
+    { type: 'command', content: 'ls -la' },
+    { type: 'output', content: 'total 48' },
+    { type: 'output', content: 'drwxr-xr-x 12 user user 4096 Mar 18 10:00 .' },
+  ]}
+/>
+
+## Hands-On Exercise
+
+Each exercise MUST have a real-world scenario (not toy examples). Use ExerciseCard:
+
+<ExerciseCard
+  title="Exercise Title (action-oriented)"
+  difficulty="Foundation"
+  scenario="You are a junior DevOps engineer at a startup. The on-call engineer asks you to investigate why a service is not starting. You need to... [real-world context]"
+  objective="By the end of this exercise, you will be able to [specific observable skill]."
+  steps={[
+    {
+      step: 1,
+      description: "First, do this thing to set up the environment.",
+      command: "docker run -it ubuntu:22.04 /bin/bash"
+    },
+    {
+      step: 2,
+      description: "Now run this command and observe the output.",
+      command: "ls -la /proc"
+    },
+    {
+      step: 3,
+      description: "Explain what you see. What does each column mean?"
+    }
+  ]}
+>
+  {/* Verification checklist goes inside ExerciseCard as children */}
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "check-1",
+        label: "You can see process IDs in /proc",
+        hint: "Run: ls /proc | grep '^[0-9]' | head -5"
+      },
+      {
+        id: "check-2",
+        label: "You understand what the first column in ls -la output means",
+        hint: "The first column shows file permissions. d = directory, - = file, l = symlink."
+      }
+    ]}
+  />
+</ExerciseCard>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Essential Commands",
+      items: [
+        { command: "ls -la", description: "List all files with details including hidden files", example: "ls -la /etc" },
+        { command: "pwd", description: "Print current working directory" },
+        { command: "cd <dir>", description: "Change directory", example: "cd /var/log" },
+      ]
+    },
+    {
+      title: "Key Concepts",
+      items: [
+        { command: "inode", description: "Filesystem metadata object containing file attributes" },
+        { command: "mount point", description: "Directory where a filesystem is attached to the tree" },
+      ]
+    }
+  ]}
+/>

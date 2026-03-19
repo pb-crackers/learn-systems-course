@@ -1,0 +1,24 @@
+---
+title: "Exercise Template"
+description: "Reference for ExerciseCard and VerificationChecklist component usage"
+module: "Reference"
+moduleSlug: "_templates"
+lessonSlug: "_exercise-template"
+order: 0
+difficulty: "Foundation"
+estimatedMinutes: 5
+prerequisites: []
+tags: ["template", "reference"]
+---
+
+## ExerciseCard Component Usage
+
+Required props: `title`, `scenario`, `difficulty`, `objective`, `steps`
+
+The `scenario` prop is REQUIRED and must describe a real-world context.
+The `difficulty` prop must be: "Foundation", "Intermediate", or "Challenge".
+
+Each step in the `steps` array can have an optional `command` field for copy-able commands.
+
+VerificationChecklist can be nested inside ExerciseCard as children.
+Each checklist item can have an optional `hint` field for expandable hints.
