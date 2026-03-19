@@ -1,0 +1,429 @@
+---
+title: "Network Troubleshooting: Finding and Fixing Problems"
+description: "A systematic approach to diagnosing network issues using ping, traceroute, tcpdump, ss, and curl — with a deliberately broken lab to practice on"
+module: "Networking Foundations"
+moduleSlug: "02-networking"
+lessonSlug: "07-troubleshooting"
+order: 7
+difficulty: "Intermediate"
+estimatedMinutes: 25
+prerequisites: ["02-networking/03-dns", "02-networking/04-http-https", "02-networking/05-ssh", "02-networking/06-firewalls"]
+tags: ["troubleshooting", "ping", "traceroute", "tcpdump", "ss", "netstat", "diagnostics"]
+---
+
+## Overview
+
+It's 2 AM and the monitoring alert says "service unreachable." You have 5 minutes to figure out if it's a DNS problem, a routing issue, a firewall rule, or the service itself being down. This lesson gives you the systematic approach to find the answer fast. Random guessing wastes time and can make things worse. The right approach is methodical: work up through the network stack layer by layer, using a specific tool at each layer to confirm or rule out that layer as the source of the problem.
+
+This lesson covers the five essential diagnostic tools (ping, traceroute, ss, curl, tcpdump), explains what each one tells you and how to interpret its output, and provides a systematic checklist for reaching a diagnosis quickly.
+
+## How It Works
+
+### The Troubleshooting Methodology
+
+Network problems manifest at a specific layer of the TCP/IP stack. The most efficient approach is to start at the bottom (physical/network) and work up — there's no point debugging DNS if you can't even ping the host.
+
+```
+Layer 7: Application     Can the application respond?
+         Tool: curl      Does curl return the expected HTTP response?
+         ─────────────────────────────────────────────────────
+Layer 4: Transport       Is the port open and listening?
+         Tool: ss, nc    Is the service bound to the expected port?
+         ─────────────────────────────────────────────────────
+Layer 3: Network         Can I reach the host? Is routing correct?
+         Tool: ping,     Does ping get a reply? Does traceroute
+               traceroute show the expected path?
+         ─────────────────────────────────────────────────────
+Layer 2: Data Link       Is the interface up? Any link errors?
+         Tool: ip link   Is the network interface up? Is there
+                         a valid MAC in ARP table?
+         ─────────────────────────────────────────────────────
+Layer 1: Physical        Is there a cable? Is the interface driver loaded?
+         Tool: ip link   Interface shows UP with an IP address?
+```
+
+**The systematic checklist (use this in order):**
+
+1. `ping <host>` — can I reach the host? (Layer 3)
+2. `traceroute <host>` if ping fails — where does the path break?
+3. `ss -tlnp` on the target — is the service actually listening on the expected port?
+4. `curl <service>` — does the application respond?
+5. `tcpdump -i <iface> port <N> -A -c 10` if everything looks right but it still doesn't work — what's actually on the wire?
+
+### ping: Testing Basic Connectivity
+
+`ping` sends ICMP echo request packets to a host and measures whether they come back and how long they take. It tests whether Layer 3 (IP routing) is working.
+
+```bash
+# Basic ping — sends until you press Ctrl-C
+ping server.example.com
+
+# Send exactly 5 packets then stop
+ping -c 5 server.example.com
+
+# Flood ping — send as fast as possible (requires root; use for throughput testing)
+ping -f server.example.com
+```
+
+**Reading ping output:**
+
+```
+PING webserver (10.0.0.3) 56(84) bytes of data.
+64 bytes from 10.0.0.3: icmp_seq=1 ttl=64 time=0.412 ms
+64 bytes from 10.0.0.3: icmp_seq=2 ttl=64 time=0.387 ms
+64 bytes from 10.0.0.3: icmp_seq=3 ttl=64 time=0.401 ms
+
+--- webserver ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 0.387/0.400/0.412/0.010 ms
+```
+
+- **TTL (Time to Live)**: Decremented by each router. A TTL of 64 means you're probably one hop away. Very low TTL (< 10) suggests many hops or a distant host.
+- **RTT (Round-Trip Time)**: Latency in milliseconds. Local network: < 1ms. Same datacenter: 1-5ms. Cross-country: 30-80ms. Unusual spikes indicate congestion or routing problems.
+- **Packet loss %**: Any loss indicates a problem. 100% loss means completely unreachable.
+
+**What different failures mean:**
+
+| Ping Result | Likely Cause |
+|-------------|-------------|
+| `Destination Host Unreachable` | Router knows the network but can't reach the specific host — bad routing or host is down |
+| `Network Unreachable` | No route to the destination network — missing route or wrong gateway |
+| `Request timeout` (no reply) | Host is down, firewall is DROP-ing (not REJECT-ing), or ICMP is blocked |
+| Replies with high packet loss | Network congestion, flaky link, or overloaded host |
+| Replies with consistently high RTT | Congested or distant path |
+
+### traceroute: Tracing the Path
+
+`traceroute` reveals the hop-by-hop path packets take to reach a destination. It works by sending packets with increasing TTL values — each router decrements TTL; when it reaches 0, the router sends back an ICMP "Time Exceeded" message, revealing its address.
+
+```bash
+traceroute server.example.com
+
+# Use ICMP instead of UDP (more likely to pass through firewalls)
+traceroute -I server.example.com
+
+# Limit maximum hops
+traceroute -m 20 server.example.com
+```
+
+**Reading traceroute output:**
+
+```
+traceroute to webserver (10.0.0.3), 30 hops max
+ 1  gateway (10.0.0.1)    0.312 ms  0.287 ms  0.301 ms
+ 2  router.isp.net        5.412 ms  5.398 ms  5.407 ms
+ 3  * * *                            ← router didn't respond (filtered)
+ 4  10.0.0.3              8.201 ms  8.188 ms  8.195 ms
+```
+
+- Each line is one hop (one router)
+- Three RTT measurements are shown per hop
+- `* * *` means the router at that hop didn't respond — this is common and doesn't necessarily indicate a problem (many routers filter ICMP Time Exceeded). If the **final destination** is reachable (last line has an IP and RTT), intermediate `* * *` hops are irrelevant.
+- **Where to look for problems**: If traceroute stops at a specific hop with `* * *` and doesn't reach the destination, that hop is where routing breaks or a firewall is blocking traffic.
+
+### ss: Socket Statistics
+
+`ss` (Socket Statistics) replaces the older `netstat` command. It queries the kernel directly for socket state information — much faster than netstat for large numbers of connections.
+
+The most useful flag combination for diagnosing service problems:
+
+```bash
+# Show all listening TCP sockets with process information
+ss -tlnp
+
+# t = TCP, l = listening, n = numeric (no DNS), p = process name
+```
+
+**Reading ss output:**
+
+```
+Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port  Process
+tcp   LISTEN  0      128    0.0.0.0:22          0.0.0.0:*          users:(("sshd",pid=1234))
+tcp   LISTEN  0      511    0.0.0.0:80          0.0.0.0:*          users:(("nginx",pid=5678))
+tcp   LISTEN  0      128    127.0.0.1:5432      0.0.0.0:*          users:(("postgres",pid=9012))
+```
+
+- **Local Address:Port** is where the service is listening
+- `0.0.0.0:80` means listening on all interfaces (reachable from anywhere)
+- `127.0.0.1:5432` means listening only on loopback (not reachable from outside — intentional for databases)
+- **Process** column shows which process owns the socket
+
+**What ss tells you for troubleshooting:**
+
+```bash
+# Is the service even running?
+ss -tlnp | grep 8080
+# If no output: the service isn't listening — it may have crashed or started on wrong port
+
+# What's actually listening on port 80?
+ss -tlnp | grep ':80 '
+
+# Show all established connections to port 443
+ss -tnp state established '( dport = :443 )'
+```
+
+### tcpdump: Packet Capture and Analysis
+
+`tcpdump` is your last resort when everything looks right at the application and OS level but it still doesn't work. It captures actual packets from a network interface so you can see exactly what's on the wire.
+
+**Always use filters.** Running bare `tcpdump` on a busy interface produces hundreds of lines per second — you won't be able to read them and it won't help you:
+
+```bash
+# Capture HTTP traffic (port 80) in ASCII, stop after 5 packets
+tcpdump -i eth0 port 80 -A -c 5
+
+# Capture all traffic to/from a specific host
+tcpdump -i eth0 host webserver -n
+
+# Capture TCP traffic on port 443 with verbose output
+tcpdump -i eth0 tcp port 443 -v
+
+# Capture and save to a file for later analysis (e.g., in Wireshark)
+tcpdump -i eth0 port 80 -w /tmp/capture.pcap
+
+# Common flags:
+# -i eth0   interface to capture on
+# -A        print packet payload as ASCII (readable for HTTP)
+# -n        no DNS lookup (faster, shows IPs not hostnames)
+# -v/-vv    verbose (more packet header detail)
+# -c N      stop after N packets
+# -w file   write to pcap file instead of stdout
+```
+
+<Callout type="warning" title="Always Filter tcpdump — Never Run It Bare">
+Never run `tcpdump` without a filter on a busy network interface. On a production system handling thousands of connections per second, unfiltered tcpdump floods your terminal faster than you can read it, and the output is useless. Always specify at least a port (`port 80`) or host filter (`host webserver`). The `-c N` flag to capture a fixed number of packets is also your friend — it ensures tcpdump exits automatically.
+</Callout>
+
+**Reading tcpdump output:**
+
+```
+10:00:01.123456 IP client.52341 > webserver.80: Flags [S], seq 12345, win 65535
+10:00:01.123789 IP webserver.80 > client.52341: Flags [S.], seq 98765, ack 12346, win 65535
+10:00:01.124012 IP client.52341 > webserver.80: Flags [.], ack 98766
+```
+
+- **Timestamp**: When the packet was captured
+- **IP src > dst**: Source and destination addresses with port after the dot
+- **Flags**: TCP flags — `[S]` = SYN (connection attempt), `[S.]` = SYN-ACK (server accepting), `[.]` = ACK (acknowledgment), `[P.]` = PSH+ACK (data push), `[F.]` = FIN (connection close), `[R]` = RST (connection reset/refused)
+- **A three-way handshake** looks like: `[S]` → `[S.]` → `[.]` (healthy connection)
+- **Connection refused** looks like: `[S]` → `[R]` (RST immediately — port not listening)
+- **Firewall DROP** looks like: `[S]` repeated with no response (SYN timeout)
+
+### curl for Application Debugging
+
+Once you've confirmed the service is listening (ss) and the network path is clear (ping), curl confirms whether the application is responding correctly:
+
+```bash
+# Full verbose — see headers, TLS, everything
+curl -v http://webserver/api/health
+
+# Just the HTTP status code
+curl -s -o /dev/null -w '%{http_code}\n' http://webserver/
+
+# Short timeout — don't wait forever for a slow service
+curl --connect-timeout 5 --max-time 10 http://webserver/
+
+# Test application is responding on a specific path
+curl -I http://webserver/api/health
+```
+
+**Interpreting curl failures:**
+
+| curl Error | Meaning |
+|------------|---------|
+| `Connection refused` | Nothing is listening on that port (check ss) |
+| `Could not resolve host` | DNS failure (check dig, check /etc/resolv.conf) |
+| `Connection timed out` | Firewall is DROP-ing packets (check iptables/ufw) |
+| `SSL certificate error` | TLS cert is invalid/expired (use -k to test without validation) |
+| HTTP 502 | Proxy reached backend but got bad response (backend is up but crashing) |
+| HTTP 504 | Proxy timed out waiting for backend (backend is slow or down) |
+
+### Systematic Checklist
+
+When a service is unreachable, run these steps in order:
+
+```
+1. Can I reach the host at all?
+   ping <host>
+   → If NO: routing problem. Run traceroute to find where it breaks.
+   → If YES: continue to step 2.
+
+2. Is the service listening on the expected port?
+   ss -tlnp | grep <port>  (run on the target host)
+   → If NO: the service isn't running or is on the wrong port.
+             Check: systemctl status <service>, journalctl -u <service>
+   → If YES: continue to step 3.
+
+3. Can I connect from outside?
+   nc -zv <host> <port>  (run from the client)
+   → If NO but service IS listening: firewall is blocking.
+             Check: iptables -L -n, ufw status
+   → If YES: continue to step 4.
+
+4. Does the application respond correctly?
+   curl -v http://<host>:<port>/health
+   → If HTTP error: application-level issue. Check app logs.
+   → If connection refused/timeout: inconsistency with step 3 — recheck.
+   → If OK: check DNS, check the actual URL the client is using.
+
+5. Still can't find it?
+   tcpdump -i eth0 port <N> -A -c 10  (run on the server)
+   Make a request from the client — does tcpdump see any packets?
+   → If NO packets on the server: routing/firewall drops before the server
+   → If packets arrive but app doesn't respond: application bug
+```
+
+## Hands-On Exercise
+
+<ExerciseCard
+  title="Diagnose a Broken Three-Service Application"
+  difficulty="Intermediate"
+  scenario="A three-service web application (client, app server, database) is broken. Users report they can't access the application. Your job is to systematically diagnose the fault using the tools from this lesson. The lab has an intentional misconfiguration — find it. You will not be told what the fault is — use your tools to discover it."
+  objective="By the end of this exercise, you will be able to apply the systematic troubleshooting checklist to identify the layer and source of a network fault in a multi-service environment."
+  steps={[
+    {
+      step: 1,
+      description: "Start the deliberately broken lab environment.",
+      command: "docker compose -f docker/networking/07-troubleshooting/compose.yml up -d"
+    },
+    {
+      step: 2,
+      description: "Open a shell in the client container — this is your starting point for diagnosis.",
+      command: "docker compose -f docker/networking/07-troubleshooting/compose.yml exec client bash"
+    },
+    {
+      step: 3,
+      description: "Step 1 of the checklist: test basic connectivity. Can the client reach the app server?",
+      command: "ping -c 3 app-server"
+    },
+    {
+      step: 4,
+      description: "Step 4 of the checklist: try a curl request to see what response (if any) comes back.",
+      command: "curl -v --connect-timeout 5 http://app-server/"
+    },
+    {
+      step: 5,
+      description: "If curl fails, determine why. Try different approaches to narrow down the layer.",
+      command: "nc -zv -w 3 app-server 80 && echo 'PORT OPEN' || echo 'PORT CLOSED OR BLOCKED'"
+    },
+    {
+      step: 6,
+      description: "Use ss on the app-server to see what ports it is actually listening on. Run this from inside the app-server container.",
+      command: "docker compose -f docker/networking/07-troubleshooting/compose.yml exec app-server ss -tlnp"
+    },
+    {
+      step: 7,
+      description: "Capture live traffic to see what is actually on the wire. Run from the client container while making requests.",
+      command: "tcpdump -i eth0 host app-server -A -c 10 -n"
+    },
+    {
+      step: 8,
+      description: "Once you have identified the fault, write your diagnosis to /tmp/diagnosis.txt.",
+      command: "echo 'The fault is: [your diagnosis here]' > /tmp/diagnosis.txt && cat /tmp/diagnosis.txt"
+    },
+    {
+      step: 9,
+      description: "Run the verification script. It checks that you used the diagnostic tools and wrote a diagnosis.",
+      command: "bash /verify/07-troubleshooting.sh"
+    }
+  ]}
+>
+  <VerificationChecklist
+    title="Verify Your Work"
+    items={[
+      {
+        id: "used-tools",
+        label: "Diagnostic tools (ping, ss, curl, or tcpdump) were used to investigate the broken lab",
+        hint: "The verify script checks for evidence that you used diagnostic tools. Try: ping app-server, ss -tlnp, curl app-server"
+      },
+      {
+        id: "diagnosis-written",
+        label: "Diagnosis written to /tmp/diagnosis.txt with a non-empty description",
+        hint: "Run: echo 'The fault is: [what you found]' > /tmp/diagnosis.txt — describe the specific misconfiguration you found"
+      },
+      {
+        id: "fault-identified",
+        label: "You can describe which layer the fault was at and what specific misconfiguration caused it",
+        hint: "Think through: Is it Layer 3 (ping fails)? Layer 4 (port not listening)? Layer 7 (app responds wrong)? Firewall (port blocked)? DNS (name doesn't resolve)?"
+      }
+    ]}
+  />
+</ExerciseCard>
+
+<TerminalBlock
+  title="Tear down the lab when done"
+  lines={[
+    { type: 'comment', content: 'Exit the container shell first' },
+    { type: 'command', content: 'exit' },
+    { type: 'command', content: 'docker compose -f docker/networking/07-troubleshooting/compose.yml down' },
+    { type: 'output', content: '[+] Running 4/4' },
+    { type: 'output', content: ' ✔ Container 07-troubleshooting-client-1     Removed' },
+    { type: 'output', content: ' ✔ Container 07-troubleshooting-app-server-1 Removed' },
+    { type: 'output', content: ' ✔ Container 07-troubleshooting-database-1   Removed' },
+    { type: 'output', content: ' ✔ Network 07-troubleshooting_lab-net        Removed' },
+  ]}
+/>
+
+<Callout type="tip" title="What's Next: Docker Networking">
+Everything you just learned — bridge networks, container DNS, IP routing, port mapping — is exactly what Docker networking builds on. When you run `docker network create mynet`, you're creating a Linux bridge interface. When containers resolve each other by service name, that's the same DNS mechanism you explored here. When Docker publishes a port (`-p 8080:80`), it adds an iptables NAT rule to redirect traffic. Phase 4 (Docker) will feel familiar because these networking fundamentals are the foundation everything else is built on.
+</Callout>
+
+## Quick Reference
+
+<QuickReference
+  sections={[
+    {
+      title: "Troubleshooting Checklist (Bottom-Up)",
+      items: [
+        { command: "1. ping <host>", description: "Layer 3: can I reach the host? Confirms IP routing works.", example: "ping -c 3 app-server" },
+        { command: "2. traceroute <host>", description: "Layer 3: where does the path break? Which hop stops responding?", example: "traceroute -I app-server" },
+        { command: "3. ss -tlnp | grep <port>", description: "Layer 4: is the service listening on the expected port?", example: "ss -tlnp | grep ':8080 '" },
+        { command: "4. curl -v http://<host>:<port>/", description: "Layer 7: does the application respond correctly?", example: "curl -v --connect-timeout 5 http://app-server/health" },
+        { command: "5. tcpdump -i eth0 port <N> -A -c 10", description: "Packet level: is traffic actually arriving at the server?", example: "tcpdump -i eth0 port 80 -A -c 10 -n" },
+      ]
+    },
+    {
+      title: "ping",
+      items: [
+        { command: "ping -c <N> <host>", description: "Send N packets then stop", example: "ping -c 5 server.example.com" },
+        { command: "ping -i <sec> <host>", description: "Set interval between packets (default 1s)", example: "ping -i 0.2 server.example.com" },
+        { command: "Destination Host Unreachable", description: "Router can't reach the host — check routing, check host is up" },
+        { command: "Request timeout (no reply)", description: "Firewall DROP, ICMP blocked, or host is down" },
+        { command: "High packet loss %", description: "Network congestion, flaky link, or overloaded host" },
+      ]
+    },
+    {
+      title: "ss (Socket Statistics)",
+      items: [
+        { command: "ss -tlnp", description: "Show all listening TCP sockets with process info", example: "ss -tlnp | grep :80" },
+        { command: "ss -tlnp | grep <port>", description: "Check if a specific port has a listener", example: "ss -tlnp | grep ':8080 '" },
+        { command: "ss -s", description: "Summary statistics: TCP connection counts by state" },
+        { command: "ss -tnp state established", description: "Show all established TCP connections" },
+        { command: "0.0.0.0:<port>", description: "Service listening on all interfaces (externally reachable)" },
+        { command: "127.0.0.1:<port>", description: "Service listening on loopback only (not externally reachable — intentional for DBs)" },
+      ]
+    },
+    {
+      title: "tcpdump (always use filters)",
+      items: [
+        { command: "tcpdump -i <iface> port <N> -A -c 10", description: "Capture packets on a port, show ASCII payload, stop after 10", example: "tcpdump -i eth0 port 80 -A -c 10" },
+        { command: "tcpdump -i <iface> host <name> -n", description: "Capture all traffic to/from a host", example: "tcpdump -i eth0 host webserver -n" },
+        { command: "tcpdump -i <iface> port <N> -w <file>", description: "Save capture to pcap file for Wireshark analysis", example: "tcpdump -i eth0 port 80 -w /tmp/debug.pcap" },
+        { command: "Flags [S]", description: "SYN — connection attempt. If no reply: firewall DROP or host unreachable." },
+        { command: "Flags [R]", description: "RST — connection reset. The port is closed (nothing listening)." },
+        { command: "Flags [S.]", description: "SYN-ACK — server accepted the connection. Handshake succeeded." },
+      ]
+    },
+    {
+      title: "curl Diagnostics",
+      items: [
+        { command: "curl -v <url>", description: "Full verbose: headers, TLS, timing — see exactly what happened", example: "curl -v http://app-server/" },
+        { command: "curl -s -o /dev/null -w '%{http_code}'", description: "Just the HTTP status code", example: "curl -s -o /dev/null -w '%{http_code}' http://app-server/" },
+        { command: "curl --connect-timeout <sec>", description: "Fail fast if host not reachable — don't wait the full TCP timeout", example: "curl --connect-timeout 5 http://app-server/" },
+        { command: "Connection refused", description: "Nothing listening on that port — check ss on the server" },
+        { command: "Could not resolve host", description: "DNS failure — check dig, check /etc/resolv.conf" },
+        { command: "Connection timed out", description: "Firewall DROP — packets arrive but get silently dropped" },
+      ]
+    }
+  ]}
+/>
