@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-system-administration-ci-cd-03-PLAN.md
-last_updated: "2026-03-19T13:03:26.887Z"
+stopped_at: Completed 05-system-administration-ci-cd-01-PLAN.md
+last_updated: "2026-03-19T13:06:25.165Z"
 last_activity: "2026-03-19 — Plan 01-01 complete: Next.js 16 bootstrap, Tailwind v4, MDX pipeline, type system, Vitest"
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 20
-  completed_plans: 17
+  completed_plans: 18
   percent: 25
 ---
 
@@ -66,6 +66,7 @@ Progress: [███░░░░░░░] 25%
 | Phase 04-docker-foundation-capstone P03 | 12min | 2 tasks | 9 files |
 | Phase 04-docker-foundation-capstone P04 | 5min | 2 tasks | 8 files |
 | Phase 05-system-administration-ci-cd P03 | 7min | 2 tasks | 4 files |
+| Phase 05-system-administration-ci-cd P01 | 9min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,8 @@ Recent decisions affecting current work:
 - [Phase 05-system-administration-ci-cd]: CICD-01-02 Foundation, CICD-03-04 Intermediate difficulty labels per locked decision in CONTEXT.md
 - [Phase 05-system-administration-ci-cd]: ghcr.io over Docker Hub in pipeline YAML: uses GITHUB_TOKEN, no extra secret, integrated with GitHub packages
 - [Phase 05-system-administration-ci-cd]: build-push job main-branch guard (if: github.ref == refs/heads/main) — PRs run lint+test but never push images to registry
+- [Phase 05-system-administration-ci-cd]: jrei/systemd-ubuntu:22.04 requires --privileged --tmpfs flags — documented as warning callout in SYS-02 lesson
+- [Phase 05-system-administration-ci-cd]: Loopback device pattern for disk labs: truncate -s 512M + losetup /dev/loop0 — requires --privileged container
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-19T13:03:26.885Z
-Stopped at: Completed 05-system-administration-ci-cd-03-PLAN.md
+Last session: 2026-03-19T13:06:25.163Z
+Stopped at: Completed 05-system-administration-ci-cd-01-PLAN.md
 Resume file: None

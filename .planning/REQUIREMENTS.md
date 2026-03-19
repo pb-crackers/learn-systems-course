@@ -57,12 +57,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Module 3: System Administration
 
-- [ ] **SYS-01**: Lesson on user and group management — useradd, /etc/passwd, /etc/shadow, sudo
-- [ ] **SYS-02**: Lesson on systemd — units, services, targets, journald, service lifecycle
-- [ ] **SYS-03**: Lesson on logging — syslog, journald, log rotation, centralized logging concepts
-- [ ] **SYS-04**: Lesson on disk management — fdisk, mount, fstab, LVM basics, df, du
-- [ ] **SYS-05**: Lesson on process management and scheduling — cron, systemd timers, at, nice/renice
-- [ ] **SYS-06**: Lesson on system monitoring — top, htop, vmstat, iostat, resource bottlenecks
+- [x] **SYS-01**: Lesson on user and group management — useradd, /etc/passwd, /etc/shadow, sudo
+- [x] **SYS-02**: Lesson on systemd — units, services, targets, journald, service lifecycle
+- [x] **SYS-03**: Lesson on logging — syslog, journald, log rotation, centralized logging concepts
+- [x] **SYS-04**: Lesson on disk management — fdisk, mount, fstab, LVM basics, df, du
+- [x] **SYS-05**: Lesson on process management and scheduling — cron, systemd timers, at, nice/renice
+- [x] **SYS-06**: Lesson on system monitoring — top, htop, vmstat, iostat, resource bottlenecks
 - [ ] **SYS-07**: Hands-on exercises for each sysadmin lesson
 - [ ] **SYS-08**: Module cheat sheet with sysadmin commands and concepts
 
@@ -198,12 +198,12 @@ Requirements for initial release. Each maps to roadmap phases.
 | DOC-08 | Phase 4 | Complete |
 | DOC-09 | Phase 4 | Complete |
 | CAP-01 | Phase 4 | Complete |
-| SYS-01 | Phase 5 | Pending |
-| SYS-02 | Phase 5 | Pending |
-| SYS-03 | Phase 5 | Pending |
-| SYS-04 | Phase 5 | Pending |
-| SYS-05 | Phase 5 | Pending |
-| SYS-06 | Phase 5 | Pending |
+| SYS-01 | Phase 5 | Complete |
+| SYS-02 | Phase 5 | Complete |
+| SYS-03 | Phase 5 | Complete |
+| SYS-04 | Phase 5 | Complete |
+| SYS-05 | Phase 5 | Complete |
+| SYS-06 | Phase 5 | Complete |
 | SYS-07 | Phase 5 | Pending |
 | SYS-08 | Phase 5 | Pending |
 | CICD-01 | Phase 5 | Complete |
