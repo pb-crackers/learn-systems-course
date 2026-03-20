@@ -26,20 +26,23 @@ export function LessonLayout({ frontmatter, children }: LessonLayoutProps) {
           </div>
 
           {/* Lesson header */}
-          <div className="mb-8 space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight">{frontmatter.title}</h1>
+          <div className="mb-10 space-y-4 border-b border-border pb-6">
+            <h1 className="text-4xl font-bold tracking-tight leading-tight">{frontmatter.title}</h1>
             <p className="text-muted-foreground text-lg">{frontmatter.description}</p>
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>{frontmatter.estimatedMinutes} min read</span>
+              <span className="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                {frontmatter.estimatedMinutes} min read
+              </span>
               <span>·</span>
               <span
-                className={
+                className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   frontmatter.difficulty === 'Foundation'
-                    ? 'text-green-400'
+                    ? 'text-green-400 bg-green-400/10'
                     : frontmatter.difficulty === 'Intermediate'
-                      ? 'text-amber-400'
-                      : 'text-red-400'
-                }
+                      ? 'text-amber-400 bg-amber-400/10'
+                      : 'text-red-400 bg-red-400/10'
+                }`}
               >
                 {frontmatter.difficulty}
               </span>
@@ -50,7 +53,7 @@ export function LessonLayout({ frontmatter, children }: LessonLayoutProps) {
           <PrerequisiteBanner prerequisites={frontmatter.prerequisites} />
 
           {/* MDX lesson content with prose styling */}
-          <div className="prose prose-invert max-w-none [&_pre]:my-0">
+          <div className="prose prose-invert max-w-none [&_pre]:my-0 prose-p:leading-7 prose-p:mb-5 prose-headings:scroll-mt-20">
             {children}
           </div>
 
