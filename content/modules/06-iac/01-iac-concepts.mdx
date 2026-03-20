@@ -143,36 +143,81 @@ OpenTofu uses the `tofu` CLI command. Terraform uses `terraform`. The syntax, fi
 <ExerciseCard
   title="Compare Imperative vs Declarative Infrastructure"
   difficulty="Foundation"
+  annotated={true}
   scenario="Your team has been creating Docker containers manually with shell scripts. A new developer asked to add HTTPS support — in the shell script approach, that means figuring out which docker commands to re-run in what order without breaking the running containers. Compare the imperative (shell script) and declarative (HCL) approaches to understand why IaC handles change better."
   objective="By the end of this exercise, you will be able to explain why declarative infrastructure handles change safely, describe what the state file tracks, and define drift."
   steps={[
     {
       step: 1,
       description: "Consider a shell script that creates 3 containers: a web server, an API, and a database. Write down what happens when you need to change the web server's port from 8080 to 8443.",
-      command: "# With a shell script: docker stop web && docker rm web && docker run -d --name web -p 8443:443 nginx"
+      command: "# With a shell script: docker stop web && docker rm web && docker run -d --name web -p 8443:443 nginx",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "stop", description: "Sends a stop signal to a running container, waiting for it to exit gracefully before force-killing it." },
+        { token: "web", description: "Specifies the container name to stop — targets the container named web." },
+        { token: "&&", description: "Runs the next command only if the previous command exited successfully, chaining stop, remove, and run in sequence." },
+        { token: "docker", description: "Runs the Docker CLI again for the second command in the chain." },
+        { token: "rm", description: "Removes a stopped container from the system, freeing its name so a new container can use it." },
+        { token: "web", description: "Specifies the container name to remove — targets the container named web." },
+        { token: "&&", description: "Runs the next command only if the remove command succeeded, preventing run from executing if rm failed." },
+        { token: "docker", description: "Runs the Docker CLI again for the third command in the chain." },
+        { token: "run", description: "Creates and starts a new container from the specified image with the given configuration." },
+        { token: "-d", description: "Runs the container in detached mode so it runs in the background and the terminal returns immediately." },
+        { token: "--name", description: "Assigns a human-readable name to the container so you can reference it by name instead of a hash ID." },
+        { token: "web", description: "Sets the container name to web, reusing the same name the old container had." },
+        { token: "-p", description: "Publishes a container port to the host, mapping a host port to a container port." },
+        { token: "8443:443", description: "Maps host port 8443 to container port 443, replacing the old 8080-to-80 mapping for HTTPS traffic." },
+        { token: "nginx", description: "Specifies the Docker image to run — uses the latest nginx image from Docker Hub." }
+      ]
     },
     {
       step: 2,
       description: "Notice the problem: the script must know the current state (is the container running?), the desired state, and how to transition between them. If the container crashed before you ran the script, the docker stop fails.",
-      command: "# The script is order-dependent and state-unaware"
+      command: "# The script is order-dependent and state-unaware",
+      annotations: [
+        { token: "docker", description: "References the Docker CLI in this conceptual note about imperative script fragility." },
+        { token: "stop", description: "The stop subcommand that fails if the container is already stopped, illustrating the state-awareness problem." }
+      ]
     },
     {
       step: 3,
       description: "Now consider the HCL equivalent. To change the port, you change one number in the resource block and run tofu apply. OpenTofu figures out that it needs to recreate the container with the new port mapping.",
-      command: "# In HCL: change external = 8080 to external = 8443, then: tofu apply"
+      command: "# In HCL: change external = 8080 to external = 8443, then: tofu apply",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI, the open-source IaC tool that reads HCL and manages infrastructure." },
+        { token: "apply", description: "Reads your HCL configuration, computes the changes needed, and executes them against real infrastructure." }
+      ]
     },
     {
       step: 4,
       description: "OpenTofu shows you the plan before applying: '1 to destroy, 1 to add'. You confirm it. The old container is removed and the new one is created — no manual state tracking required.",
-      command: "# tofu plan → review → tofu apply → done"
+      command: "# tofu plan → review → tofu apply → done",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI." },
+        { token: "plan", description: "Reads your HCL and state file, queries real infrastructure, and prints a preview of every change without executing anything." },
+        { token: "tofu", description: "Runs the OpenTofu CLI again for the apply step after reviewing the plan output." },
+        { token: "apply", description: "Executes the plan that was previewed, creating, modifying, or destroying resources as shown and updating the state file." }
+      ]
     },
     {
       step: 5,
       description: "Think about the drift scenario: someone manually runs 'docker stop web' without going through OpenTofu. What will tofu plan show on the next run?",
-      command: "# tofu plan will show: docker_container.web must be replaced (container is stopped, desired state is running)"
+      command: "# tofu plan will show: docker_container.web must be replaced (container is stopped, desired state is running)",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI." },
+        { token: "plan", description: "Detects drift by comparing the state file and real infrastructure against your HCL desired state, showing replacements needed." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your team lead manually stopped the web container via 'docker stop' to investigate a bug, then forgot to restart it. The next morning you run tofu plan. What does OpenTofu show and why — and what does this tell you about why IaC handles outages more reliably than shell scripts?"
+    answer="OpenTofu shows that docker_container.web must be replaced (-/+ in the plan output). The plan step queries the Docker API, discovers the container is in a stopped state that differs from the desired running state in your HCL, and computes that the fix is to destroy the stopped container and create a fresh running one. This illustrates the core IaC advantage over shell scripts: a shell script to restart the server would fail if the container was already removed instead of just stopped, because scripts are order-dependent and have no awareness of current state. OpenTofu does not care how the drift happened — it always compares desired state to reality and computes the correct transition, making recovery deterministic and safe."
+  />
+  <ScenarioQuestion
+    question="A new team member suggests skipping tofu plan and always running tofu apply directly to save time. Why is this a dangerous shortcut, especially during a port change like the 8080-to-8443 migration in this exercise?"
+    answer="Skipping tofu plan removes the only preview step that shows you what will be destroyed before it happens. During a port change, OpenTofu must destroy the existing container and create a new one with the new port mapping — this is a destroy-and-recreate operation, not an in-place update. Without running plan first, you would not see the -/+ symbol indicating destruction until apply has already started removing the running container. If the new container fails to start due to a misconfiguration, you now have an outage. The plan step is read-only and costs nothing — it is the equivalent of reviewing a diff before merging a pull request. Always plan before apply."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

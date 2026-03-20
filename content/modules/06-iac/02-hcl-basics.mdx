@@ -263,56 +263,103 @@ output "container_name" {
 <ExerciseCard
   title="Provision an Nginx Web Server with OpenTofu"
   difficulty="Foundation"
+  annotated={true}
   scenario="Provision an Nginx web server using OpenTofu instead of docker run. You will initialize a provider, plan the changes, apply them, and verify the container is running — seeing the full declarative workflow from HCL to a live container."
   objective="By the end of this exercise, you will have run the complete tofu init/plan/apply workflow, inspected the state file, and destroyed infrastructure cleanly."
   steps={[
     {
       step: 1,
       description: "Navigate to the exercise directory. The main.tf, variables.tf, and outputs.tf files are already written for you — read them before running any commands.",
-      command: "cd docker/iac/01-basics && ls"
+      command: "cd docker/iac/01-basics && ls",
+      annotations: [
+        { token: "cd", description: "Changes the current working directory to the specified path." },
+        { token: "docker/iac/01-basics", description: "Specifies the target directory containing the OpenTofu exercise files (main.tf, variables.tf, outputs.tf)." },
+        { token: "&&", description: "Runs the next command only if the previous command succeeded, ensuring ls runs only after the directory change." },
+        { token: "ls", description: "Lists the files and directories in the current directory so you can confirm the exercise files are present." }
+      ]
     },
     {
       step: 2,
       description: "Read the main.tf to understand what will be created: a docker_image resource (nginx:1.25) and a docker_container resource (learn-iac-web on port 8080).",
-      command: "cat main.tf"
+      command: "cat main.tf",
+      annotations: [
+        { token: "cat", description: "Reads a file and prints its entire contents to standard output so you can review it." },
+        { token: "main.tf", description: "Specifies the OpenTofu configuration file that declares the provider, docker_image resource, and docker_container resource." }
+      ]
     },
     {
       step: 3,
       description: "Initialize OpenTofu. This downloads the kreuzwerker/docker v3.9.0 provider binary into .terraform/. You should see 'OpenTofu has been successfully initialized!'",
-      command: "tofu init"
+      command: "tofu init",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI, the open-source infrastructure-as-code tool that manages infrastructure via HCL configurations." },
+        { token: "init", description: "Initializes the working directory by downloading provider binaries declared in required_providers into the .terraform directory." }
+      ]
     },
     {
       step: 4,
       description: "Preview the changes without applying them. OpenTofu shows exactly what it will create: 2 resources (docker_image.nginx and docker_container.web).",
-      command: "tofu plan"
+      command: "tofu plan",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI." },
+        { token: "plan", description: "Reads your HCL configuration and state file, queries real infrastructure, and prints a complete diff of planned changes without executing anything." }
+      ]
     },
     {
       step: 5,
       description: "Apply the plan. OpenTofu will ask 'Do you want to perform these actions?' — type 'yes'. After applying, it prints the output values.",
-      command: "tofu apply"
+      command: "tofu apply",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI." },
+        { token: "apply", description: "Executes the planned changes, creating or modifying infrastructure to match your HCL configuration, then updates the state file." }
+      ]
     },
     {
       step: 6,
       description: "Verify the container is running. You should see learn-iac-web in the container list with port 0.0.0.0:8080->80/tcp.",
-      command: "docker ps"
+      command: "docker ps",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to interact with the Docker daemon." },
+        { token: "ps", description: "Lists all currently running containers, showing their IDs, image names, ports, and uptime." }
+      ]
     },
     {
       step: 7,
       description: "Test that the web server responds. You should see the nginx welcome page HTML.",
-      command: "curl localhost:8080"
+      command: "curl localhost:8080",
+      annotations: [
+        { token: "curl", description: "Sends an HTTP request to a URL and prints the response body to standard output." },
+        { token: "localhost:8080", description: "Targets port 8080 on the local machine, which OpenTofu mapped to the container's port 80 via the ports block in main.tf." }
+      ]
     },
     {
       step: 8,
       description: "Inspect the state file OpenTofu created. Find the docker_container resource entry and notice the 'id' field — this is the real Docker container ID.",
-      command: "cat terraform.tfstate"
+      command: "cat terraform.tfstate",
+      annotations: [
+        { token: "cat", description: "Reads a file and prints its entire contents to standard output." },
+        { token: "terraform.tfstate", description: "Specifies the OpenTofu state file that records every resource OpenTofu manages, including the real Docker container ID and all attributes." }
+      ]
     },
     {
       step: 9,
       description: "Clean up by destroying the infrastructure. OpenTofu removes the container (but not the nginx image, because keep_locally = true).",
-      command: "tofu destroy"
+      command: "tofu destroy",
+      annotations: [
+        { token: "tofu", description: "Runs the OpenTofu CLI." },
+        { token: "destroy", description: "Destroys all resources tracked in the state file and clears state, prompting for confirmation before proceeding." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After running tofu apply, you open terraform.tfstate and find the docker_container entry. Inside attributes you see an 'id' field like 'a1b2c3d4e5f6...'. What is this ID, how is it different from the container name you set in HCL, and why does OpenTofu need it?"
+    answer="The id field is the actual Docker container ID assigned by the Docker daemon when the container was created — a SHA256-derived hash that uniquely identifies the container in Docker's internal registry. Your HCL specified the name (learn-iac-web) as a human-readable label, but Docker also assigns this opaque ID. OpenTofu stores this real ID in the state file because it needs to reference the actual infrastructure object on future plan and apply runs. When you next run tofu plan, OpenTofu calls the Docker API with this container ID to inspect its current state, detecting whether it still exists, whether its configuration has drifted, or whether it needs to be replaced. Without the state file storing this real ID, OpenTofu would have no way to look up the container it previously created."
+  />
+  <ScenarioQuestion
+    question="You want to provision a second nginx container on port 9090 using the same main.tf. Your first instinct is to run tofu apply -var='external_port=9090'. What will actually happen, and what is the correct approach?"
+    answer="Running tofu apply -var='external_port=9090' will not create a second container — it will modify the existing one. OpenTofu reads the HCL (which declares one docker_container resource), compares it to the state file (which tracks the existing container on port 8080), and plans to update the existing resource to use port 9090 instead of creating a new one. OpenTofu manages exactly what your configuration declares. To run two containers, you need two resource blocks in main.tf (or use modules, covered in lesson 4) — one for each container with its own name and port. This is a key difference from imperative scripts: adding another docker run command creates another container, but adding another variable value to a single resource block changes the existing resource."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
