@@ -37,11 +37,24 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 
 ### Active
 
+## Current Milestone: v1.2 Enhanced Questions
+
+**Goal:** Add multiple-choice knowledge quizzes to every lesson that gate progression and reinforce learning through retrieval practice.
+
+**Target features:**
+- 7-10 multiple choice questions per lesson covering key concepts and commands
+- Wrong answers show no correct answer — learner retakes entire quiz
+- Correct answers show explanations reinforcing reasoning
+- 100% score required to unlock next lesson
+- Quiz embedded at bottom of lesson page after hands-on exercise
+- Progress gating: lesson complete only when exercise done AND quiz passed
+
+### Future
+
 - [ ] Kubernetes basics — pods, deployments, services, configmaps
 - [ ] Configuration management with Ansible — playbooks, inventory, idempotency
 - [ ] Security hardening module — SSH hardening, secrets management, vulnerability scanning
 - [ ] Embedded web-based terminal emulator for in-browser exercises
-- [ ] Interactive quizzes after each lesson
 
 ### Out of Scope
 
@@ -95,4 +108,4 @@ v1.1 added 5 new components (AnnotatedCommand, ScenarioQuestion, ChallengeRefere
 | Separate localStorage keys for preferences | Preferences survive progress reset, separate concern from completion tracking | ✓ Good — clean separation, compound hydration guard |
 
 ---
-*Last updated: 2026-03-20 after v1.1 milestone*
+*Last updated: 2026-03-20 after v1.2 milestone started*
