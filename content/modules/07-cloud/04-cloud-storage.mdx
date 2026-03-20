@@ -175,6 +175,14 @@ The key differentiation from block storage: multiple instances can mount the sam
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You are designing storage for the PostgreSQL database that holds all order records. A colleague suggests storing the database files in S3 because it is cheaper per GB and scales automatically. Why is object storage the wrong choice for a running PostgreSQL database, and what property of the database's access pattern makes block storage the correct type?"
+    answer="PostgreSQL requires a filesystem with random read/write access and consistent low-latency IOPS — the ability to read or write any 8KB database page in microseconds in any order. Object storage has no filesystem at all: there is no concept of seeking to a byte offset within an object, no way to update a portion of a file without replacing the entire object, and HTTP round-trip latency for each read would be hundreds of milliseconds instead of microseconds. PostgreSQL also requires POSIX filesystem semantics for its write-ahead log and lock files, which S3 does not provide. Block storage presents as a virtual disk with a filesystem (ext4 or xfs), which PostgreSQL interacts with using the same kernel filesystem calls it would use on a physical hard drive. The Docker named volume analogy holds exactly: just as PostgreSQL inside a container writes to a named volume that behaves like a local disk, an EC2 instance attaches an EBS volume that behaves like a local disk."
+  />
+  <ScenarioQuestion
+    question="Your e-commerce site currently stores all product photos on an EBS volume mounted to one EC2 instance. The team wants to scale to three EC2 instances behind a load balancer during peak sale periods. What breaks when you add the second and third instances, and what storage migration solves it?"
+    answer="EBS volumes attach to one EC2 instance at a time. When a second or third instance starts, they cannot mount the same EBS volume — each instance would need its own separate volume, meaning each instance has its own isolated copy of the photos. When a seller uploads a new photo, the load balancer routes the upload to one instance. That instance writes the photo to its EBS volume. The other two instances have no copy of the new photo — when a buyer visits a product page and the load balancer routes their request to a different instance, the photo is missing. The application appears to randomly lose files depending on which server handles each request. Migrating to S3 solves this because S3 is not attached to any instance — all three instances make HTTP calls to the same S3 API, and every photo uploaded by any seller is immediately available to every instance. The storage is external and shared rather than local and isolated."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

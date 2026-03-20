@@ -170,6 +170,14 @@ The security group for the database references `sg-api` as the source — not an
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You are placing the load balancer in a public subnet and the application servers in a private subnet. A new engineer asks why the application servers cannot also be in a public subnet — it would simplify debugging because they could be SSH-ed into directly from the internet. What is the security argument for private subnets, and how does the load balancer model preserve debuggability without exposing app servers?"
+    answer="Placing application servers in a public subnet means every server is directly reachable from the internet on any open port, which dramatically increases the attack surface. Any misconfigured security group rule or unpatched port becomes an entry point with no additional barrier. Private subnets ensure that even if a security group rule is wrong, the application server has no public IP to reach — an attacker on the internet cannot establish a direct connection at all. Debuggability is preserved through a bastion host: a small VM in a public subnet that accepts SSH only from specific IPs (your office CIDR or VPN range), and from which engineers can SSH into private subnet servers using the bastion as a jump host. This gives controlled access without opening every application server to the internet."
+  />
+  <ScenarioQuestion
+    question="Your security group for the database uses sg-app as the inbound source rather than listing IP addresses. Three months later, the team scales from two to five application servers. How does the security group model handle the new instances, and what would the equivalent iptables approach require instead?"
+    answer="Because the database security group allows traffic from any resource that carries the sg-app security group — not from specific IP addresses — the three new application servers automatically get database access the moment they are launched with sg-app attached. No security group rule changes are needed. The equivalent iptables approach would require adding a specific ACCEPT rule for each new server's private IP address, which means a manual configuration change per server and an updated firewall configuration in version control. At five servers this is manageable; at fifty it becomes a maintenance problem. The security group model scales automatically because it tracks identity (which security group is attached) rather than location (which IP address the server was assigned), and cloud instances frequently change IPs when stopped and restarted."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[
