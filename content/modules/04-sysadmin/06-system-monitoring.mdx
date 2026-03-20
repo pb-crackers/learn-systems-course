@@ -202,7 +202,7 @@ Common bottleneck signatures:
 | High load + `si`/`so` > 0 + low `free` | Memory exhaustion: system is swapping |
 | Low load + slow responses | Not resource-bound: check network, application, external dependencies |
 
-<Callout type="info" title="What's Next: Prometheus and Grafana">
+<Callout type="tip" title="What's Next: Prometheus and Grafana">
 These command-line tools show you a snapshot of one machine at one moment. `vmstat 1 5` tells you what the system was doing in the last 5 seconds. But production questions sound like: "Was the disk I/O high before the deployment at 2:30 PM, or did it start after?" That requires storing metrics over time.
 
 In Phase 7 (Monitoring and Observability), you will learn **Prometheus** for collecting and storing metrics continuously, and **Grafana** for visualizing trends over time — turning these point-in-time snapshots into a monitoring system that can show you load average graphs, alert on `%util` thresholds, and correlate deployments with performance changes.

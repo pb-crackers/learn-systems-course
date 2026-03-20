@@ -146,7 +146,7 @@ The key difference from rolling: you **monitor metrics at each phase**. Error ra
 
 Canary is the safest strategy for detecting production issues, but it requires more infrastructure: a load balancer that supports weighted traffic routing (AWS ALB, nginx with upstream weights, or a service mesh like Istio) and monitoring that can detect anomalies during the rollout. Phase 7 covers Prometheus and Grafana — the monitoring foundation that makes canary deployments actionable.
 
-<Callout type="info" title="You won't implement these strategies in this course — but you need to understand them">
+<Callout type="tip" title="You won't implement these strategies in this course — but you need to understand them">
 Implementing blue/green, rolling, or canary deployments requires production load balancers, container orchestration (Kubernetes or ECS), and traffic management infrastructure that is beyond the scope of a local-first course. But understanding these concepts is critical for any DevOps or SRE role.
 
 When you see "blue/green deployment" in a job description, now you know exactly what it means: two full environments, instant load balancer switch, instant rollback. When an incident post-mortem says "the canary caught the bug before full rollout," you understand why — 5% of traffic hit the bug, metrics spiked, the automated rollback fired before 95% of users were affected.
