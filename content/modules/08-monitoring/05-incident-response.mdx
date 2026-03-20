@@ -252,6 +252,14 @@ In the advanced capstone, you will put it all together. You will deploy a full a
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your HighRequestLatency alert has for: 2m configured. At 14:15 a latency spike pushes P95 above 500ms, and at 14:16:45 (1 minute 45 seconds later) the spike clears and latency drops back below 500ms. The on-call engineer received no page. Was this a monitoring failure, and what is the purpose of the for duration in this situation?"
+    answer="This is not a monitoring failure — it is the for duration working exactly as designed. The 1 minute 45 second spike entered PENDING at 14:15 but never crossed the 2-minute threshold required to become FIRING. The alert remained PENDING and then returned to INACTIVE when the condition resolved at 14:16:45. The for duration exists precisely to prevent alert noise from transient spikes that resolve on their own without human intervention. A spike that lasts less than the for duration is statistically likely to be a brief anomaly, not a sustained incident. If your team consistently misses real incidents because spikes resolve before the 2-minute window, the correct response is to tune the for duration downward or lower the latency threshold — not to remove the for duration entirely."
+  />
+  <ScenarioQuestion
+    question="Your postmortem identifies the root cause as 'the engineer who deployed v2.3.1 did not catch the N+1 query pattern in code review.' A senior engineer says this root cause is incorrect and asks you to rewrite it. What is wrong with the original root cause statement, and how should it be reframed using the blameless postmortem approach?"
+    answer="The original statement assigns the root cause to an individual's action, which a blameless postmortem treats as a symptom rather than a cause. If the same system exists with the same conditions, any engineer reviewing that code might make the same mistake — naming the person prevents recurrence no more than reminding them to be more careful. Reframe it as a system failure: 'The CI pipeline has no automated test that would detect a significant increase in database queries per request, and the code review checklist does not include a step for reviewing ORM query behavior on collection endpoints.' These are concrete system changes — adding a query-count assertion to the load test stage and updating the PR checklist — that prevent any engineer from making the same mistake in the future, not just the one who made it this time."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

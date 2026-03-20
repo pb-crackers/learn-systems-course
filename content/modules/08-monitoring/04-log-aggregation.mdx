@@ -247,6 +247,14 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your Prometheus alert fires showing high error rate on the /api/orders route. You switch to Loki to find the specific error. You write the LogQL query {container=~\"monitoring-app.*\"} |= \"error\" but it returns no results. Your colleague uses Elasticsearch and finds the error in seconds with just message:error. Explain Loki's label-first querying model and why your query might return nothing even when errors exist."
+    answer="Loki indexes labels, not log content. When you query {container=~'monitoring-app.*'} |= 'error', Loki first uses the label selector to identify which log stream to scan, then searches through those compressed log chunks for the text 'error'. If no logs appear, the label selector is the most likely culprit — the actual container name might differ from what the regex expects. Run docker ps to find the exact container name and adjust the label value. Elasticsearch avoids this problem entirely because it indexes every word across all logs, so message:error matches without knowing anything about the source. The Loki trade-off is 10x less storage and compute in exchange for requiring accurate label selectors as the starting point for every query."
+  />
+  <ScenarioQuestion
+    question="Your team is deciding between Loki and Elasticsearch for centralized logging on a Kubernetes cluster where every service already has consistent job and namespace labels from Prometheus. The primary use case is filtering error logs by service after a metric alert fires. Which system is better suited to this use case, and what would make the other system a better choice?"
+    answer="Loki is better suited here. Your team already uses Prometheus labels consistently across services, and Loki's label model mirrors Prometheus exactly — the same job and namespace labels that identify a metric time-series also identify a log stream. When an alert fires on a specific job, you switch to Loki, select that job's log stream, and filter for errors with |= 'error'. The narrow label-targeted query pattern is exactly what Loki is optimized for, and you avoid Elasticsearch's JVM overhead and complex cluster management. Elasticsearch would be the better choice if your logs are unstructured (no consistent labels), if you need full-text search across all services simultaneously without knowing which service to target, or if your compliance requirements mandate long-term log retention with fast arbitrary text search across the full corpus."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

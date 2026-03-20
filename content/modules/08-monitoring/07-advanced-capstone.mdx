@@ -71,6 +71,7 @@ a visible notification loop without requiring Slack or PagerDuty credentials.
   difficulty="Challenge"
   scenario="You are the new DevOps engineer. The app works but users report mysterious slowness. Set up the full monitoring pipeline, build a Grafana dashboard showing the four golden signals, and find the problem hidden in the application metrics. No step-by-step guidance — use everything you have learned."
   objective="Connect a Dockerized Node.js app to CI/CD, IaC, Prometheus, Grafana, and Alertmanager. Build a dashboard. Diagnose an intentional failure using PromQL. Write a postmortem."
+  challengePrompt="Deploy a Dockerized Node.js application with a complete observability pipeline: Prometheus scraping the app's /metrics endpoint, a Grafana dashboard showing the four golden signals, and Alertmanager routing to a webhook receiver. The application contains an intentional hidden failure that produces a distinctive metric signature. Identify the failure using PromQL, trace it to the source code, and write a blameless postmortem documenting the root cause as a system failure with concrete action items to prevent recurrence."
   steps={[
     {
       step: 1,
@@ -126,6 +127,49 @@ a visible notification loop without requiring Slack or PagerDuty credentials.
     },
   ]}
 >
+  <ChallengeReferenceSheet
+    sections={[
+      {
+        title: "Container Management",
+        items: [
+          { command: "docker compose up -d", description: "Starts all services in the Compose file in detached mode", example: "Run from docker/advanced-capstone/" },
+          { command: "docker compose ps", description: "Shows the running status and ports for all services in the stack", example: "Verify all four services show as running" },
+          { command: "docker compose logs", description: "Fetches log output from one or more service containers", example: "docker compose logs app" },
+          { command: "docker compose stop", description: "Stops running containers without removing them, preserving their state", example: "docker compose stop app" }
+        ]
+      },
+      {
+        title: "Prometheus Queries",
+        items: [
+          { command: "up{job=\"monitored-app\"}", description: "Returns 1 when Prometheus successfully scrapes the target, 0 when the scrape fails", example: "Check Status > Targets for DOWN indicators" },
+          { command: "rate(metric[5m])", description: "Computes the per-second rate of increase for a counter over a 5-minute window", example: "rate(http_requests_total[5m])" },
+          { command: "histogram_quantile(0.95, sum(rate(bucket[5m])) by (le))", description: "Computes the 95th percentile latency from histogram bucket data", example: "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))" },
+          { command: "increase(metric[5m])", description: "Returns the total increase of a counter over 5 minutes rather than the per-second rate", example: "increase(nodejs_heap_used_bytes[5m])" },
+          { command: "process_resident_memory_bytes", description: "Gauge metric exposing the current resident memory size of the process in bytes", example: "Read directly without rate() — gauge values are meaningful raw" }
+        ]
+      },
+      {
+        title: "Grafana Operations",
+        items: [
+          { command: "curl -X POST http://localhost:9090/-/reload", description: "Reloads Prometheus configuration without restarting the container", example: "Requires --web.enable-lifecycle flag in Prometheus container command" },
+          { command: "open http://localhost:3001", description: "Opens Grafana in the default browser — anonymous access requires no login", example: "App runs at :3000, Grafana at :3001" },
+          { command: "GF_AUTH_ANONYMOUS_ENABLED=true", description: "Environment variable that enables anonymous access to Grafana without a login screen", example: "Development only — never use in production" }
+        ]
+      },
+      {
+        title: "IaC and Verification",
+        items: [
+          { command: "tofu init", description: "Initializes an OpenTofu working directory and downloads required provider plugins", example: "Run from the iac/ directory" },
+          { command: "tofu apply", description: "Creates or updates infrastructure resources defined in the OpenTofu configuration", example: "Creates Prometheus container via the Docker provider" },
+          { command: "bash verify.sh", description: "Runs the capstone verification script that checks all success criteria", example: "Run from docker/advanced-capstone/ directory" }
+        ]
+      }
+    ]}
+  />
+  <ScenarioQuestion
+    question="After letting the stack run for 10 minutes with generated traffic, you notice that process_resident_memory_bytes remains flat but increase(nodejs_heap_used_bytes[5m]) returns a consistently positive and growing value. What does this discrepancy tell you about the nature of the memory problem, and how does it point you toward the root cause in the application source code?"
+    answer="The discrepancy is diagnostic. process_resident_memory_bytes includes all memory the OS has allocated to the process — including pages that have been freed by the JavaScript garbage collector but not yet returned to the OS. A flat resident memory reading can mask a JavaScript heap leak because the OS keeps those pages allocated as a performance optimization. The growing increase(nodejs_heap_used_bytes[5m]) tells you that the JavaScript heap itself is growing continuously without being reclaimed by garbage collection, which happens when live object references accumulate and cannot be freed. This points directly to a module-scope data structure — an array or object — that is being populated on a timer or per-request without ever being cleared. The garbage collector cannot free those objects because the module-scope reference keeps them alive indefinitely."
+  />
   <VerificationChecklist
     title="Success Criteria"
     items={[

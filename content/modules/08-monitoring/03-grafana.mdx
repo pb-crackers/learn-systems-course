@@ -207,6 +207,14 @@ A dashboard with panels for all four golden signals gives you immediate insight 
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You provisioned the Prometheus datasource via a YAML file in /etc/grafana/provisioning/datasources/. A new teammate opens Grafana and cannot find the datasource. They say they need to add it manually through Settings > Data Sources. What is the fundamental difference between a provisioned datasource and a manually configured one, and why does the provisioned approach matter for a team?"
+    answer="A provisioned datasource is defined in a YAML file that is version-controlled and automatically loaded by Grafana at startup — it exists on every developer machine and every CI environment that runs the same Docker Compose stack without any manual steps. A manually configured datasource is stored only in Grafana's internal database, which means it disappears on a fresh container start and must be re-entered by hand each time. For a team, provisioning ensures every developer has identical Grafana configuration without setup instructions or tribal knowledge. When the datasource URL changes, one YAML edit in version control propagates to everyone on their next docker compose up."
+  />
+  <ScenarioQuestion
+    question="You built a dashboard with a Time Series panel for P95 latency and a Stat panel for current error rate. A teammate says you should use Stat for latency too since a single number is cleaner. Using the purpose of each panel type, explain why Time Series is the correct choice for latency but not for current error rate."
+    answer="P95 latency is a metric where trend and history matter — a latency value of 200ms is meaningless without knowing whether it was 50ms an hour ago (a degradation) or 400ms an hour ago (an improvement). A Time Series panel shows the shape of the metric over time, making regressions and recoveries immediately visible. Current error rate, by contrast, is most actionable as an instantaneous value: is the service throwing errors right now? The exact percentage in this moment drives the decision to page someone. A Stat panel emphasizes the current value prominently, which matches how on-call engineers consume error rate data — they need to know the number now, not its historical trajectory."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
