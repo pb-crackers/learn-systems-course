@@ -292,6 +292,14 @@ When apt says "The following packages have unmet dependencies," it means the con
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You tried apt-get install tree without running apt-get update first and it failed. In a Dockerfile, why must apt-get update and apt-get install be in the same RUN instruction instead of separate RUN layers?"
+    answer="Docker caches each RUN layer as an image layer. If apt-get update and apt-get install are in separate RUN instructions, Docker caches the apt-get update result as its own layer. On subsequent builds, Docker sees that the apt-get update layer has not changed and skips re-running it — the local package index is never refreshed. Over time (days to weeks), the cached index becomes stale: packages get new versions, old versions are removed from repositories, and new package names appear. When apt-get install runs against the stale index, it either cannot find the package or installs an outdated version. Combining them in a single RUN instruction means the index is always fresh when the install runs, because both commands execute together or not at all — there is no cached intermediate layer to skip."
+  />
+  <ScenarioQuestion
+    question="After running dpkg -L tree, you see it installed files in /usr/bin/, /usr/share/doc/, and /usr/share/man/. You then ran apt-get remove tree and the binary disappeared. What files, if any, did apt-get remove leave behind, and when would you use apt-get purge instead?"
+    answer="apt-get remove uninstalls the binary and library files but deliberately preserves the package's configuration files (files in /etc/) and the documentation in /usr/share/doc/. For the tree package specifically, there are no configuration files in /etc/, so remove and purge produce the same result — but for packages like nginx or postgresql that install configuration in /etc/, remove keeps those files intact. Use apt-get purge when you want a completely clean slate, as if the package was never installed — useful when reinstalling a service that was previously misconfigured, or when you want to guarantee no stale configuration affects a fresh install. Note that purge only removes the package's own config files; it does not remove files the application created itself at runtime (like database data in /var/lib/postgresql/)."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
