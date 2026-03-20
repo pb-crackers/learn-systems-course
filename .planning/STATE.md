@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 11-04-PLAN.md
-last_updated: "2026-03-20T13:42:26.846Z"
+stopped_at: Completed 11-07-PLAN.md
+last_updated: "2026-03-20T13:44:51.716Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 15
-  completed_plans: 14
+  completed_plans: 15
   percent: 0
 ---
 
@@ -62,6 +62,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 11-full-content-migration P06 | 6min | 2 tasks | 6 files |
 | Phase 11-full-content-migration P05 | 20min | 2 tasks | 8 files |
 | Phase 11-full-content-migration P11-04 | 7min | 2 tasks | 4 files |
+| Phase 11-full-content-migration P07 | 9min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,8 @@ Recent decisions affecting v1.1 work:
 - [Phase 11-full-content-migration]: Docker command annotation granularity: docker run -d --name mybox ubuntu:22.04 sleep infinity annotated as 8 separate tokens including positional arguments
 - [Phase 11-full-content-migration]: ChallengeReferenceSheet for Docker capstone uses 3 sections (Image Operations, Container Management, Compose Operations) with 15 items and distractors
 - [Phase 11-04]: Terraform CLI annotation pattern: tofu is the base command token, subcommands (init, plan, apply, destroy) are annotated separately as distinct subcommand tokens
+- [Phase 11-full-content-migration]: TypeScript test file errors (missing @types/jest) confirmed as pre-existing — not introduced by 02-networking migration; deferred to tech debt
+- [Phase 11-full-content-migration]: 02-networking docker compose flags annotated as distinct tokens; dig query modifiers (+short, +trace, -x, @server) each annotated separately per style guide
 
 ### Pending Todos
 
@@ -113,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:42:26.844Z
-Stopped at: Completed 11-04-PLAN.md
+Last session: 2026-03-20T13:44:51.714Z
+Stopped at: Completed 11-07-PLAN.md
 Resume file: None

@@ -29,7 +29,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 - [x] **Phase 8: Design Lock** — Lock all interface contracts, annotation schema, and content policy before any code is written (completed 2026-03-20)
 - [ ] **Phase 9: Component Implementation** — Build all new components and modify ExerciseCard in bottom-up dependency order
 - [x] **Phase 10: Linux Fundamentals Prototype** — Migrate one complete module to validate the schema and authoring pattern end-to-end (completed 2026-03-20)
-- [ ] **Phase 11: Full Content Migration** — Apply validated patterns across all remaining modules (7 modules, ~42 lessons)
+- [x] **Phase 11: Full Content Migration** — Apply validated patterns across all remaining modules (7 modules, ~42 lessons) (completed 2026-03-20)
 
 ## Phase Details
 
@@ -92,7 +92,7 @@ Plans:
   3. Every Challenge and capstone exercise has a scoped reference sheet (max 15 items) and at least 3 verification items with runnable commands and expected output in the hint field
   4. Every exercise across all modules includes at least one ScenarioQuestion linking command execution back to the opening scenario
   5. `next build` passes for each module after its migration is complete — no batch build, no deferred errors
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 - [ ] 11-01-PLAN.md — Migrate Cloud module (07-cloud): 2 Foundation annotated, 3 Intermediate ScenarioQuestions
@@ -117,7 +117,7 @@ Plans:
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
 | 9. Component Implementation | 2/3 | In Progress|  | - |
 | 10. Linux Fundamentals Prototype | 3/3 | Complete    | 2026-03-20 | - |
-| 11. Full Content Migration | 6/7 | In Progress|  | - |
+| 11. Full Content Migration | 7/7 | Complete   | 2026-03-20 | - |
 
 ---
 *Roadmap created: 2026-03-18*
