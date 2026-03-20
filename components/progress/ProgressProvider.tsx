@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useCallback, type ReactNode } from 'react'
+import { createContext, useCallback, type ReactNode } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
   type ProgressState,
@@ -7,6 +7,12 @@ import {
   INITIAL_PROGRESS,
   PROGRESS_STORAGE_KEY,
 } from '@/types/progress'
+import {
+  type ExerciseMode,
+  type PreferencesState,
+  PREFERENCES_STORAGE_KEY,
+  INITIAL_PREFERENCES,
+} from '@/types/exercises'
 
 interface ProgressContextValue {
   progress: ProgressState
@@ -14,15 +20,23 @@ interface ProgressContextValue {
   markLessonComplete: (lessonId: LessonId) => void
   markExerciseComplete: (lessonId: LessonId, exerciseId: string) => void
   resetProgress: () => void
+  preferredMode: ExerciseMode | null
+  setPreferredMode: (mode: ExerciseMode | null) => void
 }
 
 export const ProgressContext = createContext<ProgressContextValue | null>(null)
 
 export function ProgressProvider({ children }: { children: ReactNode }) {
-  const [progress, setProgress, isHydrated] = useLocalStorage<ProgressState>(
+  const [progress, setProgress, progressHydrated] = useLocalStorage<ProgressState>(
     PROGRESS_STORAGE_KEY,
     INITIAL_PROGRESS
   )
+  const [preferences, setPreferences, prefsHydrated] = useLocalStorage<PreferencesState>(
+    PREFERENCES_STORAGE_KEY,
+    INITIAL_PREFERENCES
+  )
+
+  const isHydrated = progressHydrated && prefsHydrated
 
   const markLessonComplete = useCallback(
     (lessonId: LessonId) => {
@@ -71,9 +85,24 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     }
   }, [setProgress])
 
+  const setPreferredMode = useCallback(
+    (mode: ExerciseMode | null) => {
+      setPreferences((prev) => ({ ...prev, preferredMode: mode }))
+    },
+    [setPreferences]
+  )
+
   return (
     <ProgressContext.Provider
-      value={{ progress, isHydrated, markLessonComplete, markExerciseComplete, resetProgress }}
+      value={{
+        progress,
+        isHydrated,
+        markLessonComplete,
+        markExerciseComplete,
+        resetProgress,
+        preferredMode: preferences.preferredMode,
+        setPreferredMode,
+      }}
     >
       {children}
     </ProgressContext.Provider>
