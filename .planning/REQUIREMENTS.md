@@ -38,7 +38,7 @@
 - [ ] **MIGR-03**: Challenge/capstone exercises have goal-only format with reference sheets
 - [ ] **MIGR-04**: All exercises include scenario-contextualized questions tying commands back to the opening scenario
 - [ ] **MIGR-05**: Each module passes `next build` after migration
-- [ ] **MIGR-06**: Linux Fundamentals migrated first as prototype to validate the pattern
+- [x] **MIGR-06**: Linux Fundamentals migrated first as prototype to validate the pattern
 
 ## Future Requirements
 
@@ -83,7 +83,7 @@
 | MIGR-03 | Phase 11 | Pending |
 | MIGR-04 | Phase 11 | Pending |
 | MIGR-05 | Phase 11 | Pending |
-| MIGR-06 | Phase 10 | Pending |
+| MIGR-06 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 20 total

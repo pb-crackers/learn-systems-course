@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 09-03-PLAN.md
-last_updated: "2026-03-20T12:57:44.630Z"
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-03-20T13:10:37.007Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
   percent: 0
 ---
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 09-component-implementation P02 | 2min | 2 tasks | 2 files |
 | Phase 09-component-implementation P01 | 2min | 2 tasks | 2 files |
 | Phase 09-component-implementation P09-03 | 3 | 3 tasks | 4 files |
+| Phase 10-linux-fundamentals-prototype P01 | 5min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,7 @@ Recent decisions affecting v1.1 work:
 - [Phase 09-01]: AnnotatedCommand implemented as server component (no use client) — zero interactive state required; works inside use client ExerciseCard via Next.js composition model
 - [Phase 09-component-implementation]: DifficultyToggle Challenge button calls setPreferredMode(null) not 'compose' — avoids Intermediate compose regression when navigating between lesson difficulties
 - [Phase 09-component-implementation]: ExerciseCard compose branch falls back to guided steps when challengePrompt absent — backward compat for all 52 existing exercises
+- [Phase 10-linux-fundamentals-prototype]: ScenarioQuestions placed before VerificationChecklist in ExerciseCard children — keeps conceptual questions visible before the mechanical checklist
 
 ### Pending Todos
 
@@ -94,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:53:38.502Z
-Stopped at: Completed 09-03-PLAN.md
+Last session: 2026-03-20T13:10:37.005Z
+Stopped at: Completed 10-01-PLAN.md
 Resume file: None
