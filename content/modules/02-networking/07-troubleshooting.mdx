@@ -328,6 +328,14 @@ When a service is unreachable, run these steps in order:
     }
   ]}
 >
+  <ScenarioQuestion
+    question="ping -c 3 app-server succeeds with 0% packet loss, but nc -zv -w 3 app-server 80 times out. Your colleague says the service must be down. Walk through why ping success does not rule out a firewall problem, and which tool you would run next to determine whether the issue is at the transport layer or the firewall layer."
+    answer="Ping uses ICMP, not TCP — it tests only Layer 3 (IP routing) connectivity. A firewall can be configured to allow ICMP while blocking TCP port 80, which is exactly the scenario here: the network path is intact (ping works) but TCP connections to port 80 are being dropped before reaching the application. Your colleague is wrong — a responsive ping only rules out routing and Layer 3 failures. The next tool to run is ss -tlnp on the app-server to check whether anything is actually listening on port 80. If ss shows the service is listening on 0.0.0.0:80, the block is between you and the server — most likely a firewall rule. You would then check iptables -L INPUT -n on the app-server to see if a DROP rule is blocking incoming traffic on port 80. If ss shows nothing listening on port 80, the problem is the service itself rather than a firewall."
+  />
+  <ScenarioQuestion
+    question="You run tcpdump -i eth0 host app-server -A -c 10 -n from the client container while making a curl request. tcpdump shows a SYN packet leaving the client but receives no response — no SYN-ACK, no RST, nothing. Then you run tcpdump on the app-server and it shows no packets arriving at all. What does this tell you about where in the network path the packets are being lost?"
+    answer="The combination of tcpdump evidence places the fault between the two containers in the network infrastructure, not in either host's software stack. If the client's tcpdump shows the SYN leaving eth0 but the server's tcpdump shows no packets arriving, the packet is being dropped somewhere in the forwarding path between the two interfaces — most likely in the Docker bridge network or by the Docker host's iptables rules. This is not an application issue (the service may or may not be listening), and it is not a client issue (the packet is clearly being sent). In Docker, this can happen when the Docker network's iptables NAT or filter rules are misconfigured, when containers are on different networks that are not connected, or when the container network itself was not started correctly. The diagnostic conclusion is a network-level infrastructure fault, not a service-level fault, and the fix requires inspecting Docker network configuration rather than application logs."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

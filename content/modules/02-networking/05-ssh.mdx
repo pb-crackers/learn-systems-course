@@ -247,6 +247,14 @@ For containers that get recreated frequently, this is a nuisance. You can remove
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You onboarded to a new project, generated an Ed25519 key pair, and ran ssh-copy-id to copy your public key to the lab server. Now ssh student@sshd-server 'whoami' connects without a password prompt. What exactly did ssh-copy-id do on the server, and why is key-based auth more secure than password auth for a team's shared bastion host?"
+    answer="ssh-copy-id appended your public key as a single line to ~/.ssh/authorized_keys on the server. That file is a list of public keys trusted to log in without a password — each line is one authorized public key. When you connect, the server sends a challenge encrypted with your public key, and only the holder of the corresponding private key can decrypt it and respond correctly. This is more secure than passwords for a shared bastion because passwords can be guessed, phished, or captured in logs, and every team member using the same password is a single point of failure. With key-based auth, each person has a unique key pair, access is granted by appending to authorized_keys and revoked by removing a line, and the private key never leaves the engineer's laptop — a compromised bastion cannot extract it."
+  />
+  <ScenarioQuestion
+    question="Your SSH config has a ProxyJump directive pointing through the bastion to reach an internal app server at 10.0.1.50. A colleague suggests you use ssh -A (agent forwarding) instead because it's simpler. What is the security difference between ProxyJump and agent forwarding, and why does the security warning matter for a production bastion host?"
+    answer="ProxyJump creates a forwarded TCP connection through the bastion to the internal server — your SSH client on your laptop handles all authentication locally, and the bastion only sees an opaque forwarded byte stream. Your private key never touches the bastion host. Agent forwarding, by contrast, exposes your local SSH agent as a socket on the bastion: any process running as root on the bastion (including a compromised process or an attacker who gains root) can use that forwarded agent socket to authenticate as you to any server that has your public key, without ever seeing or extracting your private key. The attack window exists for the entire duration of your SSH session. On a bastion that you control completely and trust implicitly, agent forwarding carries low risk. On a shared team bastion, a managed production host, or any server where root access is not exclusively yours, agent forwarding is a significant security exposure — ProxyJump achieves the same transparent access without the risk."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

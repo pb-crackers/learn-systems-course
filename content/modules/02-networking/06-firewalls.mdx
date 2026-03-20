@@ -267,6 +267,14 @@ When you see "Security Group" in AWS, think "stateful iptables rules attached to
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You added the ESTABLISHED,RELATED rule as step 4 and then set the DROP policy as step 7. Your colleague asks: why must the ESTABLISHED rule come before the DROP policy, and what would happen to your active SSH session if you set DROP policy first without that rule?"
+    answer="The ESTABLISHED,RELATED rule allows return traffic for connections you initiated — without it, the kernel would block ACK packets coming back from servers you connected to, breaking all outbound TCP connections. More critically, if you set the DROP default policy before adding the ESTABLISHED rule, your current SSH session would be severed immediately. The TCP session for your active SSH connection is in ESTABLISHED state — return packets from the server would match the DROP policy (no ESTABLISHED rule yet to allow them) and be dropped. The SSH client would stop receiving ACKs and the session would hang, then time out. You would lose access to the server with DROP as the default and no way to SSH back in to fix it, requiring out-of-band console access. This is the most common firewall lockout mistake in production."
+  />
+  <ScenarioQuestion
+    question="After hardening the server, you test from the tester container with nc -zv firewall-host 80 and it shows connection succeeded. But nc -zv -w 3 firewall-host 8080 hangs for 3 seconds and then shows timeout rather than immediately showing connection refused. Why does the blocked port timeout instead of refusing immediately, and what does this tell you about the iptables target being used?"
+    answer="A timeout occurs when packets are silently discarded — the server sends no response at all. The DROP target in iptables discards packets without sending any reply, so the client waits the full timeout period hoping a response will eventually arrive. By contrast, a connection refused response (TCP RST) would come immediately if nothing is listening on the port. The 3-second hang before the timeout message confirms the server is using DROP, not REJECT. The REJECT target would send back an ICMP port unreachable or TCP RST immediately, causing the client to fail fast. DROP is generally preferred for internet-facing servers because it does not reveal that the port exists — port scanners probing your server get no information about which ports are actively blocked versus not bound. The tradeoff is that legitimate clients waiting for a response experience delays rather than immediate failure notifications."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
