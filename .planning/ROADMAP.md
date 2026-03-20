@@ -107,7 +107,7 @@ Plans:
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
 | 9. Component Implementation | 2/3 | In Progress|  | - |
-| 10. Linux Fundamentals Prototype | 3/3 | Complete   | 2026-03-20 | - |
+| 10. Linux Fundamentals Prototype | 3/3 | Complete    | 2026-03-20 | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
 
 ---
