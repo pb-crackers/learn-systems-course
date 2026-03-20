@@ -191,61 +191,160 @@ The VFS defines interfaces (as C function pointers: `inode_operations`, `file_op
 <ExerciseCard
   title="Navigate the Filesystem Hierarchy and Explore Inodes"
   difficulty="Foundation"
+  annotated={true}
   scenario="You are onboarding to a new Linux server and need to understand its filesystem layout — where logs are, where configs live, where the OS stores installed programs. You also need to diagnose a 'no space left on device' error that a colleague says appeared despite df showing plenty of space."
   objective="By the end of this exercise, you will be able to navigate the FHS confidently, inspect inode metadata with stat and ls -i, create hard and soft links, and check for inode exhaustion with df -i."
   steps={[
     {
       step: 1,
       description: "Launch the lab container.",
-      command: "docker run --rm -it learn-systems-linux bash"
+      command: "docker run --rm -it learn-systems-linux bash",
+      annotations: [
+        { token: "docker", description: "Runs Docker CLI commands to manage containers and images" },
+        { token: "run", description: "Creates and starts a new container from a specified image" },
+        { token: "--rm", description: "Removes the container automatically when it exits, preventing accumulation of stopped containers" },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the shell inside the container" },
+        { token: "learn-systems-linux", description: "Specifies the image name to use — the pre-built Linux lab environment for this course" },
+        { token: "bash", description: "Runs bash as the entry point command, giving you an interactive shell inside the container" }
+      ]
     },
     {
       step: 2,
       description: "Explore key FHS directories. Notice what types of files are in each.",
-      command: "ls /bin /etc /var/log /proc /dev | head -10"
+      command: "ls /bin /etc /var/log /proc /dev | head -10",
+      annotations: [
+        { token: "ls", description: "Lists the contents of one or more directories" },
+        { token: "/bin", description: "Specifies the essential user binaries directory as one of the paths to list" },
+        { token: "/etc", description: "Specifies the system-wide configuration directory as one of the paths to list" },
+        { token: "/var/log", description: "Specifies the system log directory as one of the paths to list" },
+        { token: "/proc", description: "Specifies the virtual kernel state filesystem as one of the paths to list" },
+        { token: "/dev", description: "Specifies the device files directory as one of the paths to list" },
+        { token: "head", description: "Passes output through head to limit how many lines are printed from each section" },
+        { token: "-10", description: "Limits the output to the first 10 lines per directory section" }
+      ]
     },
     {
       step: 3,
       description: "Inspect the inode of /etc/hostname with stat. Note the inode number, link count, permissions, and timestamps.",
-      command: "stat /etc/hostname"
+      command: "stat /etc/hostname",
+      annotations: [
+        { token: "stat", description: "Displays complete inode metadata for a file: size, permissions, timestamps, inode number, link count, and owner" },
+        { token: "/etc/hostname", description: "Specifies the file to inspect — the system hostname config file, a simple target to examine inode structure" }
+      ]
     },
     {
       step: 4,
       description: "List inode numbers of files in /etc with ls -i. Notice that directory entries are just inode number + name pairs.",
-      command: "ls -i /etc | head -15"
+      command: "ls -i /etc | head -15",
+      annotations: [
+        { token: "ls", description: "Lists directory contents" },
+        { token: "-i", description: "Displays the inode number for each file alongside its name, revealing the mapping that directory entries store" },
+        { token: "/etc", description: "Specifies the system configuration directory to list — a directory with many files good for observing inode numbers" },
+        { token: "head", description: "Limits the output to only the first N lines so the terminal does not scroll" },
+        { token: "-15", description: "Prints only the first 15 lines of the listing" }
+      ]
     },
     {
       step: 5,
       description: "Create a test file and a hard link to it. Verify they share the same inode number.",
-      command: "echo 'test content' > /tmp/testfile.txt && ln /tmp/testfile.txt /tmp/testfile-hardlink.txt && ls -li /tmp/testfile*.txt"
+      command: "echo 'test content' > /tmp/testfile.txt && ln /tmp/testfile.txt /tmp/testfile-hardlink.txt && ls -li /tmp/testfile*.txt",
+      annotations: [
+        { token: "echo", description: "Writes its arguments to standard output" },
+        { token: "'test content'", description: "Specifies the literal string to write into the file" },
+        { token: ">", description: "Redirects standard output to a file, creating or overwriting it" },
+        { token: "/tmp/testfile.txt", description: "Specifies the destination file path for the redirected output" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ln", description: "Creates a link — by default a hard link — between two paths in the filesystem" },
+        { token: "/tmp/testfile.txt", description: "Specifies the existing file to link from (the target inode)" },
+        { token: "/tmp/testfile-hardlink.txt", description: "Specifies the new directory entry to create pointing at the same inode" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists files with detailed metadata" },
+        { token: "-l", description: "Shows permissions, link count, owner, size, and modification date in long format" },
+        { token: "-i", description: "Displays the inode number for each file so you can confirm hard links share the same inode" },
+        { token: "/tmp/testfile*.txt", description: "Matches all files in /tmp that start with testfile and end with .txt using a glob pattern" }
+      ]
     },
     {
       step: 6,
       description: "Create a soft link and compare it to the hard link. Note the different inode, the 'l' file type indicator, and the -> path in the listing.",
-      command: "ln -s /tmp/testfile.txt /tmp/testfile-softlink.txt && ls -li /tmp/testfile*.txt"
+      command: "ln -s /tmp/testfile.txt /tmp/testfile-softlink.txt && ls -li /tmp/testfile*.txt",
+      annotations: [
+        { token: "ln", description: "Creates a link between two filesystem paths" },
+        { token: "-s", description: "Creates a symbolic (soft) link instead of a hard link — the new file stores a path string pointing to the target" },
+        { token: "/tmp/testfile.txt", description: "Specifies the target path that the symlink will store and resolve to" },
+        { token: "/tmp/testfile-softlink.txt", description: "Specifies the path where the new symbolic link file will be created" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists files with detailed metadata" },
+        { token: "-l", description: "Shows permissions, link count, owner, size, and the -> target for symlinks" },
+        { token: "-i", description: "Displays inode numbers so you can see the soft link has a different inode than the original file" },
+        { token: "/tmp/testfile*.txt", description: "Matches all testfile entries in /tmp ending with .txt, showing hard link, original, and soft link together" }
+      ]
     },
     {
       step: 7,
       description: "Delete the original file and check what happens to the hard link and soft link. The hard link still works. The soft link is now dangling.",
-      command: "rm /tmp/testfile.txt && cat /tmp/testfile-hardlink.txt && cat /tmp/testfile-softlink.txt 2>&1"
+      command: "rm /tmp/testfile.txt && cat /tmp/testfile-hardlink.txt && cat /tmp/testfile-softlink.txt 2>&1",
+      annotations: [
+        { token: "rm", description: "Removes a directory entry (decrements the inode link count; data is freed only when link count reaches zero)" },
+        { token: "/tmp/testfile.txt", description: "Specifies the directory entry to remove — the original filename pointing to the shared inode" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "cat", description: "Reads and prints the contents of a file to standard output" },
+        { token: "/tmp/testfile-hardlink.txt", description: "Reads the hard link — still works because it points directly to the inode which has not been freed" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "cat", description: "Reads and prints the contents of a file to standard output" },
+        { token: "/tmp/testfile-softlink.txt", description: "Reads the soft link — this will fail because the path it stored no longer exists" },
+        { token: "2>&1", description: "Redirects stderr to stdout so the error message from the broken symlink is captured and printed" }
+      ]
     },
     {
       step: 8,
       description: "Explore mount points with findmnt. Note that /proc and /sys are virtual filesystems with no block device source.",
-      command: "findmnt --tree"
+      command: "findmnt --tree",
+      annotations: [
+        { token: "findmnt", description: "Displays all currently mounted filesystems with their source device, filesystem type, and mount options" },
+        { token: "--tree", description: "Formats the output as an indented tree showing the parent-child relationship between mount points" }
+      ]
     },
     {
       step: 9,
       description: "Check inode usage. Compare 'df -h' (byte usage) to 'df -i' (inode usage).",
-      command: "df -h && echo '---' && df -i"
+      command: "df -h && echo '---' && df -i",
+      annotations: [
+        { token: "df", description: "Reports disk space usage for all mounted filesystems" },
+        { token: "-h", description: "Displays sizes in human-readable units (K, M, G) instead of raw byte counts" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "echo", description: "Prints a separator string to visually divide the two df outputs" },
+        { token: "'---'", description: "Specifies the literal separator string to print between the two outputs" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "df", description: "Reports disk usage for all mounted filesystems" },
+        { token: "-i", description: "Shows inode usage instead of byte usage — critical for diagnosing no-space errors caused by inode exhaustion" }
+      ]
     },
     {
       step: 10,
       description: "Explore /dev — device files. Look for block devices (b) and character devices (c).",
-      command: "ls -la /dev | grep '^[bc]' | head -10"
+      command: "ls -la /dev | grep '^[bc]' | head -10",
+      annotations: [
+        { token: "ls", description: "Lists files with detailed metadata" },
+        { token: "-l", description: "Shows the long listing including the file type character in the first column" },
+        { token: "-a", description: "Includes hidden entries (those starting with a dot) in the listing" },
+        { token: "/dev", description: "Specifies the device files directory — contains block and character device special files" },
+        { token: "grep", description: "Filters lines from the ls output by matching a pattern" },
+        { token: "'^[bc]'", description: "Matches only lines starting with b (block device) or c (character device), filtering out regular files and directories" },
+        { token: "head", description: "Limits the output to the first N lines" },
+        { token: "-10", description: "Prints only the first 10 matching device file lines" }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You ran df -h and it shows only 40% of disk space is used, but a colleague reports getting 'no space left on device' errors. What would you check next, and what command would you use?"
+    answer="Check inode usage with df -i. A filesystem can run out of inodes before running out of disk space — this happens when millions of small files are created (log files, Node.js node_modules, package cache entries). The df -h command only shows byte usage. df -i shows the inode table usage (IUse% column). If IUse% is at or near 100%, new files cannot be created even though bytes are available."
+  />
+  <ScenarioQuestion
+    question="You found a symlink pointing to a config file that was deleted. An application is failing to start because it cannot read the config. Would replacing the symlink with a hard link have prevented this failure? Why or why not?"
+    answer="Yes, a hard link would have prevented the failure. A hard link is a directory entry pointing directly to the inode — the inode (and its data) is only freed when ALL hard links to it are removed. If the application used a hard link instead of a symlink, deleting the original config path would not have freed the inode. The hard link would still resolve to the data. A symlink stores only a path string; when the target path is deleted, the symlink becomes dangling and any read attempt fails."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
