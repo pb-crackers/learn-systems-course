@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A production-ready Next.js web application that delivers a comprehensive, hands-on interactive course teaching DevOps and systems engineering from the ground up, starting with Linux fundamentals. The course is designed for someone who knows programming basics but wants to deeply understand how machines work — from the kernel to the cloud. Every lesson is structured around real-world exercises where the learner practices actual skills, with thorough conceptual explanations. The app features a modern UI built with shadcn/ui and 21st.dev components.
+A production-ready Next.js web application that delivers a comprehensive, hands-on interactive course teaching DevOps and systems engineering from the ground up, starting with Linux fundamentals. The course is designed for someone who knows programming basics but wants to deeply understand how machines work — from the kernel to the cloud. Every lesson is structured around real-world exercises with difficulty-aware command pedagogy: Foundation exercises annotate every flag, Intermediate exercises require recall, and Challenge exercises give only the goal. The app features a modern UI built with shadcn/ui and 21st.dev components.
 
 ## Core Value
 
-Every lesson must be hands-on and interactive — the learner practices real skills on real systems, not just reads about them. Understanding comes through doing. The web app must be polished, modern, and production-ready.
+Every lesson must be hands-on and interactive — the learner practices real skills on real systems, not just reads about them. Understanding comes through doing. Commands have context: "I am running this command so I can answer THIS question." The web app must be polished, modern, and production-ready.
 
 ## Requirements
 
@@ -28,20 +28,15 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 - ✓ Thorough explanations of "why" and "how things work under the hood" — v1.0
 - ✓ Responsive, modern design that works on desktop and tablet — v1.0
 - ✓ Two capstone projects integrating cross-module skills — v1.0
+- ✓ Per-flag command annotations for Foundation exercises — v1.1
+- ✓ Difficulty-aware exercise rendering (guided/recall/compose modes) — v1.1
+- ✓ Scenario-contextualized questions connecting commands to exercise goals — v1.1
+- ✓ Challenge-mode capstone exercises with reference sheets — v1.1
+- ✓ Global difficulty preference toggle with localStorage persistence — v1.1
+- ✓ Consistent command pedagogy across all 8 modules (56 lessons) — v1.1
 
 ### Active
 
-## Current Milestone: v1.1 Command Pedagogy
-
-**Goal:** Transform CLI exercises from copy-paste instructions into active learning experiences with annotated commands and challenge-mode exercises.
-
-**Target features:**
-- Annotated command blocks explaining every flag and argument for Foundation exercises
-- Challenge-mode exercises where goals are described in English with a command reference sheet
-- Difficulty-aware exercise rendering tied to existing Foundation/Intermediate/Challenge system
-- Consistent command pedagogy across all 8 modules (56 lessons)
-
-### Future (deferred from Active)
 - [ ] Kubernetes basics — pods, deployments, services, configmaps
 - [ ] Configuration management with Ansible — playbooks, inventory, idempotency
 - [ ] Security hardening module — SSH hardening, secrets management, vulnerability scanning
@@ -59,10 +54,12 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 
 ## Context
 
-Shipped v1.0 with 20,429 LOC across TypeScript, React, MDX, and CSS.
-Tech stack: Next.js 16.2 (App Router), React 19, Tailwind v4, shadcn/ui, MDX with rehype-pretty-code.
+Shipped v1.1 with 22,192 LOC across TypeScript, React, MDX, and CSS.
+Tech stack: Next.js 16.2 (App Router), React 19, Tailwind v4, shadcn/ui, MDX with rehype-pretty-code + remark-frontmatter.
 8 curriculum modules with 56 lessons, Docker-based labs, and 2 capstone projects.
 All exercises have verification scripts with PASS/FAIL feedback.
+v1.1 added 5 new components (AnnotatedCommand, ScenarioQuestion, ChallengeReferenceSheet, DifficultyToggle, mode-aware ExerciseCard).
+160+ command annotations across 22 Foundation lessons, 80+ ScenarioQuestions across all modules, 2 Challenge-mode capstones.
 
 - Learner knows programming fundamentals but wants to understand how machines work at a deeper level
 - Course runs locally as a Next.js web app on localhost
@@ -70,6 +67,7 @@ All exercises have verification scripts with PASS/FAIL feedback.
 - Progressive structure: each module builds on previous knowledge
 - Emphasis on "learn by doing" pedagogy — minimal passive reading
 - UI must look modern and polished — not a generic tutorial site
+- Commands must have context — learner should understand WHY they're running each command
 
 ## Constraints
 
@@ -91,8 +89,10 @@ All exercises have verification scripts with PASS/FAIL feedback.
 | Mechanism-first pedagogy | Explain how things work before showing commands | ✓ Good — established in Phase 2, followed through Phase 7 |
 | OpenTofu over Terraform | Open-source, registry.opentofu.org, same HCL | ✓ Good — kreuzwerker/docker provider works locally |
 | Loki/Promtail as Compose profile | Not always-on, opt-in for log aggregation lesson | ✓ Good — reduces default resource usage |
-
-| Difficulty-aware exercise rendering | Foundation = annotated commands, Intermediate/Challenge = compose-your-own with reference sheet | — Pending |
+| Difficulty-aware exercise rendering | Foundation = annotated commands, Intermediate = recall, Challenge = compose-your-own | ✓ Good — 3-tier mode resolution with Foundation safety net |
+| Design lock before implementation | All type contracts, schemas, content policies locked in Phase 8 before code | ✓ Good — zero redesign needed in Phases 9-11 |
+| Prototype before bulk migration | Linux Fundamentals migrated first in Phase 10, validated pattern before 7-module Phase 11 | ✓ Good — caught annotation schema issues early |
+| Separate localStorage keys for preferences | Preferences survive progress reset, separate concern from completion tracking | ✓ Good — clean separation, compound hydration guard |
 
 ---
-*Last updated: 2026-03-20 after v1.1 milestone start*
+*Last updated: 2026-03-20 after v1.1 milestone*
