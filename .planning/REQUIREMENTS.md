@@ -16,7 +16,7 @@
 - [ ] **CHAL-01**: Intermediate exercises describe step goals in plain English without giving the exact command
 - [x] **CHAL-02**: Challenge exercises provide only the overall goal with no procedural steps
 - [x] **CHAL-03**: Challenge exercises include a scoped command reference sheet (using QuickReference) at the bottom
-- [ ] **CHAL-04**: Progressive hints available for learners who get stuck (expandable reveal)
+- [x] **CHAL-04**: Progressive hints available for learners who get stuck (expandable reveal)
 
 ### Difficulty-Aware Rendering
 
@@ -27,9 +27,9 @@
 
 ### Scenario Integration
 
-- [ ] **SCEN-01**: Exercises include scenario-contextualized questions between command steps ("I am running this command so I can answer THIS question")
-- [ ] **SCEN-02**: Questions reference the exercise's opening scenario so commands feel purposeful, not isolated
-- [ ] **SCEN-03**: Scenario questions have expected answers revealed after the learner thinks (expandable reveal pattern)
+- [x] **SCEN-01**: Exercises include scenario-contextualized questions between command steps ("I am running this command so I can answer THIS question")
+- [x] **SCEN-02**: Questions reference the exercise's opening scenario so commands feel purposeful, not isolated
+- [x] **SCEN-03**: Scenario questions have expected answers revealed after the learner thinks (expandable reveal pattern)
 
 ### Content Migration
 
@@ -70,14 +70,14 @@
 | CHAL-01 | Phase 9 | Pending |
 | CHAL-02 | Phase 8 | Complete |
 | CHAL-03 | Phase 8 | Complete |
-| CHAL-04 | Phase 9 | Pending |
+| CHAL-04 | Phase 9 | Complete |
 | DIFF-01 | Phase 9 | Pending |
 | DIFF-02 | Phase 9 | Pending |
 | DIFF-03 | Phase 8 | Complete |
 | DIFF-04 | Phase 8 | Complete |
-| SCEN-01 | Phase 9 | Pending |
-| SCEN-02 | Phase 9 | Pending |
-| SCEN-03 | Phase 9 | Pending |
+| SCEN-01 | Phase 9 | Complete |
+| SCEN-02 | Phase 9 | Complete |
+| SCEN-03 | Phase 9 | Complete |
 | MIGR-01 | Phase 11 | Pending |
 | MIGR-02 | Phase 11 | Pending |
 | MIGR-03 | Phase 11 | Pending |

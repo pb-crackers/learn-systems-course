@@ -59,7 +59,7 @@ Plans:
   3. A Challenge ExerciseCard shows only the goal prompt and a ChallengeReferenceSheet; the numbered step list is not rendered
   4. A global difficulty toggle appears on Challenge-difficulty lessons and persists the learner's preference across page navigations in localStorage
   5. A ScenarioQuestion block renders between command steps with an expandable answer reveal, and its question text explicitly references the exercise's opening scenario
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 09-01-PLAN.md — Preferences context extension and AnnotatedCommand component
@@ -101,7 +101,7 @@ Plans:
 | 6. Infrastructure as Code & Cloud | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
-| 9. Component Implementation | v1.1 | 0/3 | Planned | - |
+| 9. Component Implementation | 2/3 | In Progress|  | - |
 | 10. Linux Fundamentals Prototype | v1.1 | 0/TBD | Not started | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
 
