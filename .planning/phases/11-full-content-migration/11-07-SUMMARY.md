@@ -110,3 +110,11 @@ None — plan executed exactly as written. The TypeScript compilation failure wa
 ---
 *Phase: 11-full-content-migration*
 *Completed: 2026-03-20*
+
+## Self-Check: PASSED
+
+- All 7 MDX files exist and contain correct content
+- Task 1 commit 015006d: FOUND (annotate Foundation lessons 01-04)
+- Task 2 commit 9179476: FOUND (add ScenarioQuestions to Intermediate lessons 05-07)
+- annotated={true} confirmed in all 4 Foundation lessons
+- ScenarioQuestion count: 2 per lesson across all 7 files (14 total)
