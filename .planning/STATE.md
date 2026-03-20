@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-20T13:39:41.891Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-03-20T13:41:23.378Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 15
-  completed_plans: 9
+  completed_plans: 11
   percent: 0
 ---
 
@@ -91,6 +91,8 @@ Recent decisions affecting v1.1 work:
 - [Phase 10-linux-fundamentals-prototype]: ScenarioQuestion answers written at paragraph length for complete diagnostic reasoning rather than one-word answers
 - [Phase 10-linux-fundamentals-prototype]: 2 ScenarioQuestions per lesson chosen for pedagogical depth; Intermediate lessons confirmed no annotated={true}
 - [Phase 11-full-content-migration]: Comment-command annotation: all 4 command fields in 07-cloud/01-02 are shell comment lines; annotated with single # token describing the shell comment operator
+- [Phase 11-03]: 07-advanced-capstone ChallengeReferenceSheet includes 15 items across 4 sections with tofu init/apply as potential distractors for learners who do not attempt the optional IaC step
+- [Phase 11-03]: 01-observability-concepts annotations use abbreviated quoted-string tokens for echo commands since the full string is too long for a single token field
 
 ### Pending Todos
 
@@ -103,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:39:41.888Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-03-20T13:41:23.375Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None

@@ -34,7 +34,7 @@
 ### Content Migration
 
 - [x] **MIGR-01**: All Foundation lessons (~22) have annotated command blocks for every exercise
-- [ ] **MIGR-02**: All Intermediate lessons (~20) have step descriptions rewritten to be actionable without commands
+- [x] **MIGR-02**: All Intermediate lessons (~20) have step descriptions rewritten to be actionable without commands
 - [ ] **MIGR-03**: Challenge/capstone exercises have goal-only format with reference sheets
 - [x] **MIGR-04**: All exercises include scenario-contextualized questions tying commands back to the opening scenario
 - [x] **MIGR-05**: Each module passes `next build` after migration
@@ -79,7 +79,7 @@
 | SCEN-02 | Phase 9 | Complete |
 | SCEN-03 | Phase 9 | Complete |
 | MIGR-01 | Phase 11 | Complete |
-| MIGR-02 | Phase 11 | Pending |
+| MIGR-02 | Phase 11 | Complete |
 | MIGR-03 | Phase 11 | Pending |
 | MIGR-04 | Phase 11 | Complete |
 | MIGR-05 | Phase 11 | Complete |
