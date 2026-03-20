@@ -1,34 +1,34 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: Learn Systems
-status: complete
-stopped_at: Milestone v1.0 complete
-last_updated: "2026-03-19T17:00:00.000Z"
-last_activity: "2026-03-20 - Completed quick task 260320-9oq: Fix build error and visible frontmatter"
+milestone: v1.1
+milestone_name: Command Pedagogy
+status: active
+stopped_at: null
+last_updated: "2026-03-20T11:00:00.000Z"
+last_activity: "2026-03-20 — Milestone v1.1 started"
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-19)
+See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Every lesson must be hands-on and interactive with thorough explanations — the learner practices real skills and understands how machines actually work. Delivered as a modern, production-ready Next.js web application.
-**Current focus:** Planning next milestone
+**Current focus:** v1.1 Command Pedagogy
 
 ## Current Position
 
-Milestone: v1.0 — SHIPPED 2026-03-19
-Phases: 7/7 complete | Plans: 27/27 complete
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-20 — Milestone v1.1 started
 
 ## Performance Metrics
 

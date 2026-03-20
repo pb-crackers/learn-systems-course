@@ -31,6 +31,17 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 
 ### Active
 
+## Current Milestone: v1.1 Command Pedagogy
+
+**Goal:** Transform CLI exercises from copy-paste instructions into active learning experiences with annotated commands and challenge-mode exercises.
+
+**Target features:**
+- Annotated command blocks explaining every flag and argument for Foundation exercises
+- Challenge-mode exercises where goals are described in English with a command reference sheet
+- Difficulty-aware exercise rendering tied to existing Foundation/Intermediate/Challenge system
+- Consistent command pedagogy across all 8 modules (56 lessons)
+
+### Future (deferred from Active)
 - [ ] Kubernetes basics — pods, deployments, services, configmaps
 - [ ] Configuration management with Ansible — playbooks, inventory, idempotency
 - [ ] Security hardening module — SSH hardening, secrets management, vulnerability scanning
@@ -81,5 +92,7 @@ All exercises have verification scripts with PASS/FAIL feedback.
 | OpenTofu over Terraform | Open-source, registry.opentofu.org, same HCL | ✓ Good — kreuzwerker/docker provider works locally |
 | Loki/Promtail as Compose profile | Not always-on, opt-in for log aggregation lesson | ✓ Good — reduces default resource usage |
 
+| Difficulty-aware exercise rendering | Foundation = annotated commands, Intermediate/Challenge = compose-your-own with reference sheet | — Pending |
+
 ---
-*Last updated: 2026-03-19 after v1.0 milestone*
+*Last updated: 2026-03-20 after v1.1 milestone start*
