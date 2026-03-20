@@ -215,61 +215,163 @@ The umask is set per-process and inherited by child processes. It is configured 
 <ExerciseCard
   title="Secure a Web Application File Structure"
   difficulty="Foundation"
+  annotated={true}
   scenario="You are setting up a web application on a Linux server. The application runs as the 'www-data' user and needs to read its configuration, write to its log directory, and execute its scripts — but no other users should be able to read the config (it contains database credentials). You need to set up the correct permissions and verify the security model is enforced."
   objective="By the end of this exercise, you will be able to apply chmod (both symbolic and numeric), chown, and the sticky bit to implement a real-world file permission policy."
   steps={[
     {
       step: 1,
       description: "Launch the lab container.",
-      command: "docker run --rm -it learn-systems-linux bash"
+      command: "docker run --rm -it learn-systems-linux bash",
+      annotations: [
+        { token: "docker", description: "Runs Docker CLI commands to manage containers and images" },
+        { token: "run", description: "Creates and starts a new container from the specified image" },
+        { token: "--rm", description: "Removes the container automatically when it exits, preventing accumulation of stopped containers" },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the shell inside the container" },
+        { token: "learn-systems-linux", description: "Specifies the image name to use — the pre-built Linux lab environment for this course" },
+        { token: "bash", description: "Runs bash as the entry point command, giving you an interactive shell inside the container" }
+      ]
     },
     {
       step: 2,
       description: "Create the directory structure for a web application.",
-      command: "mkdir -p /opt/webapp/{config,logs,scripts,public} && ls -la /opt/webapp/"
+      command: "mkdir -p /opt/webapp/{config,logs,scripts,public} && ls -la /opt/webapp/",
+      annotations: [
+        { token: "mkdir", description: "Creates one or more directories" },
+        { token: "-p", description: "Creates all intermediate parent directories as needed and does not error if the directory already exists" },
+        { token: "/opt/webapp/{config,logs,scripts,public}", description: "Uses brace expansion to create four subdirectories inside /opt/webapp/ in one command" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists directory contents with detailed metadata" },
+        { token: "-l", description: "Shows permissions, link count, owner, size, and modification date in long format" },
+        { token: "-a", description: "Includes hidden entries (starting with a dot) in the listing, showing . and .. entries" },
+        { token: "/opt/webapp/", description: "Specifies the newly created webapp directory to list so you can confirm the subdirectories were created" }
+      ]
     },
     {
       step: 3,
       description: "Create a sensitive config file and a log file.",
-      command: "echo 'DB_PASSWORD=secret123' > /opt/webapp/config/app.conf && touch /opt/webapp/logs/app.log"
+      command: "echo 'DB_PASSWORD=secret123' > /opt/webapp/config/app.conf && touch /opt/webapp/logs/app.log",
+      annotations: [
+        { token: "echo", description: "Writes its argument string to standard output" },
+        { token: "'DB_PASSWORD=secret123'", description: "Specifies the credential string to write — a simulated database password representing sensitive config data" },
+        { token: ">", description: "Redirects standard output to a file, creating or overwriting it" },
+        { token: "/opt/webapp/config/app.conf", description: "Specifies the destination path for the config file containing the sensitive credential" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "touch", description: "Creates an empty file at the given path if it does not exist, or updates its timestamps if it does" },
+        { token: "/opt/webapp/logs/app.log", description: "Specifies the path for the empty log file to create, simulating the log file the application will write to" }
+      ]
     },
     {
       step: 4,
       description: "Check the default permissions on the new files.",
-      command: "ls -la /opt/webapp/config/app.conf /opt/webapp/logs/app.log"
+      command: "ls -la /opt/webapp/config/app.conf /opt/webapp/logs/app.log",
+      annotations: [
+        { token: "ls", description: "Lists files with detailed metadata" },
+        { token: "-l", description: "Shows permissions, link count, owner, group, size, and modification date" },
+        { token: "-a", description: "Includes hidden entries in the listing" },
+        { token: "/opt/webapp/config/app.conf", description: "Specifies the config file to inspect — you will see the default permissions before any chmod is applied" },
+        { token: "/opt/webapp/logs/app.log", description: "Specifies the log file to inspect — compare its default permissions to the config file" }
+      ]
     },
     {
       step: 5,
       description: "Make the config file readable only by its owner (no group, no other). A file with DB credentials should never be world-readable.",
-      command: "chmod 600 /opt/webapp/config/app.conf && ls -la /opt/webapp/config/app.conf"
+      command: "chmod 600 /opt/webapp/config/app.conf && ls -la /opt/webapp/config/app.conf",
+      annotations: [
+        { token: "chmod", description: "Changes the permission bits of a file or directory" },
+        { token: "600", description: "Sets permissions to rw------- — owner gets read and write, group and other get no access at all" },
+        { token: "/opt/webapp/config/app.conf", description: "Specifies the config file to restrict — this is the file containing database credentials that must be private" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists the file with detailed metadata to confirm the permissions were applied" },
+        { token: "-l", description: "Shows the full permission string so you can verify it reads -rw-------" },
+        { token: "-a", description: "Includes hidden entries in the listing" },
+        { token: "/opt/webapp/config/app.conf", description: "Specifies the file to verify — confirms the permission change took effect" }
+      ]
     },
     {
       step: 6,
       description: "Make the scripts directory executable by owner and group, but not writable by group. Use symbolic mode.",
-      command: "chmod 750 /opt/webapp/scripts && ls -la /opt/webapp/"
+      command: "chmod 750 /opt/webapp/scripts && ls -la /opt/webapp/",
+      annotations: [
+        { token: "chmod", description: "Changes the permission bits of a file or directory" },
+        { token: "750", description: "Sets permissions to rwxr-x--- — owner gets full access, group gets read and execute only, other gets no access" },
+        { token: "/opt/webapp/scripts", description: "Specifies the scripts directory to restrict — allows the www-data group to execute scripts but not modify them" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists directory contents with detailed metadata" },
+        { token: "-l", description: "Shows the full permission string for each entry so you can see the scripts directory changed" },
+        { token: "-a", description: "Includes hidden entries in the listing" },
+        { token: "/opt/webapp/", description: "Specifies the parent directory to list, showing all subdirectories side by side for comparison" }
+      ]
     },
     {
       step: 7,
       description: "Set the sticky bit on the logs directory so only the file owner can delete log files. This protects logs from being deleted by other processes.",
-      command: "chmod +t /opt/webapp/logs && ls -la /opt/webapp/"
+      command: "chmod +t /opt/webapp/logs && ls -la /opt/webapp/",
+      annotations: [
+        { token: "chmod", description: "Changes the permission bits of a file or directory" },
+        { token: "+t", description: "Adds the sticky bit to the directory — only the file owner or root can delete or rename files inside" },
+        { token: "/opt/webapp/logs", description: "Specifies the logs directory to protect — prevents any process from deleting another process's log files" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "ls", description: "Lists directory contents with detailed metadata" },
+        { token: "-l", description: "Shows the full permission string so you can confirm the sticky bit appears as 't' in the other-execute position" },
+        { token: "-a", description: "Includes hidden entries in the listing" },
+        { token: "/opt/webapp/", description: "Specifies the parent directory to list so all subdirectory permissions are visible at once" }
+      ]
     },
     {
       step: 8,
       description: "Verify the sticky bit is shown as 't' in the other-execute position.",
-      command: "stat /opt/webapp/logs | grep -E 'Access.*Uid'"
+      command: "stat /opt/webapp/logs | grep -E 'Access.*Uid'",
+      annotations: [
+        { token: "stat", description: "Displays complete metadata for a file or directory including the octal permission value and owner information" },
+        { token: "/opt/webapp/logs", description: "Specifies the logs directory to inspect — you will see the full permission string including the sticky bit" },
+        { token: "grep", description: "Filters the stat output to show only lines matching the pattern" },
+        { token: "-E", description: "Enables extended regular expression syntax so the | (alternation) in the pattern works correctly" },
+        { token: "'Access.*Uid'", description: "Matches lines containing both Access and Uid, selecting the permissions and ownership line from stat output" }
+      ]
     },
     {
       step: 9,
       description: "Check your current UID and explore what the kernel would do: try to read the config as a different user. Add a test user and switch to it.",
-      command: "useradd -m testuser && su - testuser -c 'cat /opt/webapp/config/app.conf'"
+      command: "useradd -m testuser && su - testuser -c 'cat /opt/webapp/config/app.conf'",
+      annotations: [
+        { token: "useradd", description: "Creates a new user account on the system" },
+        { token: "-m", description: "Creates a home directory for the new user at /home/username" },
+        { token: "testuser", description: "Specifies the username for the new account — this user has no special privileges and no access to the config file" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "su", description: "Switches to another user account for the following command" },
+        { token: "-", description: "Simulates a full login for the target user, loading their environment and starting in their home directory" },
+        { token: "testuser", description: "Specifies the user to switch to — the unprivileged test account just created" },
+        { token: "-c", description: "Runs the specified command string as the target user instead of opening an interactive shell" },
+        { token: "'cat /opt/webapp/config/app.conf'", description: "Specifies the command to run as testuser — attempting to read the 600-permission config file to demonstrate the permission denial" }
+      ]
     },
     {
       step: 10,
       description: "Examine /tmp — the system's shared temporary directory. Note the sticky bit in the permissions string.",
-      command: "ls -la / | grep tmp && stat /tmp"
+      command: "ls -la / | grep tmp && stat /tmp",
+      annotations: [
+        { token: "ls", description: "Lists directory contents with detailed metadata" },
+        { token: "-l", description: "Shows the full permission string for each entry including the sticky bit indicator" },
+        { token: "-a", description: "Includes hidden entries in the listing" },
+        { token: "/", description: "Specifies the root directory to list — shows all top-level directories including tmp" },
+        { token: "grep", description: "Filters the ls output to show only the line for the tmp entry" },
+        { token: "tmp", description: "Specifies the search pattern to match the tmp directory line in the ls output" },
+        { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
+        { token: "stat", description: "Displays complete metadata for /tmp including the octal permission value showing the sticky bit" },
+        { token: "/tmp", description: "Specifies the system temporary directory — the canonical example of the sticky bit in production use" }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="The config file has permissions 600 and is owned by root. The web application runs as www-data. Can the application read the config file? What would you need to change to allow it while keeping the file private from other users?"
+    answer="No, the application cannot read it. Permission 600 gives read/write to the owner only — group and other get nothing. Since www-data is not the owner (root is), the kernel denies the read. To fix it: either change the file owner to www-data with chown www-data /opt/webapp/config/app.conf, or change the group to www-data and set permissions to 640 (rw-r-----) so the group can read but other cannot. The 640 approach is safer in shared environments because it keeps the permission explicit and auditable."
+  />
+  <ScenarioQuestion
+    question="A junior developer set the logs directory to chmod 777 so every process can write logs. What specific security risk does this create, and what permission would you use instead?"
+    answer="chmod 777 means any process running as any user can delete or rename log files inside the directory (write permission on a directory controls creating and deleting entries). If the application is compromised, an attacker could delete evidence of the intrusion by wiping logs. They could also plant false log entries. The sticky bit (chmod +t or 1777) is the correct solution: it preserves world-write so all processes can create log files, but only the file owner or root can delete or rename each file. This is exactly how /tmp works — world-writable but sticky."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
