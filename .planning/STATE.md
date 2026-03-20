@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-20T12:48:56.041Z"
+stopped_at: Completed 09-03-PLAN.md
+last_updated: "2026-03-20T12:53:38.504Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 08-design-lock P08-02 | 8min | 2 tasks | 3 files |
 | Phase 09-component-implementation P02 | 2min | 2 tasks | 2 files |
 | Phase 09-component-implementation P01 | 2min | 2 tasks | 2 files |
+| Phase 09-component-implementation P09-03 | 3 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Recent decisions affecting v1.1 work:
 - [Phase 09-component-implementation]: ChallengeReferenceSheet does not enforce 15-item cap at runtime — policy enforcement is a content authoring concern, not a component concern
 - [Phase 09-component-implementation]: ChallengeReferenceSheet passes className='my-0' to QuickReference to suppress default my-8 margin inside the wrapper container
 - [Phase 09-01]: AnnotatedCommand implemented as server component (no use client) — zero interactive state required; works inside use client ExerciseCard via Next.js composition model
+- [Phase 09-component-implementation]: DifficultyToggle Challenge button calls setPreferredMode(null) not 'compose' — avoids Intermediate compose regression when navigating between lesson difficulties
+- [Phase 09-component-implementation]: ExerciseCard compose branch falls back to guided steps when challengePrompt absent — backward compat for all 52 existing exercises
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:48:56.038Z
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-20T12:53:38.502Z
+Stopped at: Completed 09-03-PLAN.md
 Resume file: None

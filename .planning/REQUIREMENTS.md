@@ -13,15 +13,15 @@
 
 ### Challenge Mode
 
-- [ ] **CHAL-01**: Intermediate exercises describe step goals in plain English without giving the exact command
+- [x] **CHAL-01**: Intermediate exercises describe step goals in plain English without giving the exact command
 - [x] **CHAL-02**: Challenge exercises provide only the overall goal with no procedural steps
 - [x] **CHAL-03**: Challenge exercises include a scoped command reference sheet (using QuickReference) at the bottom
 - [x] **CHAL-04**: Progressive hints available for learners who get stuck (expandable reveal)
 
 ### Difficulty-Aware Rendering
 
-- [ ] **DIFF-01**: ExerciseCard renders differently based on difficulty tier (Foundation=annotated, Intermediate=recall, Challenge=compose)
-- [ ] **DIFF-02**: Global learner preference toggle allows overriding to harder/easier mode
+- [x] **DIFF-01**: ExerciseCard renders differently based on difficulty tier (Foundation=annotated, Intermediate=recall, Challenge=compose)
+- [x] **DIFF-02**: Global learner preference toggle allows overriding to harder/easier mode
 - [x] **DIFF-03**: Foundation exercises are always guided regardless of toggle (safety net for beginners)
 - [x] **DIFF-04**: Preference persists in localStorage alongside existing progress data
 
@@ -67,12 +67,12 @@
 | ANNO-01 | Phase 9 | Complete |
 | ANNO-02 | Phase 8 | Complete |
 | ANNO-03 | Phase 9 | Complete |
-| CHAL-01 | Phase 9 | Pending |
+| CHAL-01 | Phase 9 | Complete |
 | CHAL-02 | Phase 8 | Complete |
 | CHAL-03 | Phase 8 | Complete |
 | CHAL-04 | Phase 9 | Complete |
-| DIFF-01 | Phase 9 | Pending |
-| DIFF-02 | Phase 9 | Pending |
+| DIFF-01 | Phase 9 | Complete |
+| DIFF-02 | Phase 9 | Complete |
 | DIFF-03 | Phase 8 | Complete |
 | DIFF-04 | Phase 8 | Complete |
 | SCEN-01 | Phase 9 | Complete |
