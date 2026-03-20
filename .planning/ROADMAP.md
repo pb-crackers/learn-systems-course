@@ -43,7 +43,11 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. The challenge content policy is written: goal-only format means no procedural steps, reference sheet capped at 15 items with no sequential ordering language
   4. The Foundation safety-net rule is documented: Foundation exercises are always guided regardless of any global preference toggle
   5. The localStorage key for preference (`'learn-systems-preferences'`) and its shape are specified and separate from the progress key
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Type contracts, annotation style guide, and preference specification
+- [ ] 08-02-PLAN.md — Challenge content policy, Foundation safety-net rule, and content audit
 
 ### Phase 9: Component Implementation
 **Goal**: All new components compile and the ExerciseCard renders correctly for all three difficulty tiers on a test page
@@ -91,7 +95,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 | 5. System Administration & CI/CD | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 6. Infrastructure as Code & Cloud | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
-| 8. Design Lock | v1.1 | 0/TBD | Not started | - |
+| 8. Design Lock | v1.1 | 0/2 | Not started | - |
 | 9. Component Implementation | v1.1 | 0/TBD | Not started | - |
 | 10. Linux Fundamentals Prototype | v1.1 | 0/TBD | Not started | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
