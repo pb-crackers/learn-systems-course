@@ -303,34 +303,72 @@ This workflow has all the essential pieces: trigger, job, steps mixing `uses` an
   difficulty="Foundation"
   scenario="You want to verify that you can write a valid GitHub Actions workflow from scratch. Start with a minimal workflow that runs on push to main, prints commit metadata, and confirms the structure is correct before building a real CI pipeline."
   objective="By the end of this exercise, you will have written a syntactically correct GitHub Actions workflow that runs on push to main and prints the commit SHA, branch name, and event type using GitHub context variables."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Create the workflows directory. This path is fixed — GitHub only looks in .github/workflows/.",
-      command: "mkdir -p .github/workflows"
+      command: "mkdir -p .github/workflows",
+      annotations: [
+        { token: "mkdir", description: "Creates a new directory. Fails if the directory already exists unless the -p flag is used." },
+        { token: "-p", description: "Creates all intermediate parent directories as needed and suppresses errors if the directory already exists." },
+        { token: ".github/workflows", description: "Specifies the target directory path. GitHub Actions only scans this exact path for workflow YAML files." }
+      ]
     },
     {
       step: 2,
       description: "Create the workflow file. Use 2-space indentation. No tabs anywhere.",
-      command: "# Create .github/workflows/hello.yml with the content from the lesson"
+      command: "# Create .github/workflows/hello.yml with the content from the lesson",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. This step is a manual editing action, not a shell command — open a text editor and write the YAML from the lesson." }
+      ]
     },
     {
       step: 3,
       description: "Validate the YAML structure locally before pushing. Python's yaml module parses it without running the workflow. This catches indentation errors immediately.",
-      command: "python3 -c \"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\""
+      command: "python3 -c \"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\"",
+      annotations: [
+        { token: "python3", description: "Runs the Python 3 interpreter." },
+        { token: "-c", description: "Executes the following string as a Python program instead of reading from a file." },
+        { token: "\"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\"", description: "The Python one-liner: imports the yaml module, parses the workflow file with safe_load, and prints success if no exception is raised." }
+      ]
     },
     {
       step: 4,
       description: "Commit and push to main. GitHub Actions will detect the new workflow file and queue a run.",
-      command: "git add .github/workflows/hello.yml && git commit -m 'ci: add hello world workflow' && git push"
+      command: "git add .github/workflows/hello.yml && git commit -m 'ci: add hello world workflow' && git push",
+      annotations: [
+        { token: "git", description: "Runs the Git version control CLI." },
+        { token: "add", description: "Stages the specified file for inclusion in the next commit." },
+        { token: ".github/workflows/hello.yml", description: "Specifies the workflow file to stage — only this file is added, not all changes." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, chaining stage, commit, and push in sequence." },
+        { token: "git", description: "Runs the Git CLI again for the commit command." },
+        { token: "commit", description: "Records the staged changes as a new commit in the local repository history." },
+        { token: "-m", description: "Sets the commit message inline rather than opening a text editor." },
+        { token: "'ci: add hello world workflow'", description: "Sets the commit message describing the change. The ci: prefix follows conventional commit format for CI-related changes." },
+        { token: "&&", description: "Runs the next command only if the commit succeeded, preventing a push of an incomplete or failed commit." },
+        { token: "git", description: "Runs the Git CLI again for the push command." },
+        { token: "push", description: "Uploads the local commits to the remote repository on GitHub, which triggers the workflow." }
+      ]
     },
     {
       step: 5,
       description: "Open the GitHub Actions tab in your repository (github.com/owner/repo/actions). You should see the workflow run appear within seconds. Click on the run to see the output of each step.",
-      command: "# Navigate to: github.com/<owner>/<repo>/actions"
+      command: "# Navigate to: github.com/<owner>/<repo>/actions",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. This step is a browser navigation action — go to the GitHub Actions tab in your repository to see the triggered run." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="In Step 3, you validated YAML locally with python3 yaml.safe_load before pushing. Your colleague says this is pointless because GitHub will tell you if the YAML is wrong anyway. Why is local YAML validation still worth doing even though GitHub catches errors too?"
+    answer="Local validation creates a tighter feedback loop. If you push invalid YAML to GitHub, you must wait for the repository to receive the push, GitHub to scan the workflows directory, the UI to reflect the parse error, and then you to navigate to the error and fix it — this easily takes 30-60 seconds and requires switching contexts to a browser. Running python3 locally gives you the error in under a second, while you are still in the terminal with your editor open. The same principle applies to all pipeline stages: catching errors earlier in the development cycle (before the commit, before the push, before the CI run) is faster than catching them later, even if later detection is also guaranteed."
+  />
+  <ScenarioQuestion
+    question="You pushed the workflow and navigated to the GitHub Actions tab, but no run appeared. You checked and the YAML is valid. The file is at .github/workflows/hello.yml. What are the two most likely causes, and how would you check each one?"
+    answer="The first likely cause is that the push was not to the main branch. The trigger is 'on: push: branches: [main]' — a push to any other branch is silently ignored. Check with 'git branch' to confirm you pushed to main, or look at the repository's default branch in GitHub settings. The second likely cause is a subtle path error: GitHub requires the directory to be .github/workflows (note the dot prefix and correct spelling). A file at github/workflows/ (missing the dot) or .github/workflow/ (missing the s) will not be detected. Check with 'ls -la .github/workflows/' to confirm both the directory structure and that hello.yml is present inside it."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

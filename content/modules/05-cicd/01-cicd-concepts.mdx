@@ -111,34 +111,58 @@ Pipeline speed is an engineering investment. Caching dependencies, running tests
   difficulty="Foundation"
   scenario="Your team ships code by SSH-ing into a production server and running git pull. This works for small projects but has caused three incidents this quarter: a missing npm package crashed the app, an untested config change took the site down for 40 minutes, and a developer accidentally deployed from the wrong branch. The CTO wants CI/CD. Map out what a pipeline would look like."
   objective="By the end of this exercise, you will be able to identify CI vs CD stages, name what each pipeline stage does, and explain the artifact concept — all without writing any YAML yet."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "List every manual step currently done when shipping code. Include everything: local test runs, git operations, SSH commands, npm commands, service restarts, health checks.",
-      command: "# Write these down: checkout code, npm install, run tests, npm run build, copy files, restart service, verify health"
+      command: "# Write these down: checkout code, npm install, run tests, npm run build, copy files, restart service, verify health",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment — the shell ignores it. Used here as a thinking prompt, not a runnable command." }
+      ]
     },
     {
       step: 2,
       description: "Classify each step: is it CI (validate the code) or CD (deploy the artifact)? The boundary is the artifact — everything before creating the artifact is CI, everything after is CD.",
-      command: "# CI: checkout, install deps, run tests, build. CD: deploy to staging, deploy to prod."
+      command: "# CI: checkout, install deps, run tests, build. CD: deploy to staging, deploy to prod.",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. Used here to show the classification result — read this as the expected answer to the step above." }
+      ]
     },
     {
       step: 3,
       description: "Identify the artifact in your pipeline. For a Node.js Docker app, the artifact is the Docker image. What information should be in the image tag to make it traceable?",
-      command: "# Example tag: ghcr.io/myorg/myapp:abc1234 where abc1234 is the commit SHA"
+      command: "# Example tag: ghcr.io/myorg/myapp:abc1234 where abc1234 is the commit SHA",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. The example tag format shows how a commit SHA appended after the colon makes any running container traceable to its source code." }
+      ]
     },
     {
       step: 4,
       description: "Draw the pipeline stages in order, showing what happens on failure at each stage. What should happen if the tests fail? What should happen if the staging deploy fails?",
-      command: "# Push → [Build] → [Test] → [Staging Deploy] → [Prod Deploy]\n# Each stage: fail → notify, stop pipeline"
+      command: "# Push → [Build] → [Test] → [Staging Deploy] → [Prod Deploy]\n# Each stage: fail → notify, stop pipeline",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. The two comment lines together show the pipeline shape and the failure policy: every stage that fails sends a notification and halts the pipeline." }
+      ]
     },
     {
       step: 5,
       description: "Identify which of the three incidents would have been caught by the pipeline. The missing npm package: caught in Build (npm ci fails). Wrong branch: caught by trigger (pipeline only runs on main). Untested config change: depends — was it in the test suite?",
-      command: "# Incident 1: npm ci would have failed. Incident 3: would depend on test coverage."
+      command: "# Incident 1: npm ci would have failed. Incident 3: would depend on test coverage.",
+      annotations: [
+        { token: "#", description: "Marks the rest of the line as a comment. These are the analysis conclusions — read each incident against the pipeline stages to see which stage would have caught it." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your team's pipeline takes 45 minutes to run. The CTO says that's fine — at least it's automated. You disagree. Using the three incidents from the scenario, explain specifically why a slow feedback loop is still a problem even when the pipeline is automated."
+    answer="The 40-minute config change incident is the clearest example: even with automation, a 45-minute pipeline means the developer has moved on to other work by the time the failure is reported. When the bug alert arrives, they must context-switch back to code they wrote nearly an hour ago, recall what they changed, and debug in a colder mental state. Fast automation (3-5 minutes) means the developer still has the change in working memory when the failure lands — they fix it immediately rather than losing 30 minutes to context reconstruction. The missing npm package bug (Incident 1) is also relevant: a fast build stage would fail and notify within minutes of the push, not after the developer has already closed that mental tab."
+  />
+  <ScenarioQuestion
+    question="You drew the pipeline stages in Step 4. The wrong-branch incident (Incident 2) is caught by the trigger configuration, not by any pipeline stage. How does this illustrate the difference between what CI validates and what the pipeline trigger controls?"
+    answer="CI stages (Build, Test) validate whether the code is correct — they check that dependencies install, tests pass, and the artifact can be built. But they cannot prevent deploying from the wrong branch, because that is a question of which code is allowed to enter the pipeline at all. Trigger configuration answers: under what conditions does this pipeline even run? By setting the trigger to run only on pushes to the main branch, the pipeline refuses to build feature branches and developer forks entirely. This is pipeline access control, not code validation. The lesson is that a complete CI/CD system has both: triggers that control what enters the pipeline, and stages that validate what is inside it."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[
