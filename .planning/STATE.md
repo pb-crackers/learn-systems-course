@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-03-20T13:41:23.378Z"
+stopped_at: Completed 11-05-PLAN.md
+last_updated: "2026-03-20T13:42:15.508Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 15
-  completed_plans: 11
+  completed_plans: 14
   percent: 0
 ---
 
@@ -59,6 +59,9 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 10-linux-fundamentals-prototype P02 | 6min | 2 tasks | 2 files |
 | Phase 10-linux-fundamentals-prototype P03 | 3min | 2 tasks | 5 files |
 | Phase 11-full-content-migration P11-01 | 4min | 2 tasks | 5 files |
+| Phase 11-full-content-migration P06 | 6min | 2 tasks | 6 files |
+| Phase 11-full-content-migration P05 | 20min | 2 tasks | 8 files |
+| Phase 11-full-content-migration P11-04 | 7min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -93,6 +96,10 @@ Recent decisions affecting v1.1 work:
 - [Phase 11-full-content-migration]: Comment-command annotation: all 4 command fields in 07-cloud/01-02 are shell comment lines; annotated with single # token describing the shell comment operator
 - [Phase 11-03]: 07-advanced-capstone ChallengeReferenceSheet includes 15 items across 4 sections with tofu init/apply as potential distractors for learners who do not attempt the optional IaC step
 - [Phase 11-03]: 01-observability-concepts annotations use abbreviated quoted-string tokens for echo commands since the full string is too long for a single token field
+- [Phase 11-06]: Repeated tokens in compound commands annotated independently in left-to-right token order — array mirrors exact command string position
+- [Phase 11-06]: Sysadmin ScenarioQuestion answers emphasize multi-step diagnostic reasoning — consistent with Phase 10 paragraph-length answer decision
+- [Phase 11-full-content-migration]: Docker command annotation granularity: docker run -d --name mybox ubuntu:22.04 sleep infinity annotated as 8 separate tokens including positional arguments
+- [Phase 11-full-content-migration]: ChallengeReferenceSheet for Docker capstone uses 3 sections (Image Operations, Container Management, Compose Operations) with 15 items and distractors
 
 ### Pending Todos
 
@@ -105,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:41:23.375Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-03-20T13:42:11.862Z
+Stopped at: Completed 11-05-PLAN.md
 Resume file: None
