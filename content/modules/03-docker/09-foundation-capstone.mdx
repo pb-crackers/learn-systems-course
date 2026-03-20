@@ -74,6 +74,7 @@ default port. The database stores data in a named volume so it persists across r
   difficulty="Challenge"
   scenario="You're a new DevOps engineer. Your first task: take a three-tier application (web frontend, API backend, PostgreSQL database) and make it runnable anywhere with a single command. You'll write the Dockerfiles, configure the networking, persist the database, automate deployment with a shell script, and verify the stack is healthy."
   objective="Deploy a production-style multi-service Docker Compose application with custom Dockerfiles, inter-service networking, data persistence, and an automated deployment script with health checks."
+  challengePrompt="Take the three-tier application in docker/capstone/ — a web frontend, Node.js API, and PostgreSQL database — and make the full stack launchable with a single command from any machine. The web service must be the only entry point reachable from the host on port 8080; the API and database must communicate over an internal network only. The API must run as a non-root user. Database state must survive container recreation. A deploy.sh script must build, start, and verify the stack, exiting non-zero if any service is unhealthy. The provided verify.sh must pass all checks."
   steps={[
     {
       step: 1,
@@ -101,6 +102,49 @@ default port. The database stores data in a named volume so it persists across r
     },
   ]}
 >
+  <ChallengeReferenceSheet
+    sections={[
+      {
+        title: "Dockerfile Instructions",
+        items: [
+          { command: "FROM <image> AS <name>", description: "Starts a named build stage — use COPY --from=<name> in a later stage to extract output", example: "FROM node:20-alpine AS builder" },
+          { command: "RUN addgroup -S / adduser -S", description: "Creates a system group and user with no login shell inside an Alpine image", example: "RUN addgroup -S appgroup && adduser -S appuser -G appgroup" },
+          { command: "USER <name>", description: "Switches the running user for all subsequent instructions including CMD", example: "USER appuser" },
+          { command: "HEALTHCHECK CMD <cmd>", description: "Defines the command Docker runs to determine container health — exit 0 means healthy", example: "HEALTHCHECK --interval=30s CMD wget -qO- http://localhost:3000/health || exit 1" },
+          { command: "COPY --from=<stage> <src> <dst>", description: "Copies files from a previous build stage into the current stage", example: "COPY --from=builder /app ." }
+        ]
+      },
+      {
+        title: "Docker Compose Configuration",
+        items: [
+          { command: "ports: [\"host:container\"]", description: "Publishes a container port to the host — required for external access", example: "ports: [\"8080:80\"]" },
+          { command: "networks: [name]", description: "Connects a service to a named network — services on the same network resolve each other by service name", example: "networks: [backend]" },
+          { command: "volumes: [name:/path]", description: "Mounts a named volume at a path inside the container — data in the volume persists across container recreation", example: "volumes: [pgdata:/var/lib/postgresql/data]" },
+          { command: "depends_on: { svc: { condition: service_healthy } }", description: "Waits for a service's healthcheck to pass before starting the dependent service", example: "depends_on: { db: { condition: service_healthy } }" },
+          { command: "environment:", description: "Sets environment variables inside the container — used to pass secrets and config to services", example: "environment: [POSTGRES_PASSWORD=secret]" }
+        ]
+      },
+      {
+        title: "Compose Lifecycle Commands",
+        items: [
+          { command: "docker compose up -d --build", description: "Builds images and starts all services in detached mode", example: "docker compose -f docker/capstone/compose.yml up -d --build" },
+          { command: "docker compose ps", description: "Shows running status and health for all services in the stack", example: "docker compose ps" },
+          { command: "docker compose logs <service>", description: "Prints log output from a service container", example: "docker compose logs api" },
+          { command: "docker compose exec <service> <cmd>", description: "Runs a command inside a running service container", example: "docker compose exec api id" }
+        ]
+      },
+      {
+        title: "Shell Script Patterns",
+        items: [
+          { command: "set -e", description: "Causes the script to exit immediately if any command returns a non-zero exit code", example: "#!/bin/bash\\nset -e" }
+        ]
+      }
+    ]}
+  />
+  <ScenarioQuestion
+    question="Your deploy.sh builds images and runs docker compose up -d. Five seconds later you run docker compose ps and the api service shows 'running' but the web service shows 'starting'. Two minutes later the web service is still in 'starting'. What is the most likely root cause and what would you check first?"
+    answer="The most likely cause is that the api service's healthcheck is never passing, so the web service — which depends_on api with condition: service_healthy — is stuck waiting indefinitely for the healthy state that never arrives. Check docker compose ps more carefully: the api service might show 'running (unhealthy)' rather than 'running (healthy)'. Then run docker compose logs api to see whether the application is starting successfully and whether the /health endpoint is responding. Common causes for a failing healthcheck: the health endpoint returns a non-200 status, wget or curl is not available in the container (use the correct tool for Alpine vs Debian), the timeout is too short for a slow startup, or the /health route is not implemented in the application. Run docker compose exec api wget -qO- http://localhost:3000/health directly to test the endpoint independently of the healthcheck."
+  />
   <VerificationChecklist
     title="Success Criteria"
     items={[
