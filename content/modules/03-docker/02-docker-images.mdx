@@ -235,44 +235,109 @@ Examples:
   difficulty="Foundation"
   scenario="Your team just onboarded two new developers. The senior engineer asks you to make the Node.js API runnable with a single docker run command — no Node.js installation required on the developer's machine. You will build the image from the provided Dockerfile, run it, inspect its layers, and observe how the build cache saves time on rebuilds."
   objective="By the end of this exercise, you will be able to build a Docker image from a Dockerfile, run a container from that image, inspect layers, and understand how layer caching speeds up rebuilds."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Build the image using the progressive app's Dockerfile.basic. The -t flag tags the image. The -f flag specifies the Dockerfile path. The final argument is the build context (directory to send to Docker).",
-      command: "docker build -t myapp:v1 -f docker/app/Dockerfile.basic docker/app/"
+      command: "docker build -t myapp:v1 -f docker/app/Dockerfile.basic docker/app/",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "build", description: "Tells Docker to build a new image by processing a Dockerfile and its build context directory." },
+        { token: "-t", description: "Tags the resulting image with a name and optional tag, making it easy to reference later." },
+        { token: "myapp:v1", description: "Sets the image name to myapp and the tag to v1, creating a versioned reference for this build." },
+        { token: "-f", description: "Specifies the path to the Dockerfile to use instead of the default Dockerfile in the current directory." },
+        { token: "docker/app/Dockerfile.basic", description: "Points to the Dockerfile.basic file inside docker/app/, which contains the build instructions for this image." },
+        { token: "docker/app/", description: "Sets the build context directory — Docker sends all files in this directory to the build engine." }
+      ]
     },
     {
       step: 2,
       description: "List local images and note the size. The full node:20 base image makes the final image about 1.1GB — you will address this in the Dockerfile best practices lesson.",
-      command: "docker images myapp"
+      command: "docker images myapp",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "images", description: "Lists images stored in the local Docker image cache, showing repository, tag, ID, creation time, and size." },
+        { token: "myapp", description: "Filters the listing to show only images with the repository name myapp." }
+      ]
     },
     {
       step: 3,
       description: "Run the image as a container. The -d flag runs it in the background (detached). The -p flag publishes port 3000 to the host. The --name flag gives it a human-readable name.",
-      command: "docker run -d -p 3000:3000 --name myapp myapp:v1"
+      command: "docker run -d -p 3000:3000 --name myapp myapp:v1",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "run", description: "Creates and starts a new container from the specified image in a single command." },
+        { token: "-d", description: "Runs the container in detached mode so it runs in the background and returns you to the shell immediately." },
+        { token: "-p", description: "Publishes a container port to the host, making the service reachable from outside the container." },
+        { token: "3000:3000", description: "Maps host port 3000 to container port 3000 so requests to localhost:3000 are forwarded into the container." },
+        { token: "--name", description: "Assigns a human-readable name to the container so you can reference it by name instead of a hash ID." },
+        { token: "myapp", description: "Sets the container name to myapp for use in subsequent docker logs and docker rm commands." },
+        { token: "myapp:v1", description: "Specifies which image to use — the myapp image tagged v1 that was just built." }
+      ]
     },
     {
       step: 4,
       description: "Verify the app is running by sending a request to the root endpoint.",
-      command: "curl http://localhost:3000/"
+      command: "curl http://localhost:3000/",
+      annotations: [
+        { token: "curl", description: "Transfers data to or from a URL, making HTTP requests from the command line." },
+        { token: "http://localhost:3000/", description: "Sends a GET request to port 3000 on localhost, which forwards into the container via the port mapping set in step 3." }
+      ]
     },
     {
       step: 5,
       description: "Inspect the image layers. Count them — you should see 4 layers corresponding to the Dockerfile instructions that modified the filesystem.",
-      command: "docker image inspect myapp:v1 --format \"{{len .RootFS.Layers}} layers\""
+      command: "docker image inspect myapp:v1 --format \"{{len .RootFS.Layers}} layers\"",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "image", description: "Targets the image management subcommand group for operations on locally cached images." },
+        { token: "inspect", description: "Returns detailed metadata about the specified image as JSON, including layer hashes and configuration." },
+        { token: "myapp:v1", description: "Specifies which image to inspect by its name and tag." },
+        { token: "--format", description: "Applies a Go template expression to extract and format a specific field from the JSON output." },
+        { token: "\"{{len .RootFS.Layers}} layers\"", description: "Counts the elements in the Layers array under RootFS and appends the word layers, showing total layer count." }
+      ]
     },
     {
       step: 6,
       description: "Now observe the build cache in action. Edit docker/app/app.js to change the message in the GET / response (any small change). Then rebuild — notice which steps say CACHED and which re-run.",
-      command: "docker build -t myapp:v2 -f docker/app/Dockerfile.basic docker/app/"
+      command: "docker build -t myapp:v2 -f docker/app/Dockerfile.basic docker/app/",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "build", description: "Tells Docker to build a new image by processing a Dockerfile and its build context directory." },
+        { token: "-t", description: "Tags the resulting image with a name and optional tag." },
+        { token: "myapp:v2", description: "Sets the image tag to v2 so this rebuild is stored alongside v1 for comparison." },
+        { token: "-f", description: "Specifies the path to the Dockerfile to use." },
+        { token: "docker/app/Dockerfile.basic", description: "Points to the same Dockerfile used in step 1 so the layer cache can be compared directly." },
+        { token: "docker/app/", description: "Sets the build context directory containing the modified app.js file." }
+      ]
     },
     {
       step: 7,
       description: "Clean up: stop and remove the running container, then remove both image versions.",
-      command: "docker rm -f myapp && docker rmi myapp:v1 myapp:v2"
+      command: "docker rm -f myapp && docker rmi myapp:v1 myapp:v2",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "rm", description: "Removes one or more containers and deletes their writable overlay layer." },
+        { token: "-f", description: "Forces removal of a running container without needing to stop it first." },
+        { token: "myapp", description: "Specifies the container to remove by its assigned name." },
+        { token: "&&", description: "Runs the next command only if the previous command exited successfully, chaining cleanup steps together." },
+        { token: "docker", description: "Runs the Docker CLI again for the image removal command." },
+        { token: "rmi", description: "Removes one or more images from the local Docker image cache." },
+        { token: "myapp:v1", description: "Specifies the first image to remove by its name and tag." },
+        { token: "myapp:v2", description: "Specifies the second image to remove by its name and tag, cleaning up both builds." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="A developer on your team changed a single line in app.js and ran docker build. The build took 40 seconds instead of the expected 1 second. You inspect the Dockerfile and see that COPY . . comes before RUN npm install. What is causing the slow rebuild, and how would you fix it?"
+    answer="The layer cache is being busted prematurely. Because COPY . . precedes RUN npm install, any change to any file in the build context — including app.js — invalidates the COPY layer, which then invalidates the RUN npm install layer below it. Docker must re-run npm install from scratch on every code change. The fix is to split the COPY into two steps: first COPY package.json . then RUN npm install then COPY . . This way npm install is only re-run when package.json changes, not when source files change."
+  />
+  <ScenarioQuestion
+    question="After building myapp:v1 and running it with docker run -p 3000:3000 myapp:v1, a new developer cannot reach the app on their machine at port 3000. The Dockerfile has EXPOSE 3000. What is the most likely cause and what does EXPOSE actually do?"
+    answer="EXPOSE is documentation only — it does not publish the port or make it reachable from outside the container. The developer needs to pass the -p 3000:3000 flag to docker run to create the actual port mapping. Without -p, the container listens on port 3000 inside its own network namespace, but nothing outside the container can reach it. EXPOSE tells Docker and humans which port the app uses internally; -p creates the bridge between the host network and the container's network namespace."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

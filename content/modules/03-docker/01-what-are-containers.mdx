@@ -187,39 +187,91 @@ The container process is a regular Linux process. It has a PID on the host. It i
   difficulty="Foundation"
   scenario="You are a junior DevOps engineer and a senior colleague says containers are 'just processes with extra steps.' You want to verify this claim by looking at a running container from the host perspective — confirming that namespaces, cgroups, and overlay filesystems are real kernel objects you can inspect directly."
   objective="By the end of this exercise, you will be able to find a container's host PID, inspect its namespace links, compare PIDs inside vs outside the container, and verify cgroup limits — using only standard Linux tools."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Start a container in the background. The --name flag gives it a human-readable name. sleep infinity keeps it running so you have time to inspect it.",
-      command: "docker run -d --name mybox ubuntu:22.04 sleep infinity"
+      command: "docker run -d --name mybox ubuntu:22.04 sleep infinity",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image in a single command." },
+        { token: "-d", description: "Runs the container in detached mode so it runs in the background and returns you to the shell immediately." },
+        { token: "--name", description: "Assigns a human-readable name to the container so you can reference it by name instead of a hash ID." },
+        { token: "mybox", description: "Sets the container name to mybox, used in subsequent docker inspect and docker exec commands." },
+        { token: "ubuntu:22.04", description: "Specifies the image to use — Ubuntu 22.04 LTS pulled from Docker Hub if not already cached locally." },
+        { token: "sleep", description: "Runs the sleep command inside the container as PID 1 to keep the container running without doing real work." },
+        { token: "infinity", description: "Passes infinity as the argument to sleep, causing it to wait forever so the container stays alive for inspection." }
+      ]
     },
     {
       step: 2,
       description: "Find the container's PID as seen from the HOST. This is the real PID in the host's PID namespace — the number the kernel assigned when Docker called clone().",
-      command: "docker inspect mybox --format \"{{.State.Pid}}\""
+      command: "docker inspect mybox --format \"{{.State.Pid}}\"",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "inspect", description: "Returns detailed metadata about a container or image as JSON, including state, network, and filesystem information." },
+        { token: "mybox", description: "Specifies the container to inspect by its assigned name." },
+        { token: "--format", description: "Applies a Go template string to extract a specific field from the JSON output instead of printing everything." },
+        { token: "\"{{.State.Pid}}\"", description: "Extracts the Pid field from the State object, which is the container process PID in the host PID namespace." }
+      ]
     },
     {
       step: 3,
-      description: "View the namespace links for that PID. Replace <HOST_PID> with the number from step 2. Note the inode numbers in brackets — these identify each namespace instance.",
-      command: "ls -la /proc/<HOST_PID>/ns/"
+      description: "View the namespace links for that PID. Replace HOST_PID with the number from step 2. Note the inode numbers in brackets — these identify each namespace instance.",
+      command: "ls -la /proc/<HOST_PID>/ns/",
+      annotations: [
+        { token: "ls", description: "Lists directory contents." },
+        { token: "-l", description: "Shows entries in long format, displaying permissions, owner, size, and modification date for each file." },
+        { token: "-a", description: "Includes hidden entries (those starting with a dot) in the listing." },
+        { token: "/proc/<HOST_PID>/ns/", description: "Specifies the namespace directory for the given PID, containing symbolic links that identify each namespace instance by inode number." }
+      ]
     },
     {
       step: 4,
       description: "Compare: what PID does the process see inside the container? exec runs a command in the container's namespaces. The container sees PID 1 — its own PID namespace starts at 1.",
-      command: "docker exec mybox ps aux"
+      command: "docker exec mybox ps aux",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "exec", description: "Runs a new process inside an already-running container, sharing its namespaces and filesystem." },
+        { token: "mybox", description: "Specifies which running container to execute the command inside." },
+        { token: "ps", description: "Reports a snapshot of the current processes visible inside the container's PID namespace." },
+        { token: "aux", description: "Shows all processes for all users in a detailed format including CPU, memory, and full command line." }
+      ]
     },
     {
       step: 5,
       description: "Inspect the overlay filesystem mount for this container. The overlay mount shows the lowerdir (image layers), upperdir (writable layer), and merged mount point.",
-      command: "docker inspect mybox --format \"{{.GraphDriver.Data}}\""
+      command: "docker inspect mybox --format \"{{.GraphDriver.Data}}\"",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "inspect", description: "Returns detailed metadata about a container as JSON, including filesystem driver information." },
+        { token: "mybox", description: "Specifies the container to inspect by its assigned name." },
+        { token: "--format", description: "Applies a Go template string to extract a specific field from the JSON output." },
+        { token: "\"{{.GraphDriver.Data}}\"", description: "Extracts the Data map from GraphDriver, showing the overlay filesystem paths: LowerDir, UpperDir, MergedDir, and WorkDir." }
+      ]
     },
     {
       step: 6,
       description: "Clean up the container. The --rm flag was not used, so you need to explicitly remove it.",
-      command: "docker rm -f mybox"
+      command: "docker rm -f mybox",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "rm", description: "Removes one or more stopped containers and deletes their writable overlay layer." },
+        { token: "-f", description: "Forces removal of a running container by sending SIGKILL before deleting it, skipping the normal stop step." },
+        { token: "mybox", description: "Specifies the container to remove by its assigned name." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your colleague says the container is 'isolated' but you can see its process in the host's ps output. Is the container truly isolated, or is your colleague wrong? What does namespace isolation actually prevent?"
+    answer="Your colleague is correct, and the apparent contradiction is the key insight. Namespace isolation does not make the process invisible to the host — the host kernel runs all processes, container or not. What namespaces isolate is the container process's VIEW of the system. Inside the container, it sees PID 1 and only its own processes. From the host, you see the real PID (e.g. 12345). Isolation prevents the container from seeing or interfering with other processes, filesystems, and network interfaces — not from being visible to the host kernel."
+  />
+  <ScenarioQuestion
+    question="You run docker run --memory=128m and the container process later dies unexpectedly with no application error. What kernel mechanism caused this, and where would you look to confirm your suspicion?"
+    answer="The container exceeded its cgroup memory limit. Docker writes 134217728 bytes to the memory.max file in the container's cgroup directory under /sys/fs/cgroup/. When the process exceeded that limit, the Linux OOM killer fired and sent SIGKILL to the process — exit code 137. To confirm, run docker inspect on the stopped container and check .State.ExitCode (should be 137) and .State.OOMKilled (should be true)."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

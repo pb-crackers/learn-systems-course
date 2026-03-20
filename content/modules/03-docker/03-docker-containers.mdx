@@ -233,49 +233,118 @@ When the container process exceeds `memory.max`, the kernel OOM killer fires and
   difficulty="Foundation"
   scenario="It's 9am. A Slack alert fires: the API container has been restarting every 5 minutes. Your job is to investigate. You will inspect logs, exec into the running container to check the environment, apply resource limits to prevent it from consuming all host memory, and practice the graceful stop vs force-kill timing difference."
   objective="By the end of this exercise, you will be able to inspect container logs, exec into a container for live debugging, apply memory and CPU limits, monitor resource usage with docker stats, and observe the graceful vs force-kill shutdown timing difference."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Run the progressive app container. You need the image from the previous lesson — if you removed it, rebuild it first.",
-      command: "docker run -d --name debug-app -p 3000:3000 myapp:v1"
+      command: "docker run -d --name debug-app -p 3000:3000 myapp:v1",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image in a single command." },
+        { token: "-d", description: "Runs the container in detached mode so it runs in the background and returns you to the shell." },
+        { token: "--name", description: "Assigns a human-readable name to the container for use in subsequent commands." },
+        { token: "debug-app", description: "Sets the container name to debug-app, used in docker logs, docker exec, and docker stop commands below." },
+        { token: "-p", description: "Publishes a container port to the host network so it is reachable from outside the container." },
+        { token: "3000:3000", description: "Maps host port 3000 to container port 3000, forwarding requests to localhost:3000 into the container." },
+        { token: "myapp:v1", description: "Specifies the image to use — the myapp image tagged v1 built in the previous lesson." }
+      ]
     },
     {
       step: 2,
       description: "View the container logs to see what the process printed at startup.",
-      command: "docker logs debug-app"
+      command: "docker logs debug-app",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "logs", description: "Fetches and displays the stdout and stderr output captured from the container's PID 1 process." },
+        { token: "debug-app", description: "Specifies which container's logs to retrieve by its assigned name." }
+      ]
     },
     {
       step: 3,
       description: "Exec into the container and inspect the running process. Check: what PID is node? What files are in /app? What environment variables are set?",
-      command: "docker exec -it debug-app /bin/sh"
+      command: "docker exec -it debug-app /bin/sh",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "exec", description: "Runs a new process inside an already-running container, sharing its namespaces and filesystem." },
+        { token: "-i", description: "Keeps stdin open on the exec process so you can type commands into the interactive shell." },
+        { token: "-t", description: "Allocates a pseudo-TTY so the shell prompt and output display correctly in your terminal." },
+        { token: "debug-app", description: "Specifies the running container to exec into by its assigned name." },
+        { token: "/bin/sh", description: "Starts a POSIX-compatible shell inside the container as the exec command, giving you an interactive prompt." }
+      ]
     },
     {
       step: 4,
       description: "Back on the host — stop the container and observe the shutdown time. The node process handles SIGTERM, so it should exit quickly.",
-      command: "time docker stop debug-app"
+      command: "time docker stop debug-app",
+      annotations: [
+        { token: "time", description: "Measures and reports how long the following command takes to run, showing real, user, and sys elapsed time." },
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "stop", description: "Sends SIGTERM to PID 1 inside the container, waits up to 10 seconds for a graceful exit, then sends SIGKILL." },
+        { token: "debug-app", description: "Specifies the container to stop by its assigned name." }
+      ]
     },
     {
       step: 5,
       description: "Start a new container with resource limits applied. The --memory flag sets the cgroup memory.max value you learned about in Lesson 1.",
-      command: "docker run -d --name limited-app --memory=128m --cpus=0.5 -p 3001:3000 myapp:v1"
+      command: "docker run -d --name limited-app --memory=128m --cpus=0.5 -p 3001:3000 myapp:v1",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "-d", description: "Runs the container in detached mode so it runs in the background." },
+        { token: "--name", description: "Assigns a human-readable name to the container." },
+        { token: "limited-app", description: "Sets the container name to limited-app, distinguishing it from the debug-app container." },
+        { token: "--memory=128m", description: "Sets the cgroup memory.max limit to 128 megabytes; the OOM killer fires if the container exceeds this." },
+        { token: "--cpus=0.5", description: "Limits the container to half a CPU core by writing 50000 100000 to the cgroup cpu.max file." },
+        { token: "-p", description: "Publishes a container port to the host network." },
+        { token: "3001:3000", description: "Maps host port 3001 to container port 3000 to avoid conflicting with the stopped debug-app mapping." },
+        { token: "myapp:v1", description: "Specifies the image to use for the resource-limited container." }
+      ]
     },
     {
       step: 6,
       description: "Monitor resource usage live. Press Ctrl+C to stop watching after a few seconds.",
-      command: "docker stats limited-app"
+      command: "docker stats limited-app",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "stats", description: "Streams live resource usage metrics for the specified container, updating every second until you press Ctrl+C." },
+        { token: "limited-app", description: "Specifies which container to monitor, showing its CPU, memory, network, and block I/O usage." }
+      ]
     },
     {
       step: 7,
       description: "View the memory limit as Docker stored it — 128m converted to bytes.",
-      command: "docker inspect limited-app --format \"Memory limit: {{.HostConfig.Memory}} bytes\""
+      command: "docker inspect limited-app --format \"Memory limit: {{.HostConfig.Memory}} bytes\"",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "inspect", description: "Returns detailed metadata about the container as JSON, including its resource configuration." },
+        { token: "limited-app", description: "Specifies the container to inspect by its assigned name." },
+        { token: "--format", description: "Applies a Go template expression to extract and format a specific field from the JSON output." },
+        { token: "\"Memory limit: {{.HostConfig.Memory}} bytes\"", description: "Extracts the Memory field from HostConfig, showing the limit in bytes — 128m is stored as 134217728." }
+      ]
     },
     {
       step: 8,
       description: "Clean up all containers from this exercise.",
-      command: "docker rm -f debug-app limited-app"
+      command: "docker rm -f debug-app limited-app",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "rm", description: "Removes one or more containers and deletes their writable overlay layer." },
+        { token: "-f", description: "Forces removal of running containers without stopping them first." },
+        { token: "debug-app", description: "Specifies the first container to remove by its assigned name." },
+        { token: "limited-app", description: "Specifies the second container to remove by its assigned name." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You run docker exec -it debug-app /bin/sh, inspect the running processes, then type exit. A moment later you check docker ps and the container is still running. But your colleague ran docker attach debug-app and pressed Ctrl+C — and the container stopped. Why did exit from your exec shell leave the container running, while Ctrl+C from attach killed it?"
+    answer="docker exec starts a brand-new process inside the container's namespaces — in this case, /bin/sh. When you exit that shell, you are ending only that exec'd process. PID 1 (node app.js) is still running, so the container continues. docker attach is fundamentally different: it connects your terminal directly to PID 1's stdin and stdout. Pressing Ctrl+C sends SIGINT to PID 1 itself, which is the container's main process. Killing PID 1 terminates the container. For debugging, always use docker exec so you can exit safely without stopping the container."
+  />
+  <ScenarioQuestion
+    question="A container exits unexpectedly with exit code 137. You check docker inspect and see OOMKilled: true and HostConfig.Memory: 134217728. What happened, and what two values would you look at to decide whether to increase the memory limit or optimize the application?"
+    answer="The container exceeded its 128MiB memory limit. The kernel OOM killer sent SIGKILL (signal 9, 128+9=137) to the process. To decide between raising the limit or optimizing the app, you would look at two things: first, docker stats while the container is running (before it crashes) to see peak memory usage vs the limit — if the app is consistently using 127MiB and gets killed on spikes, raising the limit to 256MiB is reasonable. Second, check application-level heap usage (for Node.js: --expose-gc and process.memoryUsage()) to determine whether the memory growth is a leak or legitimate load."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
