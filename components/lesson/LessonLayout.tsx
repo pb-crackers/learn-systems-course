@@ -3,6 +3,7 @@ import { ScrollProgressBar } from './ScrollProgressBar'
 import { TableOfContents } from './TableOfContents'
 import { PrerequisiteBanner } from './PrerequisiteBanner'
 import { MarkCompleteButton } from './MarkCompleteButton'
+import { DifficultyToggle } from './DifficultyToggle'
 
 interface LessonLayoutProps {
   frontmatter: LessonFrontmatter
@@ -47,6 +48,12 @@ export function LessonLayout({ frontmatter, children }: LessonLayoutProps) {
                 {frontmatter.difficulty}
               </span>
             </div>
+            {frontmatter.difficulty === 'Challenge' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Mode:</span>
+                <DifficultyToggle />
+              </div>
+            )}
           </div>
 
           {/* Prerequisites banner — shows warning if prerequisites not complete */}

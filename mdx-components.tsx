@@ -6,6 +6,9 @@ import { ExerciseCard } from '@/components/content/ExerciseCard'
 import { TerminalBlock } from '@/components/content/TerminalBlock'
 import { VerificationChecklist } from '@/components/content/VerificationChecklist'
 import { QuickReference } from '@/components/content/QuickReference'
+import { AnnotatedCommand } from '@/components/content/AnnotatedCommand'
+import { ScenarioQuestion } from '@/components/content/ScenarioQuestion'
+import { ChallengeReferenceSheet } from '@/components/content/ChallengeReferenceSheet'
 
 function extractText(node: ReactNode): string {
   if (typeof node === 'string') return node
@@ -61,6 +64,9 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     VerificationChecklist,
     QuickReference,
     CodeBlock,
+    AnnotatedCommand,
+    ScenarioQuestion,
+    ChallengeReferenceSheet,
     ...components,
   }
 }
