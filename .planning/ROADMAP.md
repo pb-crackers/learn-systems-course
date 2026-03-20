@@ -59,7 +59,12 @@ Plans:
   3. A Challenge ExerciseCard shows only the goal prompt and a ChallengeReferenceSheet; the numbered step list is not rendered
   4. A global difficulty toggle appears on Challenge-difficulty lessons and persists the learner's preference across page navigations in localStorage
   5. A ScenarioQuestion block renders between command steps with an expandable answer reveal, and its question text explicitly references the exercise's opening scenario
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 09-01-PLAN.md — Preferences context extension and AnnotatedCommand component
+- [ ] 09-02-PLAN.md — ScenarioQuestion and ChallengeReferenceSheet components
+- [ ] 09-03-PLAN.md — ExerciseCard mode-aware rendering, DifficultyToggle, LessonLayout integration, MDX registration
 
 ### Phase 10: Linux Fundamentals Prototype
 **Goal**: The Linux Fundamentals module (module 02) is fully migrated and every difficulty tier works correctly end-to-end in the live application
@@ -96,7 +101,7 @@ Plans:
 | 6. Infrastructure as Code & Cloud | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
-| 9. Component Implementation | v1.1 | 0/TBD | Not started | - |
+| 9. Component Implementation | v1.1 | 0/3 | Planned | - |
 | 10. Linux Fundamentals Prototype | v1.1 | 0/TBD | Not started | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
 
