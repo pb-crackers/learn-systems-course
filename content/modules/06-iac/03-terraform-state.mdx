@@ -297,6 +297,14 @@ In production, use a remote backend instead of committing state to git. For the 
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After running docker stop learn-iac-web to simulate what your colleague did, you run tofu plan. The output shows docker_container.web must be replaced with a -/+ symbol. Why does OpenTofu plan a destroy-and-recreate instead of a simple restart — and what does this tell you about how the Docker provider models container state?"
+    answer="OpenTofu plans a destroy-and-recreate because the Docker provider models a container's running state as part of its required attributes. When OpenTofu queries the Docker API during the refresh cycle, it sees the container is stopped. The provider compares this against the desired state in your HCL (container should be running) and determines that the stopped container cannot be transitioned back to running via an in-place update — Docker containers must be removed and recreated to change their state from stopped to running in the provider's model. The -/+ symbol in the plan output means OpenTofu will first destroy the stopped container (remove it from Docker) and then create a fresh running container in its place. This is different from a cloud VM where the provider might model stop/start as an update rather than a replacement."
+  />
+  <ScenarioQuestion
+    question="Your colleague wants to run tofu state rm docker_container.web before you arrive so that 'OpenTofu forgets about it.' After they do this, you run tofu plan. What does the plan show, and is this a safe way to fix the drift?"
+    answer="After tofu state rm removes the container entry from state, OpenTofu no longer knows the container exists. On the next tofu plan, OpenTofu queries the HCL (one docker_container resource desired), finds no matching entry in state (just removed), and shows 1 resource to add — it plans to create a brand new container. It does not show any drift or replacement, because from OpenTofu's perspective the desired container does not yet exist. This is not a safe fix: the manually stopped container is still sitting in Docker (tofu state rm only removes the state entry, not the real infrastructure). If you run tofu apply, OpenTofu tries to create a new container named learn-iac-web, which will fail with a name conflict because the stopped container still exists. The correct fix is to run tofu apply without removing from state — OpenTofu detects the drift and handles it correctly by replacing the stopped container."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

@@ -292,6 +292,14 @@ OpenTofu registers each module call (frontend + api both using `web-container`),
     }
   ]}
 >
+  <ScenarioQuestion
+    question="The tofu plan output shows 4 resources to create, with names like module.frontend.docker_image.image and module.api.docker_container.container. Your colleague asks why the resource names have module.frontend and module.api prefixes instead of plain docker_container.web. What does this naming tell you about how OpenTofu tracks resources created by modules?"
+    answer="OpenTofu uses the full module path as a namespace prefix in resource addresses. When the root module calls module frontend and module api, every resource created inside the web-container module gets prefixed with the calling module's label. The docker_container resource inside the module is named container in main.tf, so when called as module.frontend, its full address is module.frontend.docker_container.container. This namespace isolation is essential: both module calls use the same child module with the same internal resource names, but OpenTofu tracks them as completely separate state entries because their module paths differ. Without this namespacing, both frontend and api module calls would create resources with the same address, causing state conflicts. This is also how tofu state list shows module resources — you will see module.frontend.docker_image.image and module.api.docker_image.image as distinct tracked resources."
+  />
+  <ScenarioQuestion
+    question="After running tofu apply to create both frontend (port 8081) and API (port 8082) containers, your team lead asks you to add a third service on port 8083. You consider adding a third module call to main.tf. What happens to the existing frontend and api containers when you run tofu plan with the new module call — and how does this compare to what would happen with imperative docker run scripts?"
+    answer="Adding a third module call and running tofu plan shows only 2 new resources to create — the image and container for the new service. The existing frontend and api containers are untouched because their module blocks are unchanged. OpenTofu compares the full desired state (all three module calls) against the current state (two existing containers) and computes the minimal diff: add the new service without touching what already exists. With imperative docker run scripts, adding a third service is trivial, but the problem arises when you need to change the existing services — you must manually track which containers are running, which need to be stopped and recreated, and which are unaffected. OpenTofu handles this automatically because it always works from the full desired state diff. The plan output gives you a precise audit of what will change before any change happens."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
