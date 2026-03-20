@@ -64,32 +64,32 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANNO-01 | — | Pending |
-| ANNO-02 | — | Pending |
-| ANNO-03 | — | Pending |
-| CHAL-01 | — | Pending |
-| CHAL-02 | — | Pending |
-| CHAL-03 | — | Pending |
-| CHAL-04 | — | Pending |
-| DIFF-01 | — | Pending |
-| DIFF-02 | — | Pending |
-| DIFF-03 | — | Pending |
-| DIFF-04 | — | Pending |
-| SCEN-01 | — | Pending |
-| SCEN-02 | — | Pending |
-| SCEN-03 | — | Pending |
-| MIGR-01 | — | Pending |
-| MIGR-02 | — | Pending |
-| MIGR-03 | — | Pending |
-| MIGR-04 | — | Pending |
-| MIGR-05 | — | Pending |
-| MIGR-06 | — | Pending |
+| ANNO-01 | Phase 9 | Pending |
+| ANNO-02 | Phase 8 | Pending |
+| ANNO-03 | Phase 9 | Pending |
+| CHAL-01 | Phase 9 | Pending |
+| CHAL-02 | Phase 8 | Pending |
+| CHAL-03 | Phase 8 | Pending |
+| CHAL-04 | Phase 9 | Pending |
+| DIFF-01 | Phase 9 | Pending |
+| DIFF-02 | Phase 9 | Pending |
+| DIFF-03 | Phase 8 | Pending |
+| DIFF-04 | Phase 8 | Pending |
+| SCEN-01 | Phase 9 | Pending |
+| SCEN-02 | Phase 9 | Pending |
+| SCEN-03 | Phase 9 | Pending |
+| MIGR-01 | Phase 11 | Pending |
+| MIGR-02 | Phase 11 | Pending |
+| MIGR-03 | Phase 11 | Pending |
+| MIGR-04 | Phase 11 | Pending |
+| MIGR-05 | Phase 11 | Pending |
+| MIGR-06 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 20 total
-- Mapped to phases: 0
-- Unmapped: 20 ⚠️
+- Mapped to phases: 20
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after initial definition*
+*Last updated: 2026-03-20 — traceability mapped after roadmap creation*
