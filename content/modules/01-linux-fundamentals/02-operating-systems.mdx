@@ -157,44 +157,111 @@ The `/proc` filesystem is a **virtual filesystem** — it has no data on disk. T
   difficulty="Foundation"
   scenario="You are debugging a containerized application that is failing with 'Operation not permitted' on startup. Before you can file a useful bug report, you need to understand whether the failure is at the system call level (a missing container capability) or at the application level (a code bug). You will use /proc and strace to build that diagnostic intuition."
   objective="By the end of this exercise, you will be able to read kernel state from /proc, interpret strace output, and identify which system calls a program makes during startup."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Launch the Linux lab container.",
-      command: "docker run --rm -it learn-systems-linux bash"
+      command: "docker run --rm -it learn-systems-linux bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "--rm", description: "Automatically removes the container when it exits, keeping the system clean after the session." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the container shell." },
+        { token: "learn-systems-linux", description: "Specifies the image to use — the one built in Lesson 1's exercise." },
+        { token: "bash", description: "Overrides the default container command and starts an interactive Bash shell inside the container." }
+      ]
     },
     {
       step: 2,
       description: "Read the kernel version and uptime from /proc.",
-      command: "cat /proc/version && echo '---' && cat /proc/uptime"
+      command: "cat /proc/version && echo '---' && cat /proc/uptime",
+      annotations: [
+        { token: "cat", description: "Reads a file and writes its contents to standard output." },
+        { token: "/proc/version", description: "Specifies the kernel virtual file containing the kernel version string and build compiler details." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success." },
+        { token: "echo", description: "Writes its arguments to standard output, used here to print a separator line." },
+        { token: "'---'", description: "Passes the literal string --- as the text for echo to print, visually separating the two outputs." },
+        { token: "&&", description: "Runs the next command only if the previous echo succeeded." },
+        { token: "cat", description: "Reads a file and writes its contents to standard output." },
+        { token: "/proc/uptime", description: "Specifies the kernel virtual file containing seconds since boot and total idle CPU time." }
+      ]
     },
     {
       step: 3,
       description: "Check the load average. The format is: 1min_avg 5min_avg 15min_avg running_threads/total_threads last_pid.",
-      command: "cat /proc/loadavg"
+      command: "cat /proc/loadavg",
+      annotations: [
+        { token: "cat", description: "Reads a file and writes its contents to standard output." },
+        { token: "/proc/loadavg", description: "Specifies the kernel virtual file containing 1, 5, and 15-minute load averages plus the count of runnable and total threads." }
+      ]
     },
     {
       step: 4,
       description: "Use strace to trace the system calls made by 'ls /'. The -e flag filters to specific syscall types. Look at what openat and getdents64 do.",
-      command: "strace -e openat,getdents64 ls / 2>&1 | head -20"
+      command: "strace -e openat,getdents64 ls / 2>&1 | head -20",
+      annotations: [
+        { token: "strace", description: "Traces all system calls made by a program, printing each call name, arguments, and return value to stderr." },
+        { token: "-e", description: "Filters tracing to only the syscall names listed in the following value, reducing output to the calls you care about." },
+        { token: "openat,getdents64", description: "Specifies the two syscalls to trace: openat opens files and getdents64 reads directory entries." },
+        { token: "ls", description: "Runs the ls program, listing directory contents, while strace intercepts its syscalls." },
+        { token: "/", description: "Passes the root directory as the path argument to ls, causing it to list the top-level filesystem entries." },
+        { token: "2>&1", description: "Redirects stderr to stdout so strace output, which goes to stderr, flows into the pipe alongside ls output." },
+        { token: "head", description: "Prints only the first N lines of input." },
+        { token: "-20", description: "Limits head output to the first 20 lines, showing the initial syscalls without flooding the terminal." }
+      ]
     },
     {
       step: 5,
       description: "Use strace with -c (count mode) to get a summary of all syscalls made by a command. This shows which syscalls are called most frequently.",
-      command: "strace -c ls /usr/bin 2>&1"
+      command: "strace -c ls /usr/bin 2>&1",
+      annotations: [
+        { token: "strace", description: "Traces system calls made by a program, printing call details to stderr." },
+        { token: "-c", description: "Counts each unique syscall and prints a summary table of call counts and time spent instead of individual call traces." },
+        { token: "ls", description: "Runs the ls program while strace counts its syscalls." },
+        { token: "/usr/bin", description: "Passes the /usr/bin directory as the argument to ls, a directory with many files that triggers more syscalls than a simple listing." },
+        { token: "2>&1", description: "Redirects stderr to stdout so the strace summary table, written to stderr, appears in the terminal output." }
+      ]
     },
     {
       step: 6,
       description: "Look at /proc/1 — PID 1 (the init process in this container). See what files it has open and what its command line is.",
-      command: "cat /proc/1/cmdline | tr '\\0' ' ' && echo && ls /proc/1/fd | head -10"
+      command: "cat /proc/1/cmdline | tr '\\0' ' ' && echo && ls /proc/1/fd | head -10",
+      annotations: [
+        { token: "cat", description: "Reads a file and writes its contents to standard output." },
+        { token: "/proc/1/cmdline", description: "Specifies the kernel virtual file containing the command line of PID 1, with arguments separated by null bytes." },
+        { token: "tr", description: "Translates or deletes characters in its input, writing the result to stdout." },
+        { token: "'\\0'", description: "Specifies the null byte character as the character to replace, since /proc/cmdline separates arguments with null bytes." },
+        { token: "' '", description: "Specifies a space as the replacement character, making the null-separated arguments human-readable." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success." },
+        { token: "echo", description: "Prints a blank line here to visually separate the cmdline output from the file descriptor listing." },
+        { token: "&&", description: "Runs the next command only if the previous echo succeeded." },
+        { token: "ls", description: "Lists the contents of a directory." },
+        { token: "/proc/1/fd", description: "Specifies the kernel virtual directory containing symbolic links for each file descriptor open in PID 1." },
+        { token: "head", description: "Prints only the first N lines of input." },
+        { token: "-10", description: "Limits output to the first 10 file descriptor entries so the listing stays concise." }
+      ]
     },
     {
       step: 7,
       description: "Check the kernel messages log. dmesg shows messages from the kernel ring buffer — hardware events, driver messages, errors.",
-      command: "dmesg | tail -20"
+      command: "dmesg | tail -20",
+      annotations: [
+        { token: "dmesg", description: "Reads and prints the kernel ring buffer, which contains messages about hardware initialization, driver events, and kernel warnings." },
+        { token: "tail", description: "Prints only the last N lines of input, showing the most recent messages." },
+        { token: "-20", description: "Limits tail output to the last 20 lines of the kernel ring buffer." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You ran strace -e openat on the failing container and saw: openat('/etc/config', O_RDONLY) = -1 EACCES. Based on what you learned about system calls and the kernel/userspace boundary, is this error most likely a missing container capability or an application code bug? How would you tell the difference?"
+    answer="EACCES means the kernel denied the open() call due to file permissions — the process does not have read permission on /etc/config. This is a kernel enforcement at the system call boundary, not an application code bug. A missing container capability would typically return EPERM. To tell the difference: check whether /etc/config exists and what its permissions are (ls -la /etc/config), and check what user the container process is running as (cat /proc/1/status | grep Uid). If the file exists but the process lacks permission, that is a permissions or capability issue to fix in the container configuration — not a code bug."
+  />
+  <ScenarioQuestion
+    question="You read /proc/1/cmdline and see the container's PID 1 is /bin/bash running a startup script. When Docker sends SIGTERM to stop the container, the application takes 30 seconds before it stops. Why does PID 1 matter here, and what should the container's PID 1 be to fix this?"
+    answer="PID 1 has special signal handling behavior in Linux: it does not receive SIGTERM by default unless it explicitly registers a signal handler. A bare shell script as PID 1 typically does not handle SIGTERM, so Docker waits the full 30-second timeout before sending SIGKILL. The fix is to use a proper init process as PID 1 — either Docker's built-in tini (docker run --init), or explicitly exec the application as the final command in the script so the app process becomes PID 1 and handles the signal itself."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
