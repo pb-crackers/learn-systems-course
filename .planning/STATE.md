@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-20T12:48:29.688Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-20T12:48:56.041Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 08-design-lock P01 | 4 | 2 tasks | 3 files |
 | Phase 08-design-lock P08-02 | 8min | 2 tasks | 3 files |
 | Phase 09-component-implementation P02 | 2min | 2 tasks | 2 files |
+| Phase 09-component-implementation P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,7 @@ Recent decisions affecting v1.1 work:
 - [Phase 09-component-implementation]: ScenarioQuestion uses violet-500 left border accent to distinguish from Callout types (green/amber/blue)
 - [Phase 09-component-implementation]: ChallengeReferenceSheet does not enforce 15-item cap at runtime — policy enforcement is a content authoring concern, not a component concern
 - [Phase 09-component-implementation]: ChallengeReferenceSheet passes className='my-0' to QuickReference to suppress default my-8 margin inside the wrapper container
+- [Phase 09-01]: AnnotatedCommand implemented as server component (no use client) — zero interactive state required; works inside use client ExerciseCard via Next.js composition model
 
 ### Pending Todos
 
@@ -89,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:48:29.686Z
-Stopped at: Completed 09-02-PLAN.md
+Last session: 2026-03-20T12:48:56.038Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None

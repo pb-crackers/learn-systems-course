@@ -7,9 +7,9 @@
 
 ### Command Annotations
 
-- [ ] **ANNO-01**: Foundation exercises display per-flag/argument annotations below each command block explaining what each part does
+- [x] **ANNO-01**: Foundation exercises display per-flag/argument annotations below each command block explaining what each part does
 - [x] **ANNO-02**: Annotations are static and always visible (not tooltips/hover) for maximum readability
-- [ ] **ANNO-03**: AnnotatedCommand component renders command first (copyable), then flag breakdown rows below
+- [x] **ANNO-03**: AnnotatedCommand component renders command first (copyable), then flag breakdown rows below
 
 ### Challenge Mode
 
@@ -64,9 +64,9 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ANNO-01 | Phase 9 | Pending |
+| ANNO-01 | Phase 9 | Complete |
 | ANNO-02 | Phase 8 | Complete |
-| ANNO-03 | Phase 9 | Pending |
+| ANNO-03 | Phase 9 | Complete |
 | CHAL-01 | Phase 9 | Pending |
 | CHAL-02 | Phase 8 | Complete |
 | CHAL-03 | Phase 8 | Complete |
