@@ -227,49 +227,128 @@ The `-k` flag tells curl to ignore TLS certificate errors, including invalid or 
   difficulty="Foundation"
   scenario="You're debugging a web application deployment and need to verify the server is responding correctly, inspect response headers, and confirm HTTPS is working. The lab has an nginx server with both HTTP (port 80) and HTTPS (port 443) using a self-signed certificate."
   objective="By the end of this exercise, you will be able to use curl to inspect HTTP headers, diagnose status codes, and verify TLS negotiation with a self-signed certificate."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Start the lab environment. Two containers will start: webserver (nginx) and client (your shell).",
-      command: "docker compose -f docker/networking/04-http/compose.yml up -d"
+      command: "docker compose -f docker/networking/04-http/compose.yml up -d",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI for managing containers and multi-container applications." },
+        { token: "compose", description: "Invokes the Docker Compose subcommand for managing applications defined in a Compose file." },
+        { token: "-f", description: "Specifies a non-default Compose file path to use for this command." },
+        { token: "docker/networking/04-http/compose.yml", description: "Points to the HTTP lab Compose file defining the nginx webserver and client containers." },
+        { token: "up", description: "Creates and starts all services defined in the Compose file." },
+        { token: "-d", description: "Runs the containers in detached mode, returning the shell prompt immediately." }
+      ]
     },
     {
       step: 2,
       description: "Open a shell in the client container.",
-      command: "docker compose -f docker/networking/04-http/compose.yml exec client bash"
+      command: "docker compose -f docker/networking/04-http/compose.yml exec client bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to interact with running containers." },
+        { token: "compose", description: "Invokes the Docker Compose subcommand to target services in the specified project." },
+        { token: "-f", description: "Specifies the Compose file to identify which project's services to target." },
+        { token: "docker/networking/04-http/compose.yml", description: "Points to the HTTP lab Compose file so exec targets the correct project." },
+        { token: "exec", description: "Runs a command inside an already-running container." },
+        { token: "client", description: "Specifies the service name to run the command in — the client container with curl installed." },
+        { token: "bash", description: "Starts an interactive Bash shell inside the client container." }
+      ]
     },
     {
       step: 3,
       description: "Make a basic HTTP request and check the status code.",
-      command: "curl -s -o /dev/null -w '%{http_code}\\n' http://webserver/"
+      command: "curl -s -o /dev/null -w '%{http_code}\\n' http://webserver/",
+      annotations: [
+        { token: "curl", description: "Transfers data from or to a server using HTTP, HTTPS, or other protocols." },
+        { token: "-s", description: "Silent mode — suppresses progress meters and error messages from curl itself." },
+        { token: "-o", description: "Writes the response body to a file instead of stdout." },
+        { token: "/dev/null", description: "Discards the response body by redirecting it to the null device." },
+        { token: "-w", description: "Prints a formatted string after the transfer using curl variables like http_code." },
+        { token: "'%{http_code}\\n'", description: "Formats the output to print only the HTTP status code followed by a newline." },
+        { token: "http://webserver/", description: "Specifies the URL to request — the nginx webserver container's root path over HTTP." }
+      ]
     },
     {
       step: 4,
       description: "Get the response headers only (HEAD request) and save them to a file for inspection. Create the directory first.",
-      command: "mkdir -p /tmp/exercise && curl -I http://webserver/ | tee /tmp/exercise/headers.txt"
+      command: "mkdir -p /tmp/exercise && curl -I http://webserver/ | tee /tmp/exercise/headers.txt",
+      annotations: [
+        { token: "mkdir", description: "Creates one or more directories." },
+        { token: "-p", description: "Creates parent directories as needed and does not error if the directory already exists." },
+        { token: "/tmp/exercise", description: "Specifies the directory path to create for storing exercise output files." },
+        { token: "&&", description: "Runs the next command only if mkdir succeeds." },
+        { token: "curl", description: "Transfers data from a server — here used to send a HEAD request." },
+        { token: "-I", description: "Sends an HTTP HEAD request, receiving response headers without a response body." },
+        { token: "http://webserver/", description: "Specifies the URL to send the HEAD request to." },
+        { token: "tee", description: "Reads from stdin and writes the data to both stdout and a file simultaneously." },
+        { token: "/tmp/exercise/headers.txt", description: "Specifies the file path where the response headers are saved for inspection." }
+      ]
     },
     {
       step: 5,
       description: "Use verbose mode to see the full TLS negotiation for the HTTPS endpoint. The -k flag is needed for the self-signed certificate.",
-      command: "curl -vk https://webserver/ 2>&1 | head -40"
+      command: "curl -vk https://webserver/ 2>&1 | head -40",
+      annotations: [
+        { token: "curl", description: "Transfers data from a server — here used with verbose output to inspect TLS negotiation." },
+        { token: "-v", description: "Verbose mode — prints request headers, response headers, and TLS handshake details." },
+        { token: "-k", description: "Skips TLS certificate verification, required here because the lab uses a self-signed certificate." },
+        { token: "https://webserver/", description: "Specifies the HTTPS URL to connect to, triggering a TLS handshake before the HTTP request." },
+        { token: "2>&1", description: "Redirects stderr (where curl writes verbose info) to stdout so it can be piped." },
+        { token: "head", description: "Prints only the first N lines of input." },
+        { token: "-40", description: "Limits output to the first 40 lines, showing the TLS handshake details without truncating them." }
+      ]
     },
     {
       step: 6,
       description: "Send a POST request with a JSON body to the API endpoint. Observe the Content-Type header requirement.",
-      command: "curl -X POST -H 'Content-Type: application/json' -d '{\"test\":\"data\"}' http://webserver/api"
+      command: "curl -X POST -H 'Content-Type: application/json' -d '{\"test\":\"data\"}' http://webserver/api",
+      annotations: [
+        { token: "curl", description: "Transfers data to a server — here used to send an HTTP POST request with a JSON body." },
+        { token: "-X", description: "Specifies the HTTP method to use instead of the default GET." },
+        { token: "POST", description: "Sets the request method to POST, used for creating resources or sending data to the server." },
+        { token: "-H", description: "Adds a custom header to the request." },
+        { token: "'Content-Type: application/json'", description: "Sets the Content-Type header to tell the server the request body is JSON-formatted." },
+        { token: "-d", description: "Specifies the data to send as the request body." },
+        { token: "'{\"test\":\"data\"}'", description: "Provides a minimal JSON object as the POST body to test the API endpoint." },
+        { token: "http://webserver/api", description: "Specifies the API endpoint URL to send the POST request to." }
+      ]
     },
     {
       step: 7,
       description: "Use curl to print just the HTTP status code from the HTTPS endpoint (skipping cert verification).",
-      command: "curl -sk -o /dev/null -w '%{http_code}\\n' https://webserver/"
+      command: "curl -sk -o /dev/null -w '%{http_code}\\n' https://webserver/",
+      annotations: [
+        { token: "curl", description: "Transfers data from a server, here used to extract only the HTTP status code." },
+        { token: "-s", description: "Silent mode — suppresses progress output from curl." },
+        { token: "-k", description: "Skips TLS certificate verification, required for the self-signed certificate in the lab." },
+        { token: "-o", description: "Writes the response body to a file rather than stdout." },
+        { token: "/dev/null", description: "Discards the response body, keeping only the status code output." },
+        { token: "-w", description: "Prints a formatted string after transfer using curl output variables." },
+        { token: "'%{http_code}\\n'", description: "Formats output to print only the HTTP status code followed by a newline." },
+        { token: "https://webserver/", description: "Specifies the HTTPS URL to request, testing that TLS handshake and response are both successful." }
+      ]
     },
     {
       step: 8,
       description: "Run the verification script to confirm your work.",
-      command: "bash /verify/04-http.sh"
+      command: "bash /verify/04-http.sh",
+      annotations: [
+        { token: "bash", description: "Runs the Bash shell interpreter to execute the specified script file." },
+        { token: "/verify/04-http.sh", description: "Specifies the path to the lab verification script that checks all exercise requirements." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You run curl -s -o /dev/null -w '%{http_code}' http://webserver/ and get 502. Then curl -v http://webserver/ shows the connection is established but the response is '502 Bad Gateway'. What does this status code tell you about where the problem is, and which component would you investigate next?"
+    answer="A 502 Bad Gateway means the nginx webserver received your request and successfully proxied it to a backend service, but got an invalid or unreadable response from that backend. The nginx server itself is working correctly — the problem is one layer deeper, in the application server or API service that nginx is forwarding to. The next investigation step is to look at the backend service directly: check if it is running with ss -tlnp on the app server container, review its logs with docker compose logs app-server, and try connecting directly to the backend port with curl to bypass nginx and see the raw response. A 502 with no incoming requests in the backend logs would confirm the backend has crashed or is not listening on the expected port."
+  />
+  <ScenarioQuestion
+    question="curl -vk https://webserver/ shows a successful TLS handshake with the lab's self-signed certificate. Your team asks why you need -k in the lab but production HTTPS endpoints work without it. What is the difference between a self-signed certificate and a CA-signed certificate, and what security guarantee does -k remove?"
+    answer="A CA-signed certificate is issued by a Certificate Authority that is already in your operating system's trusted root store — a list of organizations whose signatures browsers and curl trust by default. When curl connects to a production server, it receives the certificate, checks its signature against the trusted CAs, and verifies the certificate's domain matches the hostname you requested. A self-signed certificate is signed by the server itself, with no trusted CA in the chain. curl cannot verify the signature against any trusted authority, so it rejects the certificate unless you force it to skip with -k. The security guarantee -k removes is server identity verification: without certificate validation, you cannot confirm you are talking to the intended server rather than an attacker performing a man-in-the-middle attack who presents their own certificate. In a lab with a controlled network, this is acceptable. Against production systems, it is a serious security risk."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

@@ -188,39 +188,88 @@ When you reach Phase 4 (Docker), you will run `ip link show` on the host and see
   difficulty="Foundation"
   scenario="You are setting up network monitoring for a new server and need to understand how the server communicates on the local network. Before you can analyze network traffic, you need to know the server's MAC and IP addresses, how it reaches other networks, and which IP-to-MAC mappings it has already resolved."
   objective="By the end of this exercise, you will be able to find MAC and IP addresses with ip addr, inspect the routing table with ip route, and examine the ARP neighbor table with ip neigh — the same commands used in real network troubleshooting."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Launch the lab container. We use the Linux lab image from Phase 2 which has iproute2 installed.",
-      command: "docker run --rm -it learn-systems-linux bash"
+      command: "docker run --rm -it learn-systems-linux bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon and manage containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "--rm", description: "Automatically removes the container when it exits, keeping the system clean." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the container shell." },
+        { token: "learn-systems-linux", description: "Specifies the image to use — the shared Linux lab image with networking tools pre-installed." },
+        { token: "bash", description: "Overrides the default container command and starts an interactive Bash shell inside the container." }
+      ]
     },
     {
       step: 2,
       description: "List all network interfaces and their IP and MAC addresses. Look for the 'link/ether' line (MAC) and 'inet' line (IP) for each interface.",
-      command: "ip addr show"
+      command: "ip addr show",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for managing network interfaces, routes, and neighbor tables." },
+        { token: "addr", description: "Selects the address object — operates on IP addresses assigned to network interfaces." },
+        { token: "show", description: "Displays the current state of all matching objects rather than modifying anything." }
+      ]
     },
     {
       step: 3,
       description: "Show just the primary interface in a compact format. The -4 flag filters for IPv4 only.",
-      command: "ip -4 addr show eth0"
+      command: "ip -4 addr show eth0",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for inspecting and configuring network interfaces and routes." },
+        { token: "-4", description: "Filters output to show only IPv4 addresses, hiding any IPv6 address lines." },
+        { token: "addr", description: "Selects the address object to work with IP address information on interfaces." },
+        { token: "show", description: "Displays the current address information without making any changes." },
+        { token: "eth0", description: "Limits output to the eth0 interface only, rather than showing all interfaces." }
+      ]
     },
     {
       step: 4,
       description: "Inspect the routing table. The 'default via' line shows the default gateway — the router that handles traffic to destinations not in the routing table.",
-      command: "ip route show"
+      command: "ip route show",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for managing routes, addresses, and network interfaces." },
+        { token: "route", description: "Selects the route object — operates on the kernel IP routing table entries." },
+        { token: "show", description: "Prints the current routing table entries including the default gateway and directly connected networks." }
+      ]
     },
     {
       step: 5,
       description: "Show the ARP neighbor table — the IP-to-MAC mappings the kernel has cached. These are entries discovered via ARP for hosts on the same local subnet.",
-      command: "ip neigh show"
+      command: "ip neigh show",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for managing network state including neighbor cache entries." },
+        { token: "neigh", description: "Selects the neighbor object — operates on the ARP and NDP neighbor cache tables." },
+        { token: "show", description: "Displays all cached IP-to-MAC address mappings and their reachability state." }
+      ]
     },
     {
       step: 6,
       description: "Trigger an ARP resolution by pinging the gateway. After the ping, the gateway's MAC should appear in the neighbor table.",
-      command: "ping -c 1 $(ip route show default | awk '{print $3}') && ip neigh show"
+      command: "ping -c 1 $(ip route show default | awk '{print $3}') && ip neigh show",
+      annotations: [
+        { token: "ping", description: "Sends ICMP echo request packets to a host and reports whether replies are received." },
+        { token: "-c", description: "Limits the number of packets sent before ping stops automatically." },
+        { token: "1", description: "Sends exactly one packet, causing ping to exit after the first reply or timeout." },
+        { token: "$(ip route show default | awk '{print $3}')", description: "Substitutes the default gateway IP by extracting the third field from the default route entry." },
+        { token: "&&", description: "Runs the next command only if ping exits successfully, chaining the ping and neighbor table display." },
+        { token: "ip", description: "Runs the iproute2 tool to display updated network state after the ping." },
+        { token: "neigh", description: "Selects the neighbor object to show the ARP cache, which should now contain the gateway entry." },
+        { token: "show", description: "Displays the current ARP neighbor table entries after the gateway was resolved." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After running ip addr show, you see eth0 has the IP 172.17.0.3/16 and ip neigh show returns no entries. You ping the gateway and then see '172.17.0.1 dev eth0 lladdr 02:42:a4:c1:bb:01 REACHABLE'. Why was the ARP table empty before the ping, and what does the REACHABLE state mean?"
+    answer="The ARP table was empty because this container was freshly started and had not yet communicated with any other host on the local subnet. ARP entries are learned lazily — only when the kernel actually needs to send an Ethernet frame to a particular IP does it broadcast an ARP request to discover the MAC address. The REACHABLE state means the kernel sent a probe (the ping triggered one) and received a reply within the neighbor reachability time. After the TTL expires without confirmation, the state transitions to STALE and eventually the entry is removed, forcing a fresh ARP when communication resumes."
+  />
+  <ScenarioQuestion
+    question="You are troubleshooting a container that cannot reach the internet. ip addr show shows a valid IP on eth0, but ip route show returns only a host route and no default gateway line. Which layer of the network model is the problem at, and what command would you run to add the missing default route?"
+    answer="The problem is at Layer 3 (Network layer) — the container has a valid Layer 2 interface and IP address, but the routing table has no default route to forward packets whose destination is not on the local subnet. Without a default gateway entry, the kernel has no path for internet-bound traffic and drops those packets at the routing decision step. To add the missing route you would run: ip route add default via 172.17.0.1 dev eth0, replacing the gateway IP with the correct value from the network's configuration. After adding the route, ip route show would display a 'default via' line and internet connectivity would be restored."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

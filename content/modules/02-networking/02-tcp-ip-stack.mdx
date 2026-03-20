@@ -261,44 +261,111 @@ When you troubleshoot "why can't I connect to port 8080?", `ss -tlnp` tells you 
   difficulty="Foundation"
   scenario="You are debugging why two containers on the same Docker network cannot communicate. You need to inspect their IP addresses, determine whether they are on the same subnet, and examine which ports are actually listening — the same workflow you will use in real container debugging scenarios."
   objective="By the end of this exercise, you will be able to identify IP addresses and subnet masks, determine subnet membership, and inspect TCP listening ports with ss — the standard toolkit for container network debugging."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Launch the lab container.",
-      command: "docker run --rm -it learn-systems-linux bash"
+      command: "docker run --rm -it learn-systems-linux bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon and manage containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "--rm", description: "Automatically removes the container when it exits, keeping the system clean." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the container shell." },
+        { token: "learn-systems-linux", description: "Specifies the image to use — the shared Linux lab image with networking tools pre-installed." },
+        { token: "bash", description: "Overrides the default container command and starts an interactive Bash shell inside the container." }
+      ]
     },
     {
       step: 2,
       description: "Find the container's IP address and subnet. Note the CIDR notation (e.g., /16 or /24) — this tells you the subnet size.",
-      command: "ip addr show eth0"
+      command: "ip addr show eth0",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for managing network interfaces, routes, and neighbor tables." },
+        { token: "addr", description: "Selects the address object to work with IP addresses assigned to interfaces." },
+        { token: "show", description: "Displays the current address configuration without modifying anything." },
+        { token: "eth0", description: "Limits the output to the eth0 interface, showing only its IP and MAC address." }
+      ]
     },
     {
       step: 3,
       description: "Show the full routing table. Identify the directly-connected network and the default gateway.",
-      command: "ip route show"
+      command: "ip route show",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool for managing routes, addresses, and network interfaces." },
+        { token: "route", description: "Selects the route object — operates on the kernel IP routing table." },
+        { token: "show", description: "Prints all current routing table entries including the default gateway and local subnets." }
+      ]
     },
     {
       step: 4,
       description: "Use ip route get to ask the kernel exactly how it would route traffic to a specific IP. Compare routing to an IP on the same subnet vs a remote IP.",
-      command: "ip route get 8.8.8.8 && ip route get $(ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | sed 's/\\..$/.1/')"
+      command: "ip route get 8.8.8.8 && ip route get $(ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | sed 's/\\..$/.1/')",
+      annotations: [
+        { token: "ip", description: "Runs the iproute2 tool to perform a kernel routing lookup." },
+        { token: "route", description: "Selects the route object to query the routing table." },
+        { token: "get", description: "Asks the kernel to resolve exactly which route it would use to send a packet to a given destination IP." },
+        { token: "8.8.8.8", description: "Specifies a well-known Google DNS IP as the destination to look up, which routes via the default gateway." },
+        { token: "&&", description: "Runs the second ip route get command only if the first exits successfully." },
+        { token: "ip", description: "Runs iproute2 again for the second route lookup within the command substitution." },
+        { token: "route", description: "Selects the route object for the second lookup." },
+        { token: "get", description: "Queries the kernel routing decision for a local subnet IP to show the directly-connected route." },
+        { token: "$(ip addr show eth0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1 | sed 's/\\..$/.1/')", description: "Substitutes the .1 address of the local subnet by parsing the container IP, replacing the last octet with 1." }
+      ]
     },
     {
       step: 5,
       description: "List all listening TCP ports. The -t flag is TCP, -l is listening, -n is numeric ports, -p shows the process.",
-      command: "ss -tlnp"
+      command: "ss -tlnp",
+      annotations: [
+        { token: "ss", description: "Queries the kernel socket table to display socket statistics — replaces the older netstat command." },
+        { token: "-t", description: "Filters output to show only TCP sockets, excluding UDP and Unix domain sockets." },
+        { token: "-l", description: "Shows only listening sockets — sockets waiting for incoming connections on a bound port." },
+        { token: "-n", description: "Displays port numbers as integers instead of resolving them to service names like http or ssh." },
+        { token: "-p", description: "Shows the process name and PID that owns each listening socket." }
+      ]
     },
     {
       step: 6,
       description: "Read the raw kernel TCP socket table. Each line is a socket. The local_address and rem_address are in hex (host-endian IP, little-endian port). This is what ss parses for you.",
-      command: "cat /proc/net/tcp | head -5"
+      command: "cat /proc/net/tcp | head -5",
+      annotations: [
+        { token: "cat", description: "Reads a file and writes its contents to standard output." },
+        { token: "/proc/net/tcp", description: "Specifies the kernel virtual file containing the raw TCP socket table in hex-encoded format." },
+        { token: "head", description: "Prints only the first N lines of input, discarding the rest." },
+        { token: "-5", description: "Limits output to the first 5 lines, showing the header row and a few socket entries." }
+      ]
     },
     {
       step: 7,
       description: "Start a simple netcat listener on port 8080 in the background, then verify it appears in ss output.",
-      command: "nc -lk 8080 &>/dev/null & sleep 1 && ss -tlnp | grep 8080"
+      command: "nc -lk 8080 &>/dev/null & sleep 1 && ss -tlnp | grep 8080",
+      annotations: [
+        { token: "nc", description: "Runs netcat, a utility for reading from and writing to network connections over TCP or UDP." },
+        { token: "-l", description: "Puts netcat into listen mode, waiting for incoming TCP connections on the specified port." },
+        { token: "-k", description: "Keeps the listener open after a client disconnects, accepting new connections repeatedly." },
+        { token: "8080", description: "Specifies port 8080 as the port to listen on." },
+        { token: "&>/dev/null", description: "Redirects both stdout and stderr to /dev/null, suppressing all output from netcat." },
+        { token: "&", description: "Runs the netcat process in the background so the shell prompt returns immediately." },
+        { token: "sleep", description: "Pauses execution for a specified number of seconds to give netcat time to start listening." },
+        { token: "1", description: "Waits 1 second before continuing, ensuring the listener is established before querying ss." },
+        { token: "&&", description: "Runs the ss command only after sleep exits, ensuring the sequence is ordered." },
+        { token: "ss", description: "Queries the kernel socket table to verify the new listener appears." },
+        { token: "-tlnp", description: "Shows listening TCP sockets with numeric ports and process names." },
+        { token: "grep", description: "Filters the ss output to show only lines matching the pattern." },
+        { token: "8080", description: "Filters for lines containing 8080 to confirm the netcat listener appears on that port." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You run ss -tlnp on your container and see postgres listening on 127.0.0.1:5432. Another container on the same Docker network tries to connect but gets 'Connection refused'. The database is running — why can't the other container reach it, and what would you change to fix it?"
+    answer="The database is bound to 127.0.0.1, which is the loopback interface — only processes on the same machine can connect to it. The loopback interface exists in each container's own network namespace, so another container on the Docker network has no path to 127.0.0.1 inside the first container. To fix it, you need to configure Postgres to listen on 0.0.0.0 (all interfaces) or on the specific container IP assigned by Docker. In Postgres, this is the listen_addresses setting in postgresql.conf. After changing the binding and restarting, ss -tlnp would show 0.0.0.0:5432, and connections from other containers would succeed."
+  />
+  <ScenarioQuestion
+    question="ip route get 8.8.8.8 returns 'via 172.17.0.1 dev eth0' while ip route get 172.17.0.5 returns '172.17.0.5 dev eth0 src 172.17.0.2'. What is the kernel telling you about how it routes these two packets differently, and which TCP/IP layer is making this routing decision?"
+    answer="The kernel is showing you two different routing paths that correspond to whether the destination is on the local subnet or not. For 8.8.8.8 (outside the /16 subnet), the kernel forwards the packet to the default gateway at 172.17.0.1, which is a router that can reach the internet — the packet needs to cross network boundaries. For 172.17.0.5 (inside the same /16 subnet), the kernel routes it directly out eth0 with no gateway, because both hosts share the same layer-2 network segment and can communicate using ARP and Ethernet frames without involving a router. This routing decision happens at the Internet layer (Layer 2 in TCP/IP, or Layer 3 in the OSI model) — specifically in the kernel's IP forwarding code, before any transport-layer handling occurs."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

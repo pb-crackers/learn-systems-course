@@ -145,54 +145,133 @@ DNSSEC is not universally deployed — many domains do not sign their zones, and
   difficulty="Foundation"
   scenario="You are migrating a service to a new server and need to verify that DNS records are correct before switching traffic. You need to query DNS directly — bypassing any caches — and trace the full resolution path from root nameservers to the authoritative response. This is standard procedure before any DNS cutover."
   objective="By the end of this exercise, you will be able to use dig to query DNS records, trace the full resolution chain with dig +trace, perform reverse DNS lookups, and run a local CoreDNS lab that demonstrates how container DNS resolution works."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Start the DNS lab. This brings up a CoreDNS server pre-configured with lab records and an Ubuntu client container with dig installed.",
-      command: "docker compose -f docker/networking/03-dns/compose.yml up -d"
+      command: "docker compose -f docker/networking/03-dns/compose.yml up -d",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI for managing containers and multi-container applications." },
+        { token: "compose", description: "Invokes the Docker Compose subcommand for managing multi-container applications defined in a Compose file." },
+        { token: "-f", description: "Specifies a non-default Compose file path instead of looking for docker-compose.yml in the current directory." },
+        { token: "docker/networking/03-dns/compose.yml", description: "Points to the DNS lab Compose file that defines the CoreDNS server and client containers." },
+        { token: "up", description: "Creates and starts all services defined in the Compose file." },
+        { token: "-d", description: "Runs the containers in detached mode, returning the shell prompt after containers start." }
+      ]
     },
     {
       step: 2,
       description: "Open a shell in the client container.",
-      command: "docker compose -f docker/networking/03-dns/compose.yml exec client bash"
+      command: "docker compose -f docker/networking/03-dns/compose.yml exec client bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to interact with running containers." },
+        { token: "compose", description: "Invokes the Docker Compose subcommand to target services defined in the Compose file." },
+        { token: "-f", description: "Specifies the Compose file path to identify which project's services to target." },
+        { token: "docker/networking/03-dns/compose.yml", description: "Points to the DNS lab Compose file so the exec command targets the right project." },
+        { token: "exec", description: "Runs a command inside an already-running container." },
+        { token: "client", description: "Specifies the service name to execute the command in — the client container with dig installed." },
+        { token: "bash", description: "Starts an interactive Bash shell inside the client container." }
+      ]
     },
     {
       step: 3,
       description: "Query the lab DNS server for app.learn.local. The @dns syntax tells dig which resolver to ask. The ANSWER SECTION shows the A record.",
-      command: "dig app.learn.local @dns"
+      command: "dig app.learn.local @dns",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility, sending queries to a nameserver and displaying the full response." },
+        { token: "app.learn.local", description: "Specifies the domain name to resolve — a lab hostname pre-configured in the CoreDNS server." },
+        { token: "@dns", description: "Directs the query to the container named dns instead of the system resolver, bypassing /etc/resolv.conf." }
+      ]
     },
     {
       step: 4,
       description: "Use +short to get just the IP address — useful in scripts.",
-      command: "dig +short app.learn.local @dns"
+      command: "dig +short app.learn.local @dns",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility to query a nameserver." },
+        { token: "+short", description: "Suppresses all output except the direct answer — prints just the IP address with no headers or sections." },
+        { token: "app.learn.local", description: "Specifies the lab hostname to resolve." },
+        { token: "@dns", description: "Directs the query to the lab CoreDNS server container rather than the system resolver." }
+      ]
     },
     {
       step: 5,
       description: "Perform a reverse DNS lookup (PTR record). The -x flag takes an IP and automatically constructs the in-addr.arpa query.",
-      command: "dig -x 10.0.0.10 @dns"
+      command: "dig -x 10.0.0.10 @dns",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility to perform a PTR record query." },
+        { token: "-x", description: "Enables reverse lookup mode, automatically converting the IP into the in-addr.arpa format required for PTR queries." },
+        { token: "10.0.0.10", description: "Specifies the IP address to look up — dig converts this to 10.0.0.10.in-addr.arpa for the PTR query." },
+        { token: "@dns", description: "Directs the reverse lookup to the lab CoreDNS server which has the PTR record configured." }
+      ]
     },
     {
       step: 6,
       description: "Trace the full resolution chain for a public domain. dig +trace shows every step from root nameservers to the authoritative answer. This is the best way to debug slow or broken DNS.",
-      command: "dig +trace example.com"
+      command: "dig +trace example.com",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility with trace mode to follow the full resolution chain." },
+        { token: "+trace", description: "Iteratively follows the resolution chain from root nameservers to the authoritative server, showing each delegation step." },
+        { token: "example.com", description: "Specifies the domain to trace — the resolution will show root, TLD, and authoritative nameserver responses." }
+      ]
     },
     {
       step: 7,
       description: "Save the trace to the exercise output directory for verification.",
-      command: "mkdir -p /tmp/exercise && dig +trace app.learn.local @dns > /tmp/exercise/dns-trace.txt && cat /tmp/exercise/dns-trace.txt"
+      command: "mkdir -p /tmp/exercise && dig +trace app.learn.local @dns > /tmp/exercise/dns-trace.txt && cat /tmp/exercise/dns-trace.txt",
+      annotations: [
+        { token: "mkdir", description: "Creates one or more directories." },
+        { token: "-p", description: "Creates parent directories as needed and does not error if the directory already exists." },
+        { token: "/tmp/exercise", description: "Specifies the directory path to create for storing exercise output files." },
+        { token: "&&", description: "Runs the next command only if mkdir succeeds." },
+        { token: "dig", description: "Runs the DNS lookup utility to produce the trace output." },
+        { token: "+trace", description: "Shows the full resolution chain from root to authoritative nameserver." },
+        { token: "app.learn.local", description: "Specifies the lab hostname to trace through the CoreDNS server." },
+        { token: "@dns", description: "Directs the trace query to the lab DNS server." },
+        { token: ">", description: "Redirects the dig output to a file instead of printing it to the terminal." },
+        { token: "/tmp/exercise/dns-trace.txt", description: "Specifies the file path where the DNS trace output is saved for verification." },
+        { token: "&&", description: "Runs cat only after the dig command and file redirect complete successfully." },
+        { token: "cat", description: "Reads the saved file and prints its contents to confirm the trace was written correctly." },
+        { token: "/tmp/exercise/dns-trace.txt", description: "Specifies the file to display, confirming the trace content was saved." }
+      ]
     },
     {
       step: 8,
       description: "Query for MX records on a public domain to see mail routing.",
-      command: "dig mx gmail.com"
+      command: "dig mx gmail.com",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility to query for a specific record type." },
+        { token: "mx", description: "Requests MX (mail exchange) records instead of the default A record, showing mail server priorities." },
+        { token: "gmail.com", description: "Specifies the domain to query for mail exchange records." }
+      ]
     },
     {
       step: 9,
       description: "Check DNS propagation by querying multiple resolvers for the same name. Different resolvers may return different TTL values based on their cache age.",
-      command: "dig +short example.com @8.8.8.8 && dig +short example.com @1.1.1.1"
+      command: "dig +short example.com @8.8.8.8 && dig +short example.com @1.1.1.1",
+      annotations: [
+        { token: "dig", description: "Runs the DNS lookup utility to query the first resolver." },
+        { token: "+short", description: "Suppresses all output except the answer IP address for easy comparison." },
+        { token: "example.com", description: "Specifies the domain to resolve at both resolvers." },
+        { token: "@8.8.8.8", description: "Directs the first query to Google Public DNS to get its cached answer." },
+        { token: "&&", description: "Runs the second dig command only if the first succeeds." },
+        { token: "dig", description: "Runs the DNS lookup utility again to query the second resolver." },
+        { token: "+short", description: "Shows only the answer from the second resolver for side-by-side comparison." },
+        { token: "example.com", description: "Queries the same domain at the second resolver." },
+        { token: "@1.1.1.1", description: "Directs the second query to Cloudflare Public DNS to compare its cached answer and TTL." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You are preparing a DNS migration for api.example.com, which currently has a TTL of 86400 seconds. You need to change the A record to point to a new IP. If you make the change now, how long could it take before all users worldwide resolve the new IP, and what should you have done differently before the migration window?"
+    answer="Because the current TTL is 86400 seconds (24 hours), resolvers that queried the record in the last 24 hours have cached the old IP and will not re-query until that cache expires. In the worst case, a resolver that cached the record just before your change will serve the old IP for a full 24 hours to all its users. The correct preparation is to lower the TTL to 300 seconds several hours before the migration window, then wait for the full previous TTL to expire so all resolvers have flushed the high-TTL cache. Only then should you make the record change — now all resolvers will re-query within 5 minutes and pick up the new IP. After the migration is confirmed stable, raise the TTL back to reduce query load."
+  />
+  <ScenarioQuestion
+    question="You run dig +trace app.learn.local @dns and the output shows the CoreDNS server responding directly with an ANSWER section. When you run dig +trace example.com (without @dns), the trace starts at root nameservers and goes through multiple delegations. Why does the trace for the lab domain skip the root and TLD steps?"
+    answer="The @dns flag sends the trace query directly to the CoreDNS container, which is the authoritative server for the learn.local zone — there is no delegation chain above it. dig +trace works by iteratively following NS referrals from the root down, but when you specify @dns, dig starts the recursion at that server instead of the root. Since CoreDNS is authoritative for app.learn.local, it answers immediately from its zone file without needing to consult root or TLD nameservers. For example.com without @dns, dig starts at the root servers (which know about .com), follows the delegation to Verisign's TLD servers (which know about example.com), and finally reaches the authoritative nameserver for example.com — this is the full public DNS hierarchy that your system resolver uses for every hostname lookup."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
