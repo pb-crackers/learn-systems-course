@@ -32,7 +32,7 @@ All system administration commands and concepts from this module in one place. B
         { command: "/etc/shadow format", description: "Hashed passwords with aging info. Readable only by root. Hash format: $algorithm$salt$hash" },
         { command: "/etc/group format", description: "4 fields: groupname:x:GID:member1,member2. Shows supplementary group members." },
         { command: "visudo", description: "Safe editor for /etc/sudoers — validates syntax before saving. ALWAYS use visudo, never edit /etc/sudoers directly." },
-        { command: "echo \"<user> ALL=(ALL) NOPASSWD:ALL\" | tee /etc/sudoers.d/<user>", description: "Create a sudoers drop-in file for a user. Drop-in files in /etc/sudoers.d/ are included automatically.", example: "echo \"alice ALL=(ALL) NOPASSWD:ALL\" | sudo tee /etc/sudoers.d/alice" },
+        { command: `echo "<user> ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/<user>`, description: "Create a sudoers drop-in file for a user. Drop-in files in /etc/sudoers.d/ are included automatically.", example: `echo "alice ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/alice` },
         { command: "chmod 440 /etc/sudoers.d/<file>", description: "Required permission for sudoers drop-in files. sudo refuses files that are world-readable or group-writable." },
         { command: "sudo -l -U <username>", description: "List what commands a user is allowed to run via sudo — useful for auditing access", example: "sudo -l -U alice" },
       ]
@@ -62,7 +62,7 @@ All system administration commands and concepts from this module in one place. B
         { command: "journalctl -u <unit>", description: "Show all journal entries for a specific unit", example: "journalctl -u nginx" },
         { command: "journalctl -u <unit> -f", description: "Follow journal output for a unit in real time (like tail -f)" },
         { command: "journalctl -b", description: "Show logs from the current boot only" },
-        { command: "journalctl --since \"1 hour ago\"", description: "Time-bounded log view. Also accepts: --until, ISO timestamps, 'yesterday', 'today'" },
+        { command: `journalctl --since "1 hour ago"`, description: "Time-bounded log view. Also accepts: --until, ISO timestamps, 'yesterday', 'today'" },
         { command: "journalctl -p err", description: "Show only error-level and above (emerg, alert, crit, err). Also: -p warning, -p debug" },
         { command: "Unit file skeleton", description: "[Unit] Description= After= / [Service] Type=simple ExecStart= Restart=on-failure / [Install] WantedBy=multi-user.target" },
         { command: "Unit file location", description: "/etc/systemd/system/<name>.service — put custom units here. /lib/systemd/system/ is for package-installed units (do not edit)." },
@@ -82,8 +82,8 @@ All system administration commands and concepts from this module in one place. B
         { command: "journalctl -p err --since today", description: "Show errors and above from today — combine -p and --since for focused debugging" },
         { command: "journalctl -t <syslog-tag>", description: "Filter by syslog identifier — useful for logs written by logger or applications that set a tag", example: "journalctl -t myapp" },
         { command: "journalctl -f", description: "Follow the journal in real time across all units (combines syslog + service output into one stream)" },
-        { command: "logger -t <tag> \"<message>\"", description: "Write a message to the system journal from a script or shell", example: "logger -t myapp 'Deployment complete'" },
-        { command: "logger -p user.error \"<message>\"", description: "Write with explicit priority (facility.severity). Priorities: emerg, alert, crit, err, warning, notice, info, debug" },
+        { command: `logger -t <tag> "<message>"`, description: "Write a message to the system journal from a script or shell", example: "logger -t myapp 'Deployment complete'" },
+        { command: `logger -p user.error "<message>"`, description: "Write with explicit priority (facility.severity). Priorities: emerg, alert, crit, err, warning, notice, info, debug" },
         { command: "/var/log/ layout", description: "auth.log (sudo/ssh), syslog (rsyslog output), kern.log (kernel), dmesg (boot hardware), apt/ (package manager)" },
         { command: "/etc/logrotate.d/<name>", description: "Drop-in logrotate config for an application. logrotate reads all files in this directory on its daily cron run." },
         { command: "logrotate config: daily, rotate 7", description: "Rotate daily, keep 7 rotated copies. Other intervals: weekly, monthly, size 100M." },
@@ -144,7 +144,7 @@ All system administration commands and concepts from this module in one place. B
         { command: "systemd timer: .timer + .service pair", description: "Timers need two unit files: backup.timer (schedule) and backup.service (what to run)" },
         { command: "OnCalendar=*-*-* 02:30:00", description: "systemd timer daily at 2:30 AM. Format: year-month-day hour:min:sec. Use * for any value." },
         { command: "Persistent=true", description: "In [Timer]: if the system was off when the timer should have fired, run it immediately on next boot" },
-        { command: "systemd-analyze calendar \"*-*-* 02:30:00\"", description: "Validate and preview next trigger times for a calendar expression before using it in a .timer file" },
+        { command: `systemd-analyze calendar "*-*-* 02:30:00"`, description: "Validate and preview next trigger times for a calendar expression before using it in a .timer file" },
       ]
     }
   ]}

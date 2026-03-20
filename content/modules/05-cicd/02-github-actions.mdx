@@ -326,11 +326,11 @@ This workflow has all the essential pieces: trigger, job, steps mixing `uses` an
     {
       step: 3,
       description: "Validate the YAML structure locally before pushing. Python's yaml module parses it without running the workflow. This catches indentation errors immediately.",
-      command: "python3 -c \"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\"",
+      command: `python3 -c "import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')"`,
       annotations: [
         { token: "python3", description: "Runs the Python 3 interpreter." },
         { token: "-c", description: "Executes the following string as a Python program instead of reading from a file." },
-        { token: "\"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')\"", description: "The Python one-liner: imports the yaml module, parses the workflow file with safe_load, and prints success if no exception is raised." }
+        { token: `"import yaml, sys; yaml.safe_load(open('.github/workflows/hello.yml')); print('YAML valid')"`, description: "The Python one-liner: imports the yaml module, parses the workflow file with safe_load, and prints success if no exception is raised." }
       ]
     },
     {
@@ -375,7 +375,7 @@ This workflow has all the essential pieces: trigger, job, steps mixing `uses` an
       {
         id: "yaml-valid",
         label: "The YAML parses without error (python3 yaml.safe_load returns no exception)",
-        hint: "Run: python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/hello.yml')); print('valid')\". A YAML error will show the line number and character where it failed."
+        hint: `Run: python3 -c "import yaml; yaml.safe_load(open('.github/workflows/hello.yml')); print('valid')". A YAML error will show the line number and character where it failed.`
       },
       {
         id: "trigger-correct",

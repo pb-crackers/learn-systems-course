@@ -436,7 +436,7 @@ set +x
     {
       step: 8,
       description: "Check the exit code and verify it is 0 on success.",
-      command: "echo \"Exit code: $?\""
+      command: `echo "Exit code: $?"`
     }
   ]}
 >
@@ -502,7 +502,7 @@ set +x
         { command: "readonly VAR=value", description: "Declare immutable variable" },
         { command: "$1 $2 ...", description: "Positional arguments passed to script or function" },
         { command: "$#", description: "Number of arguments" },
-        { command: "\"$@\"", description: "All arguments, each properly quoted — use this, not $*" }
+        { command: `"$@"`, description: "All arguments, each properly quoted — use this, not $*" }
       ]
     },
     {

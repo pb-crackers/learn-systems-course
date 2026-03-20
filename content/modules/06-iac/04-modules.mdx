@@ -336,24 +336,24 @@ OpenTofu registers each module call (frontend + api both using `web-container`),
       items: [
         { command: "Root module", description: "The working directory where you run tofu apply. Contains terraform{} and provider{} blocks." },
         { command: "Child module", description: "A subdirectory of .tf files called via a module block. No terraform{} or provider{} — inherits from caller." },
-        { command: "module \"LABEL\" { source = ... }", description: "Calls a child module. Assigns values to the module's input variables.", example: "module \"frontend\" { source = \"./modules/web-container\", name = \"frontend\" }" },
+        { command: `module "LABEL" { source = ... }`, description: "Calls a child module. Assigns values to the module's input variables.", example: `module "frontend" { source = "./modules/web-container", name = "frontend" }` },
         { command: "module.LABEL.output_name", description: "Access a module's output value in the calling module", example: "module.frontend.container_id" },
       ]
     },
     {
       title: "Module Source Paths",
       items: [
-        { command: "./modules/name", description: "Local path — module in a subdirectory. Best for learning and private modules.", example: "source = \"./modules/web-container\"" },
-        { command: "registry.opentofu.org/ns/module/provider", description: "OpenTofu registry module. Requires version pin.", example: "source = \"registry.opentofu.org/terraform-aws-modules/vpc/aws\", version = \"5.5.2\"" },
-        { command: "git::https://github.com/org/repo.git//path?ref=tag", description: "Git repository module at a specific tag or commit", example: "source = \"git::https://github.com/my-org/modules.git//vpc?ref=v2.1.0\"" },
+        { command: "./modules/name", description: "Local path — module in a subdirectory. Best for learning and private modules.", example: `source = "./modules/web-container"` },
+        { command: "registry.opentofu.org/ns/module/provider", description: "OpenTofu registry module. Requires version pin.", example: `source = "registry.opentofu.org/terraform-aws-modules/vpc/aws", version = "5.5.2"` },
+        { command: "git::https://github.com/org/repo.git//path?ref=tag", description: "Git repository module at a specific tag or commit", example: `source = "git::https://github.com/my-org/modules.git//vpc?ref=v2.1.0"` },
       ]
     },
     {
       title: "Module File Convention",
       items: [
-        { command: "variables.tf (in child)", description: "The module's input interface. Variables without defaults are required.", example: "variable \"name\" { type = string, description = \"Container name\" }" },
-        { command: "main.tf (in child)", description: "The module's implementation. Creates resources using var.* references.", example: "resource \"docker_container\" \"c\" { name = var.name }" },
-        { command: "outputs.tf (in child)", description: "The module's return values. Accessed by callers as module.LABEL.output_name.", example: "output \"container_id\" { value = docker_container.c.id }" },
+        { command: "variables.tf (in child)", description: "The module's input interface. Variables without defaults are required.", example: `variable "name" { type = string, description = "Container name" }` },
+        { command: "main.tf (in child)", description: "The module's implementation. Creates resources using var.* references.", example: `resource "docker_container" "c" { name = var.name }` },
+        { command: "outputs.tf (in child)", description: "The module's return values. Accessed by callers as module.LABEL.output_name.", example: `output "container_id" { value = docker_container.c.id }` },
       ]
     }
   ]}

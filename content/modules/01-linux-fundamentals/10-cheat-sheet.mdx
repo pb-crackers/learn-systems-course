@@ -127,7 +127,7 @@ This is your quick reference for all Linux commands and concepts covered in this
         { command: "for item in list; do ... done", description: "Loop over a list of items" },
         { command: "fname() { ... }", description: "Define a reusable function (use local for internal variables)" },
         { command: "trap 'cleanup' EXIT", description: "Register a cleanup command to run when the script exits (normal or error)" },
-        { command: "$1, $2, $#, \"$@\"", description: "Script arguments: first, second, count, all (quoted — use $@ not $*)" }
+        { command: `$1, $2, $#, "$@"`, description: "Script arguments: first, second, count, all (quoted — use $@ not $*)" }
       ]
     }
   ]}

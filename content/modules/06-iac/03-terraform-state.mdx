@@ -358,9 +358,9 @@ In production, use a remote backend instead of committing state to git. For the 
     {
       title: "Remote Backend Patterns",
       items: [
-        { command: "backend \"s3\" {}", description: "AWS: store state in S3 bucket with DynamoDB table for locking", example: "bucket = \"org-tfstate\", dynamodb_table = \"terraform-lock\"" },
-        { command: "backend \"gcs\" {}", description: "GCP: store state in Cloud Storage bucket (built-in locking)", example: "bucket = \"org-tfstate\", prefix = \"prod/web\"" },
-        { command: "backend \"azurerm\" {}", description: "Azure: store state in Azure Blob Storage container", example: "storage_account_name = \"orgtfstate\", container_name = \"tfstate\"" },
+        { command: `backend "s3" {}`, description: "AWS: store state in S3 bucket with DynamoDB table for locking", example: `bucket = "org-tfstate", dynamodb_table = "terraform-lock"` },
+        { command: `backend "gcs" {}`, description: "GCP: store state in Cloud Storage bucket (built-in locking)", example: `bucket = "org-tfstate", prefix = "prod/web"` },
+        { command: `backend "azurerm" {}`, description: "Azure: store state in Azure Blob Storage container", example: `storage_account_name = "orgtfstate", container_name = "tfstate"` },
       ]
     }
   ]}

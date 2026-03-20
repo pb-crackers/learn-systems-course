@@ -292,7 +292,7 @@ apt-get update && apt-get install -y nginx && systemctl start nginx
     {
       step: 8,
       description: "Use command substitution to embed dynamic values. Create a timestamped log entry.",
-      command: "echo \"[$(date +%H:%M:%S)] deployment completed on $(hostname)\" >> /tmp/lab/deploy.log && cat /tmp/lab/deploy.log"
+      command: `echo "[$(date +%H:%M:%S)] deployment completed on $(hostname)" >> /tmp/lab/deploy.log && cat /tmp/lab/deploy.log`
     }
   ]}
 >
@@ -325,7 +325,7 @@ apt-get update && apt-get install -y nginx && systemctl start nginx
       {
         id: "shell-04",
         label: "You used command substitution $() to embed a command result in a string",
-        hint: "Run: echo \"Today is $(date +%Y-%m-%d)\" and verify the date appears in the output"
+        hint: `Run: echo "Today is $(date +%Y-%m-%d)" and verify the date appears in the output`
       },
       {
         id: "shell-05",
@@ -356,7 +356,7 @@ apt-get update && apt-get install -y nginx && systemctl start nginx
         { command: "which cmd", description: "Show full path of a command", example: "which python3" },
         { command: "type cmd", description: "Show command type (alias, builtin, file)", example: "type cd" },
         { command: "hash -r", description: "Clear bash command path cache" },
-        { command: "export PATH=\"$dir:$PATH\"", description: "Prepend a directory to PATH", example: "export PATH=\"$HOME/.local/bin:$PATH\"" }
+        { command: `export PATH="$dir:$PATH"`, description: "Prepend a directory to PATH", example: `export PATH="$HOME/.local/bin:$PATH"` }
       ]
     },
     {

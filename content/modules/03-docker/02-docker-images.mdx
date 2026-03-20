@@ -288,14 +288,14 @@ Examples:
     {
       step: 5,
       description: "Inspect the image layers. Count them — you should see 4 layers corresponding to the Dockerfile instructions that modified the filesystem.",
-      command: "docker image inspect myapp:v1 --format \"{{len .RootFS.Layers}} layers\"",
+      command: `docker image inspect myapp:v1 --format "{{len .RootFS.Layers}} layers"`,
       annotations: [
         { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
         { token: "image", description: "Targets the image management subcommand group for operations on locally cached images." },
         { token: "inspect", description: "Returns detailed metadata about the specified image as JSON, including layer hashes and configuration." },
         { token: "myapp:v1", description: "Specifies which image to inspect by its name and tag." },
         { token: "--format", description: "Applies a Go template expression to extract and format a specific field from the JSON output." },
-        { token: "\"{{len .RootFS.Layers}} layers\"", description: "Counts the elements in the Layers array under RootFS and appends the word layers, showing total layer count." }
+        { token: `"{{len .RootFS.Layers}} layers"`, description: "Counts the elements in the Layers array under RootFS and appends the word layers, showing total layer count." }
       ]
     },
     {
@@ -349,7 +349,7 @@ Examples:
       {
         id: "container-responds",
         label: "Container responds on port 3000 with a JSON message",
-        hint: "Run: curl http://localhost:3000/ — you should see {\"message\":\"Hello from the Docker app!\",\"version\":\"1.0.0\"}. If the port is not responding, check: docker ps (is the container running?), docker logs myapp (any startup errors?)."
+        hint: `Run: curl http://localhost:3000/ — you should see {"message":"Hello from the Docker app!","version":"1.0.0"}. If the port is not responding, check: docker ps (is the container running?), docker logs myapp (any startup errors?).`
       },
       {
         id: "layer-count",
@@ -378,8 +378,8 @@ Examples:
         { command: "RUN <command>", description: "Execute a shell command during build — creates a layer", example: "RUN npm install" },
         { command: "ENV <key>=<value>", description: "Set an environment variable (available at build time and runtime)", example: "ENV NODE_ENV=production" },
         { command: "EXPOSE <port>", description: "Document the port (metadata only — does NOT publish the port)", example: "EXPOSE 3000" },
-        { command: "CMD [\"<exec>\", \"<arg>\"]", description: "Default command when container starts — use exec form to avoid shell", example: "CMD [\"node\", \"app.js\"]" },
-        { command: "ENTRYPOINT [\"<exec>\"]", description: "Fixed executable — CMD provides default arguments to it", example: "ENTRYPOINT [\"node\"]" },
+        { command: `CMD ["<exec>", "<arg>"]`, description: "Default command when container starts — use exec form to avoid shell", example: `CMD ["node", "app.js"]` },
+        { command: `ENTRYPOINT ["<exec>"]`, description: "Fixed executable — CMD provides default arguments to it", example: `ENTRYPOINT ["node"]` },
       ]
     },
     {

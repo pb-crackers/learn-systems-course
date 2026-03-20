@@ -39,11 +39,11 @@ All OpenTofu commands, HCL syntax patterns, state management concepts, and modul
     {
       title: "HCL Syntax (Lesson 2)",
       items: [
-        { command: "terraform { required_providers {} }", description: "Declares which providers your configuration needs and pins their versions", example: "terraform {\n  required_providers {\n    docker = {\n      source  = \"registry.opentofu.org/kreuzwerker/docker\"\n      version = \"3.9.0\"\n    }\n  }\n}" },
-        { command: "provider \"name\" {}", description: "Configures a provider — connection settings, credentials, region. An empty block uses provider defaults (e.g., Docker socket at /var/run/docker.sock).", example: "provider \"docker\" {}" },
-        { command: "resource \"type\" \"name\" {}", description: "Declares a managed infrastructure resource. type = provider resource type. name = your local label for referencing it.", example: "resource \"docker_container\" \"web\" {\n  name  = \"my-app\"\n  image = docker_image.nginx.image_id\n}" },
-        { command: "variable \"name\" {}", description: "Declares an input variable with type, description, default, and optional validation block", example: "variable \"external_port\" {\n  type    = number\n  default = 8080\n}" },
-        { command: "output \"name\" {}", description: "Declares a value to export from this module after apply — accessible with tofu output", example: "output \"container_id\" {\n  value = docker_container.web.id\n}" },
+        { command: "terraform { required_providers {} }", description: "Declares which providers your configuration needs and pins their versions", example: `terraform {\n  required_providers {\n    docker = {\n      source  = "registry.opentofu.org/kreuzwerker/docker"\n      version = "3.9.0"\n    }\n  }\n}` },
+        { command: `provider "name" {}`, description: "Configures a provider — connection settings, credentials, region. An empty block uses provider defaults (e.g., Docker socket at /var/run/docker.sock).", example: `provider "docker" {}` },
+        { command: `resource "type" "name" {}`, description: "Declares a managed infrastructure resource. type = provider resource type. name = your local label for referencing it.", example: `resource "docker_container" "web" {\n  name  = "my-app"\n  image = docker_image.nginx.image_id\n}` },
+        { command: `variable "name" {}`, description: "Declares an input variable with type, description, default, and optional validation block", example: `variable "external_port" {\n  type    = number\n  default = 8080\n}` },
+        { command: `output "name" {}`, description: "Declares a value to export from this module after apply — accessible with tofu output", example: `output "container_id" {\n  value = docker_container.web.id\n}` },
         { command: "tofu init", description: "Downloads required providers into .terraform/ directory. Run once per new directory or after changing required_providers." },
         { command: "tofu fmt", description: "Formats HCL files to canonical style — run before committing to version control" },
         { command: "tofu validate", description: "Validates HCL syntax and provider schema without connecting to infrastructure — fast correctness check" },
@@ -67,7 +67,7 @@ All OpenTofu commands, HCL syntax patterns, state management concepts, and modul
         { command: "tofu state show <resource>", description: "Shows all attributes of a specific resource as stored in state", example: "tofu state show docker_container.web" },
         { command: "tofu state rm <resource>", description: "Removes a resource from state without destroying it in real infrastructure — use when you want OpenTofu to 'forget' a resource" },
         { command: "tofu state mv <old> <new>", description: "Renames a resource in state — use when refactoring HCL resource names without recreating infrastructure" },
-        { command: "Remote backends", description: "Store state in a shared location instead of local files. S3: backend \"s3\" {}. GCS: backend \"gcs\" {}. Azure: backend \"azurerm\" {}. Required for team collaboration." },
+        { command: "Remote backends", description: `Store state in a shared location instead of local files. S3: backend "s3" {}. GCS: backend "gcs" {}. Azure: backend "azurerm" {}. Required for team collaboration.` },
         { command: "State locking", description: "Remote backends lock state during operations to prevent concurrent applies from two people or two pipeline runs corrupting the state file." },
         { command: ".gitignore terraform.tfstate", description: "Never commit state files to git — they contain sensitive resource attributes (IP addresses, IDs, sometimes secrets). Add terraform.tfstate and terraform.tfstate.backup to .gitignore." },
       ]
@@ -82,10 +82,10 @@ All OpenTofu commands, HCL syntax patterns, state management concepts, and modul
     {
       title: "Module Patterns (Lesson 4)",
       items: [
-        { command: "module \"name\" { source = \"...\" }", description: "Calls a child module and passes input variables. The module block is in your root module; the referenced directory is the child module.", example: "module \"frontend\" {\n  source        = \"./modules/web-container\"\n  name          = \"learn-frontend\"\n  external_port = 8081\n}" },
+        { command: `module "name" { source = "..." }`, description: "Calls a child module and passes input variables. The module block is in your root module; the referenced directory is the child module.", example: `module "frontend" {\n  source        = "./modules/web-container"\n  name          = "learn-frontend"\n  external_port = 8081\n}` },
         { command: "Root module vs child module", description: "Root module: the directory where you run tofu init/plan/apply. Child module: any module called via a module block. Root can call many children; children can call other children." },
-        { command: "Local module source", description: "source = \"./modules/name\" — relative path from the root module to the child module directory. tofu init copies the module into .terraform/modules/.", example: "source = \"./modules/web-container\"" },
-        { command: "Registry module source", description: "source = \"registry.opentofu.org/namespace/module/provider\" — downloads published module from registry. Used for community modules like VPC configurations.", example: "source  = \"registry.opentofu.org/kreuzwerker/docker\"\nversion = \"3.9.0\"" },
+        { command: `Local module source`, description: `source = "./modules/name" — relative path from the root module to the child module directory. tofu init copies the module into .terraform/modules/.`, example: `source = "./modules/web-container"` },
+        { command: "Registry module source", description: `source = "registry.opentofu.org/namespace/module/provider" — downloads published module from registry. Used for community modules like VPC configurations.`, example: `source  = "registry.opentofu.org/kreuzwerker/docker"\nversion = "3.9.0"` },
         { command: "Module inputs (variables.tf)", description: "A child module's variables.tf defines its interface — the inputs the caller must (or can optionally) pass. Think of it as a function signature." },
         { command: "Module outputs (outputs.tf)", description: "A child module's outputs.tf defines what values it returns to the caller. Access via module.name.output_name in the root module.", example: "# In root module:\nmodule.frontend.container_id\nmodule.api.container_name" },
         { command: "tofu init initializes modules", description: "Running tofu init after adding or changing module sources downloads/updates the referenced modules into .terraform/modules/." },

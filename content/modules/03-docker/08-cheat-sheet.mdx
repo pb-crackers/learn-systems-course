@@ -31,9 +31,9 @@ All Docker commands and concepts from this module in one place. Bookmark this pa
         { command: "memory.max", description: "cgroup file: max memory in bytes. OOM killer fires when container exceeds this.", example: "cat /sys/fs/cgroup/docker/<id>/memory.max" },
         { command: "cpu.max", description: "cgroup file: CPU quota/period — '50000 100000' = 50% of one core", example: "cat /sys/fs/cgroup/docker/<id>/cpu.max" },
         { command: "pids.max", description: "cgroup file: max number of processes inside the container (prevents fork bombs)" },
-        { command: "docker inspect <name> --format \"{{.State.Pid}}\"", description: "Get the container's PID in the host's PID namespace" },
+        { command: `docker inspect <name> --format "{{.State.Pid}}"`, description: "Get the container's PID in the host's PID namespace" },
         { command: "ls -la /proc/<PID>/ns/", description: "View namespace symbolic links for a process — inode numbers identify each namespace instance" },
-        { command: "docker inspect <name> --format \"{{.GraphDriver.Data}}\"", description: "Show overlay filesystem paths: LowerDir (image layers), UpperDir (writable), MergedDir (container view)" },
+        { command: `docker inspect <name> --format "{{.GraphDriver.Data}}"`, description: "Show overlay filesystem paths: LowerDir (image layers), UpperDir (writable), MergedDir (container view)" },
       ]
     }
   ]}
@@ -59,11 +59,11 @@ All Docker commands and concepts from this module in one place. Bookmark this pa
         { command: "FROM <image>", description: "Dockerfile: set the base image — imports all its layers", example: "FROM node:20-alpine" },
         { command: "RUN <command>", description: "Dockerfile: execute a shell command and commit the result as a new layer", example: "RUN npm ci --omit=dev" },
         { command: "COPY <src> <dst>", description: "Dockerfile: copy files from the build context into the image", example: "COPY package*.json ./" },
-        { command: "CMD [\"exec\", \"form\"]", description: "Dockerfile: default command to run — exec form makes it PID 1 and receives signals correctly", example: "CMD [\"node\", \"app.js\"]" },
+        { command: `CMD ["exec", "form"]`, description: "Dockerfile: default command to run — exec form makes it PID 1 and receives signals correctly", example: `CMD ["node", "app.js"]` },
         { command: "EXPOSE <port>", description: "Dockerfile: documents the port the app listens on — does NOT publish it (use -p at runtime)" },
         { command: "WORKDIR /path", description: "Dockerfile: set working directory for RUN, COPY, and CMD — creates directory if missing", example: "WORKDIR /app" },
         { command: "ENV KEY=value", description: "Dockerfile: set an environment variable baked into the image", example: "ENV NODE_ENV=production" },
-        { command: "ENTRYPOINT [\"exec\", \"form\"]", description: "Dockerfile: fixed command that always runs — CMD provides default arguments to ENTRYPOINT", example: "ENTRYPOINT [\"node\"]" },
+        { command: `ENTRYPOINT ["exec", "form"]`, description: "Dockerfile: fixed command that always runs — CMD provides default arguments to ENTRYPOINT", example: `ENTRYPOINT ["node"]` },
       ]
     }
   ]}

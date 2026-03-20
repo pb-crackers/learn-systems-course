@@ -228,7 +228,7 @@ In the advanced capstone, you will put it all together. You will deploy a full a
     {
       step: 4,
       description: "Observe the alert state machine: the AppDown alert is INACTIVE (up{job='monitored-app'} == 1 is false — meaning the app IS up, so the alert condition is not true). HighRequestLatency and HighErrorRate are also INACTIVE because the app has no traffic.",
-      command: "curl -s 'http://localhost:9090/api/v1/alerts' | python3 -c \"import sys,json; d=json.load(sys.stdin); alerts=d['data']['alerts']; print('Active alerts:', len(alerts)); [print(' -', a['labels']['alertname'], a['state']) for a in alerts]\""
+      command: `curl -s 'http://localhost:9090/api/v1/alerts' | python3 -c "import sys,json; d=json.load(sys.stdin); alerts=d['data']['alerts']; print('Active alerts:', len(alerts)); [print(' -', a['labels']['alertname'], a['state']) for a in alerts]"`
     },
     {
       step: 5,

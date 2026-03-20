@@ -255,7 +255,7 @@ For libraries and tools that need to support multiple runtime versions, the matr
     {
       step: 5,
       description: "Validate the YAML syntax locally before pushing.",
-      command: "python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('YAML valid')\""
+      command: `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('YAML valid')"`
     },
     {
       step: 6,
@@ -278,7 +278,7 @@ For libraries and tools that need to support multiple runtime versions, the matr
       {
         id: "yaml-syntax",
         label: "YAML syntax is valid (no tabs, consistent 2-space indentation, python3 yaml.safe_load passes)",
-        hint: "Run: python3 -c \"import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('valid')\". Any indentation error gives a specific line number."
+        hint: `Run: python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('valid')". Any indentation error gives a specific line number.`
       },
       {
         id: "three-jobs",

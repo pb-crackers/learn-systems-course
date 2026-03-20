@@ -314,13 +314,13 @@ When the container process exceeds `memory.max`, the kernel OOM killer fires and
     {
       step: 7,
       description: "View the memory limit as Docker stored it — 128m converted to bytes.",
-      command: "docker inspect limited-app --format \"Memory limit: {{.HostConfig.Memory}} bytes\"",
+      command: `docker inspect limited-app --format "Memory limit: {{.HostConfig.Memory}} bytes"`,
       annotations: [
         { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
         { token: "inspect", description: "Returns detailed metadata about the container as JSON, including its resource configuration." },
         { token: "limited-app", description: "Specifies the container to inspect by its assigned name." },
         { token: "--format", description: "Applies a Go template expression to extract and format a specific field from the JSON output." },
-        { token: "\"Memory limit: {{.HostConfig.Memory}} bytes\"", description: "Extracts the Memory field from HostConfig, showing the limit in bytes — 128m is stored as 134217728." }
+        { token: `"Memory limit: {{.HostConfig.Memory}} bytes"`, description: "Extracts the Memory field from HostConfig, showing the limit in bytes — 128m is stored as 134217728." }
       ]
     },
     {
@@ -366,7 +366,7 @@ When the container process exceeds `memory.max`, the kernel OOM killer fires and
       {
         id: "graceful-stop",
         label: "docker stop completed in under 2 seconds (node handled SIGTERM gracefully)",
-        hint: "Run: time docker stop debug-app — you should see 'real 0m0.XXXs' — a fraction of a second. If it takes 10+ seconds, the process did not handle SIGTERM and Docker waited for the kill timeout. This is the difference between 'CMD [\"node\", \"app.js\"]' and 'CMD [\"npm\", \"start\"]'."
+        hint: `Run: time docker stop debug-app — you should see 'real 0m0.XXXs' — a fraction of a second. If it takes 10+ seconds, the process did not handle SIGTERM and Docker waited for the kill timeout. This is the difference between 'CMD ["node", "app.js"]' and 'CMD ["npm", "start"]'.`
       }
     ]}
   />
@@ -399,7 +399,7 @@ When the container process exceeds `memory.max`, the kernel OOM killer fires and
         { command: "docker logs -f <name>", description: "Follow logs in real time (like tail -f)" },
         { command: "docker logs --tail 100 <name>", description: "Show last N lines of logs" },
         { command: "docker inspect <name>", description: "Full container metadata as JSON" },
-        { command: "docker inspect <name> --format \"{{.State.ExitCode}}\"", description: "Extract a specific field from inspect output" },
+        { command: `docker inspect <name> --format "{{.State.ExitCode}}"`, description: "Extract a specific field from inspect output" },
         { command: "docker stats <name>", description: "Live resource usage (CPU, memory, network, disk)" },
         { command: "docker stats --no-stream", description: "Single snapshot of resource usage (not live)" },
       ]

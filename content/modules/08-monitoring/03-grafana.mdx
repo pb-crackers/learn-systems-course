@@ -168,7 +168,7 @@ A dashboard with panels for all four golden signals gives you immediate insight 
     {
       step: 3,
       description: "Verify the Prometheus datasource was auto-provisioned. Navigate to: Settings (gear icon) > Data Sources. You should see 'Prometheus' listed with a green checkmark.",
-      command: "curl -s 'http://localhost:3001/api/datasources' | python3 -c \"import sys,json; sources=json.load(sys.stdin); [print(s['name'], '-', s['type']) for s in sources]\""
+      command: `curl -s 'http://localhost:3001/api/datasources' | python3 -c "import sys,json; sources=json.load(sys.stdin); [print(s['name'], '-', s['type']) for s in sources]"`
     },
     {
       step: 4,
@@ -188,12 +188,12 @@ A dashboard with panels for all four golden signals gives you immediate insight 
     {
       step: 7,
       description: "Panel 3: Error Rate. Add a new panel. Select Stat to show a single current percentage. Enter the error rate PromQL.",
-      command: "echo 'PromQL: rate(http_requests_total{status_code=~\"5..\"}[5m]) / rate(http_requests_total[5m])  |  Visualization: Stat  |  Title: Error Rate  |  Unit: Percent (0-100)'"
+      command: `echo 'PromQL: rate(http_requests_total{status_code=~"5.."}[5m]) / rate(http_requests_total[5m])  |  Visualization: Stat  |  Title: Error Rate  |  Unit: Percent (0-100)'`
     },
     {
       step: 8,
       description: "Panel 4: Memory Saturation. Add a new panel. Select Time Series. Show process memory usage.",
-      command: "echo 'PromQL: process_resident_memory_bytes{job=\"monitored-app\"}  |  Visualization: Time Series  |  Title: Memory Usage  |  Unit: bytes (IEC)'"
+      command: `echo 'PromQL: process_resident_memory_bytes{job="monitored-app"}  |  Visualization: Time Series  |  Title: Memory Usage  |  Unit: bytes (IEC)'`
     },
     {
       step: 9,

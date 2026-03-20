@@ -207,13 +207,13 @@ The container process is a regular Linux process. It has a PID on the host. It i
     {
       step: 2,
       description: "Find the container's PID as seen from the HOST. This is the real PID in the host's PID namespace — the number the kernel assigned when Docker called clone().",
-      command: "docker inspect mybox --format \"{{.State.Pid}}\"",
+      command: `docker inspect mybox --format "{{.State.Pid}}"`,
       annotations: [
         { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
         { token: "inspect", description: "Returns detailed metadata about a container or image as JSON, including state, network, and filesystem information." },
         { token: "mybox", description: "Specifies the container to inspect by its assigned name." },
         { token: "--format", description: "Applies a Go template string to extract a specific field from the JSON output instead of printing everything." },
-        { token: "\"{{.State.Pid}}\"", description: "Extracts the Pid field from the State object, which is the container process PID in the host PID namespace." }
+        { token: `"{{.State.Pid}}"`, description: "Extracts the Pid field from the State object, which is the container process PID in the host PID namespace." }
       ]
     },
     {
@@ -242,13 +242,13 @@ The container process is a regular Linux process. It has a PID on the host. It i
     {
       step: 5,
       description: "Inspect the overlay filesystem mount for this container. The overlay mount shows the lowerdir (image layers), upperdir (writable layer), and merged mount point.",
-      command: "docker inspect mybox --format \"{{.GraphDriver.Data}}\"",
+      command: `docker inspect mybox --format "{{.GraphDriver.Data}}"`,
       annotations: [
         { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
         { token: "inspect", description: "Returns detailed metadata about a container as JSON, including filesystem driver information." },
         { token: "mybox", description: "Specifies the container to inspect by its assigned name." },
         { token: "--format", description: "Applies a Go template string to extract a specific field from the JSON output." },
-        { token: "\"{{.GraphDriver.Data}}\"", description: "Extracts the Data map from GraphDriver, showing the overlay filesystem paths: LowerDir, UpperDir, MergedDir, and WorkDir." }
+        { token: `"{{.GraphDriver.Data}}"`, description: "Extracts the Data map from GraphDriver, showing the overlay filesystem paths: LowerDir, UpperDir, MergedDir, and WorkDir." }
       ]
     },
     {
@@ -336,9 +336,9 @@ The container process is a regular Linux process. It has a PID on the host. It i
     {
       title: "Inspection Commands",
       items: [
-        { command: "docker inspect <name> --format \"{{.State.Pid}}\"", description: "Get a container's PID in the host's PID namespace" },
+        { command: `docker inspect <name> --format "{{.State.Pid}}"`, description: "Get a container's PID in the host's PID namespace" },
         { command: "ls -la /proc/<PID>/ns/", description: "View all namespace links for a process — inode numbers identify namespace instances" },
-        { command: "docker inspect <name> --format \"{{.GraphDriver.Data}}\"", description: "Show overlay filesystem paths (LowerDir, UpperDir, MergedDir)" },
+        { command: `docker inspect <name> --format "{{.GraphDriver.Data}}"`, description: "Show overlay filesystem paths (LowerDir, UpperDir, MergedDir)" },
         { command: "docker exec <name> ps aux", description: "Run ps inside the container — shows PIDs in the container's PID namespace" },
         { command: "docker rm -f <name>", description: "Force-remove a container (stop and delete in one step)" },
       ]

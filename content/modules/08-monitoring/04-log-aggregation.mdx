@@ -223,7 +223,7 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
     {
       step: 6,
       description: "Query 1: Select all app container logs using a container label selector.",
-      command: "echo 'LogQL: {container=~\"monitoring-app.*\"}  → Shows all log lines from the app container'"
+      command: `echo 'LogQL: {container=~"monitoring-app.*"}  → Shows all log lines from the app container'`
     },
     {
       step: 7,
@@ -233,22 +233,22 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
     {
       step: 8,
       description: "Query 2: Filter app logs to only lines containing 'GET' (HTTP request log lines).",
-      command: "echo 'LogQL: {container=~\"monitoring-app.*\"} |= \"GET\"  → |= is the text filter operator in LogQL'"
+      command: `echo 'LogQL: {container=~"monitoring-app.*"} |= "GET"  → |= is the text filter operator in LogQL'`
     },
     {
       step: 9,
       description: "Query 3: Count log volume over 5-minute windows to see ingestion rate.",
-      command: "echo 'LogQL: count_over_time({container=~\"monitoring-app.*\"}[5m])  → Returns log line count per 5-minute window'"
+      command: `echo 'LogQL: count_over_time({container=~"monitoring-app.*"}[5m])  → Returns log line count per 5-minute window'`
     },
     {
       step: 10,
       description: "Compare Loki label-first querying to ELK text-first querying. If this were Elasticsearch, you could query {message: error} across all logs simultaneously. With Loki, you first pick a label stream, then filter text within it.",
-      command: "echo 'Loki pattern: {container=~\"monitoring-app.*\"} |= \"error\"  vs ELK: message:error across all indices'"
+      command: `echo 'Loki pattern: {container=~"monitoring-app.*"} |= "error"  vs ELK: message:error across all indices'`
     }
   ]}
 >
   <ScenarioQuestion
-    question="Your Prometheus alert fires showing high error rate on the /api/orders route. You switch to Loki to find the specific error. You write the LogQL query {container=~\"monitoring-app.*\"} |= \"error\" but it returns no results. Your colleague uses Elasticsearch and finds the error in seconds with just message:error. Explain Loki's label-first querying model and why your query might return nothing even when errors exist."
+    question={`Your Prometheus alert fires showing high error rate on the /api/orders route. You switch to Loki to find the specific error. You write the LogQL query {container=~"monitoring-app.*"} |= "error" but it returns no results. Your colleague uses Elasticsearch and finds the error in seconds with just message:error. Explain Loki's label-first querying model and why your query might return nothing even when errors exist.`}
     answer="Loki indexes labels, not log content. When you query {container=~'monitoring-app.*'} |= 'error', Loki first uses the label selector to identify which log stream to scan, then searches through those compressed log chunks for the text 'error'. If no logs appear, the label selector is the most likely culprit — the actual container name might differ from what the regex expects. Run docker ps to find the exact container name and adjust the label value. Elasticsearch avoids this problem entirely because it indexes every word across all logs, so message:error matches without knowing anything about the source. The Loki trade-off is 10x less storage and compute in exchange for requiring accurate label selectors as the starting point for every query."
   />
   <ScenarioQuestion
@@ -265,13 +265,13 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
       },
       {
         id: "logql-stream",
-        label: "LogQL query {container=~\"monitoring-app.*\"} returns app container log lines",
+        label: `LogQL query {container=~"monitoring-app.*"} returns app container log lines`,
         hint: "If no logs appear, check that Promtail is running (docker compose ps) and has had time to collect logs. Also verify the container name matches — run: docker ps | grep monitoring to see actual container names."
       },
       {
         id: "text-filter",
-        label: "Text filter |= \"GET\" correctly narrows log results to lines containing 'GET'",
-        hint: "The |= operator is Loki's contains filter. It scans the selected log stream for the literal string. Case-sensitive: |= \"get\" will not match 'GET'."
+        label: `Text filter |= "GET" correctly narrows log results to lines containing 'GET'`,
+        hint: `The |= operator is Loki's contains filter. It scans the selected log stream for the literal string. Case-sensitive: |= "get" will not match 'GET'.`
       },
       {
         id: "label-query-model",
@@ -297,11 +297,11 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
     {
       title: "LogQL",
       items: [
-        { command: "{label=\"value\"}", description: "Log stream selector — select logs by label. Required as first component of every LogQL query.", example: "{job=\"app\", container=\"web\"}" },
-        { command: "|= \"string\"", description: "Text filter — include lines containing the string (case-sensitive)", example: "{job=\"app\"} |= \"error\"" },
-        { command: "!= \"string\"", description: "Inverse text filter — exclude lines containing the string", example: "{job=\"app\"} != \"healthcheck\"" },
-        { command: "| json", description: "Parse JSON log lines into structured fields for filtering", example: "{job=\"app\"} | json | level=\"error\"" },
-        { command: "count_over_time([5m])", description: "Count log lines per time window — useful for log volume dashboards", example: "count_over_time({job=\"app\"}[5m])" },
+        { command: `{label="value"}`, description: "Log stream selector — select logs by label. Required as first component of every LogQL query.", example: `{job="app", container="web"}` },
+        { command: `|= "string"`, description: "Text filter — include lines containing the string (case-sensitive)", example: `{job="app"} |= "error"` },
+        { command: `!= "string"`, description: "Inverse text filter — exclude lines containing the string", example: `{job="app"} != "healthcheck"` },
+        { command: "| json", description: "Parse JSON log lines into structured fields for filtering", example: `{job="app"} | json | level="error"` },
+        { command: "count_over_time([5m])", description: "Count log lines per time window — useful for log volume dashboards", example: `count_over_time({job="app"}[5m])` },
       ]
     },
     {
