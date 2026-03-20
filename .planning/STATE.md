@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
-status: active
-stopped_at: null
-last_updated: "2026-03-20T12:00:00.000Z"
-last_activity: "2026-03-20 — v1.1 roadmap created (4 phases, 20 requirements)"
+status: planning
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-20T12:25:03.847Z"
+last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 - Trend: Stable baseline
 
 *Updated after each plan completion*
+| Phase 08-design-lock P01 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,10 @@ Recent decisions affecting v1.1 work:
 - [v1.1 Roadmap]: Linux Fundamentals migrated first as prototype (Phase 10) before bulk migration (Phase 11) — validates annotation schema and MDX serialization against the actual Next.js 16.2 + @next/mdx 3.1.1 config
 - [v1.1 Roadmap]: SCEN requirements introduce ScenarioQuestion as a new component pattern — "I am running this command to answer THIS question" with expandable reveal; distinct from AnnotatedCommand and ChallengeReferenceSheet
 - [v1.1 Roadmap]: `next build` runs per module after migration, never in batch — MDX prop serialization errors caught early
+- [Phase 08-design-lock]: Annotation co-location: annotations array lives in ExerciseStep (not parallel top-level array) to prevent silent misalignment on step reordering
+- [Phase 08-design-lock]: Foundation safety net is a hard override in ExerciseCard — applies regardless of learner preferredMode or explicit mode prop
+- [Phase 08-design-lock]: Preferences stored under 'learn-systems-preferences' (separate from 'learn-systems-progress') — progress reset cannot wipe mode preference
+- [Phase 08-design-lock]: annotated={true} is a migration gate on ExerciseCard — prevents partial annotation coverage from showing empty UI; removed after full coverage
 
 ### Pending Todos
 
@@ -75,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:00:00Z
-Stopped at: v1.1 roadmap created — Phase 8 ready to plan
+Last session: 2026-03-20T12:25:03.844Z
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None

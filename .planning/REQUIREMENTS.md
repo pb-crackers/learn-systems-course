@@ -8,7 +8,7 @@
 ### Command Annotations
 
 - [ ] **ANNO-01**: Foundation exercises display per-flag/argument annotations below each command block explaining what each part does
-- [ ] **ANNO-02**: Annotations are static and always visible (not tooltips/hover) for maximum readability
+- [x] **ANNO-02**: Annotations are static and always visible (not tooltips/hover) for maximum readability
 - [ ] **ANNO-03**: AnnotatedCommand component renders command first (copyable), then flag breakdown rows below
 
 ### Challenge Mode
@@ -23,7 +23,7 @@
 - [ ] **DIFF-01**: ExerciseCard renders differently based on difficulty tier (Foundation=annotated, Intermediate=recall, Challenge=compose)
 - [ ] **DIFF-02**: Global learner preference toggle allows overriding to harder/easier mode
 - [ ] **DIFF-03**: Foundation exercises are always guided regardless of toggle (safety net for beginners)
-- [ ] **DIFF-04**: Preference persists in localStorage alongside existing progress data
+- [x] **DIFF-04**: Preference persists in localStorage alongside existing progress data
 
 ### Scenario Integration
 
@@ -65,7 +65,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ANNO-01 | Phase 9 | Pending |
-| ANNO-02 | Phase 8 | Pending |
+| ANNO-02 | Phase 8 | Complete |
 | ANNO-03 | Phase 9 | Pending |
 | CHAL-01 | Phase 9 | Pending |
 | CHAL-02 | Phase 8 | Pending |
@@ -74,7 +74,7 @@
 | DIFF-01 | Phase 9 | Pending |
 | DIFF-02 | Phase 9 | Pending |
 | DIFF-03 | Phase 8 | Pending |
-| DIFF-04 | Phase 8 | Pending |
+| DIFF-04 | Phase 8 | Complete |
 | SCEN-01 | Phase 9 | Pending |
 | SCEN-02 | Phase 9 | Pending |
 | SCEN-03 | Phase 9 | Pending |
