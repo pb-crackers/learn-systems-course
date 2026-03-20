@@ -1,8 +1,65 @@
 # Architecture Research
 
-**Domain:** Interactive file-based DevOps & systems engineering course (local, single-learner, repo-as-curriculum)
-**Researched:** 2026-03-18
-**Confidence:** MEDIUM-HIGH
+**Domain:** MDX + React component architecture — command pedagogy features (v1.1 milestone)
+**Researched:** 2026-03-20
+**Confidence:** HIGH — based on direct codebase inspection of all relevant files, no external dependencies involved
+
+---
+
+## Context: What Exists
+
+This is a subsequent-milestone document. All findings are based on inspecting the live codebase,
+not prior-milestone research. The existing system is fully understood.
+
+### Existing Component Inventory
+
+| Component | File | What It Does |
+|-----------|------|--------------|
+| `CodeBlock` | `components/content/CodeBlock.tsx` | Wraps `<pre>` from rehype-pretty-code; shows language/filename tab, copy button |
+| `ExerciseCard` | `components/content/ExerciseCard.tsx` | Collapsible card with difficulty badge; steps have optional `command` string |
+| `TerminalBlock` | `components/content/TerminalBlock.tsx` | Simulated terminal with command/output/comment line types |
+| `QuickReference` | `components/content/QuickReference.tsx` | Structured or freeform command reference table; exports `ReferenceSection`, `ReferenceItem` types |
+| `VerificationChecklist` | `components/content/VerificationChecklist.tsx` | Interactive self-check list with optional hints |
+| `Callout` | `components/content/Callout.tsx` | Tip/warning/info callout box |
+| `LessonLayout` | `components/lesson/LessonLayout.tsx` | Wraps every lesson; renders frontmatter header with difficulty badge, ToC aside |
+| `ProgressProvider` | `components/progress/ProgressProvider.tsx` | React context + localStorage for lesson/exercise completion; uses `useLocalStorage` SSR-safe hook |
+
+### Existing Type Contracts
+
+```typescript
+// types/content.ts
+export type Difficulty = 'Foundation' | 'Intermediate' | 'Challenge'
+
+export interface LessonFrontmatter {
+  difficulty: Difficulty   // per-lesson, from MDX frontmatter
+  // ... title, description, moduleSlug, lessonSlug, order, etc.
+}
+
+// types/progress.ts
+export interface ProgressState {
+  lessons: Record<LessonId, LessonProgress>
+  version: number
+}
+// PROGRESS_STORAGE_KEY = 'learn-systems-progress'
+```
+
+### Existing Data Flow
+
+```
+content/modules/[module]/[lesson].mdx
+        | (import at build time via @next/mdx)
+        v
+app/modules/[moduleSlug]/[lessonSlug]/page.tsx
+        | getLessonContent() — dynamic import + gray-matter for frontmatter
+        v
+LessonLayout (receives frontmatter.difficulty)
+        | renders children
+        v
+<MDXContent /> — JSX routed through mdx-components.tsx useMDXComponents()
+        |
+        v
+components/content/* (CodeBlock, ExerciseCard, TerminalBlock, etc.)
+```
 
 ---
 
@@ -11,351 +68,437 @@
 ### System Overview
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         COURSE LAYER                                  │
-│  curriculum manifest / module index / progression state              │
-├──────────────────────────────────────────────────────────────────────┤
-│                         MODULE LAYER                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │  01-linux/   │  │  02-network/ │  │  03-docker/  │  ...          │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │
-│         │ (depends on previous)              │                       │
-├─────────┴───────────────────────────────────┴───────────────────────┤
-│                         LESSON LAYER (per module)                     │
-│  ┌───────────────────────────────────────────────────────────────┐   │
-│  │  README.md (concept + explanation)                            │   │
-│  │  exercises/  (guided tasks with expected outputs)             │   │
-│  │  labs/       (open-ended environment configs)                 │   │
-│  │  solutions/  (reference answers, not shown by default)        │   │
-│  └───────────────────────────────────────────────────────────────┘   │
-├──────────────────────────────────────────────────────────────────────┤
-│                      VERIFICATION LAYER                               │
-│  ┌─────────────────────────────────────────────────────────────┐     │
-│  │  check.sh (per exercise: asserts state, prints PASS/FAIL)   │     │
-│  └─────────────────────────────────────────────────────────────┘     │
-├──────────────────────────────────────────────────────────────────────┤
-│                      ENVIRONMENT LAYER                                │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │  Dockerfile  │  │ docker-       │  │  Vagrantfile │               │
-│  │  (per lab)   │  │ compose.yml  │  │  (where VM   │               │
-│  │              │  │              │  │   required)  │               │
-│  └──────────────┘  └──────────────┘  └──────────────┘               │
-└──────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         MDX Lesson Content                               │
+│  <AnnotatedCommand command="..." tokens={[...]} />         (NEW)        │
+│  <ExerciseCard difficulty="Foundation" mode="guided" .../>  (MODIFIED)  │
+│  <ExerciseCard difficulty="Challenge" challengePrompt="..." .../>       │
+│  <ChallengeReferenceSheet sections={[...]} />              (NEW)        │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                | React component tree (via mdx-components.tsx)
+┌───────────────────────────────v─────────────────────────────────────────┐
+│                     components/content/                                  │
+│  ┌────────────────────┐  ┌────────────────────┐  ┌──────────────────┐  │
+│  │  AnnotatedCommand  │  │  ExerciseCard       │  │ ChallengeRef-    │  │
+│  │  (NEW)             │  │  (MODIFIED)         │  │ Sheet (NEW)      │  │
+│  │                    │  │                     │  │                  │  │
+│  │  Renders command   │  │  Reads explicit     │  │ Styled wrapper   │  │
+│  │  + per-flag        │  │  mode prop OR       │  │ over existing    │  │
+│  │  annotations in    │  │  ProgressContext     │  │ QuickReference   │  │
+│  │  expandable panel  │  │  preferredMode;     │  │                  │  │
+│  │                    │  │  gates render path  │  │                  │  │
+│  └────────────────────┘  └─────────┬───────────┘  └──────────────────┘  │
+└─────────────────────────────────────┼───────────────────────────────────┘
+                                      | context read
+┌─────────────────────────────────────v───────────────────────────────────┐
+│                     components/progress/ProgressProvider.tsx             │
+│                          (MODIFIED — add preferredMode)                  │
+│                                                                          │
+│  preferredMode: 'guided' | 'challenge' | null   (localStorage)          │
+│  setPreferredMode: (mode: 'guided' | 'challenge' | null) => void        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                      |
+┌─────────────────────────────────────v───────────────────────────────────┐
+│                     components/lesson/LessonLayout.tsx                   │
+│                          (MODIFIED — add DifficultyToggle)               │
+│                                                                          │
+│  Reads frontmatter.difficulty to gate toggle display.                   │
+│  Calls setPreferredMode via ProgressContext.                             │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Component Responsibilities
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| Course manifest | Ordered list of modules, prerequisites, learning objectives per module | `modules/index.md` or simple directory naming convention (`01-`, `02-`) |
-| Module | Groups a coherent topic (e.g., "Linux Filesystem"). Contains all lessons for that topic. | Directory with numbered subfolders |
-| Lesson (README.md) | Delivers concepts, "why it works this way", contextual diagrams, worked examples. Pure reading. | Markdown file, no exercises embedded |
-| Exercise | Guided, step-by-step task with a specific measurable outcome. Learner does one thing, confirms it worked. | `exercises/NN-name/` directory with `README.md` instructions + `check.sh` |
-| Lab | Open-ended environment. Learner completes a realistic scenario without step-by-step hand-holding. | `labs/NN-name/` directory with `README.md` brief + Docker/Vagrant environment files |
-| Verification script | Asserts filesystem state, process state, or command output after an exercise. Emits clear PASS/FAIL. | `check.sh` (bash), runs inside the same environment the learner worked in |
-| Solution | Reference implementation shown only after learner attempts the task. | `solutions/` subdirectory, not linked from lesson by default |
-| Environment config | Reproducible, disposable environment for each lab. Learner can reset and retry. | `Dockerfile` + `docker-compose.yml`; Vagrant for kernel-level topics that require a real Linux VM on macOS |
+| Component | Responsibility | Status |
+|-----------|----------------|--------|
+| `AnnotatedCommand` | Render a single CLI command with per-token annotations in an expandable panel | NEW |
+| `ChallengeReferenceSheet` | Always-visible command reference for challenge-mode exercises | NEW |
+| `ExerciseCard` | Add mode-aware render branching; guided path vs challenge path | MODIFIED |
+| `ProgressProvider` | Add `preferredMode` preference alongside existing progress state | MODIFIED |
+| `LessonLayout` | Add `DifficultyToggle` UI in lesson header when lesson supports challenge mode | MODIFIED |
+| `mdx-components.tsx` | Register two new components so MDX can use them without explicit imports | MODIFIED |
 
 ---
 
-## Recommended Project Structure
+## Recommended Project Structure (new files only)
 
 ```
-learn-systems/
-├── modules/
-│   ├── 00-setup/                   # Environment setup: Docker, tools, aliases
-│   │   ├── README.md               # What you need and why
-│   │   └── check.sh                # Verifies Docker installed, etc.
-│   │
-│   ├── 01-linux-fundamentals/
-│   │   ├── README.md               # Module overview + learning objectives
-│   │   ├── lessons/
-│   │   │   ├── 01-filesystem/
-│   │   │   │   └── README.md       # Concept: VFS, inodes, mount points
-│   │   │   ├── 02-permissions/
-│   │   │   │   └── README.md       # Concept: Unix permission model, ACLs
-│   │   │   └── 03-processes/
-│   │   │       └── README.md       # Concept: process tree, signals, /proc
-│   │   ├── exercises/
-│   │   │   ├── 01-navigate-filesystem/
-│   │   │   │   ├── README.md       # Instructions: "find all files owned by root..."
-│   │   │   │   └── check.sh        # Asserts expected output or state
-│   │   │   ├── 02-fix-permissions/
-│   │   │   │   ├── README.md
-│   │   │   │   └── check.sh
-│   │   │   └── ...
-│   │   ├── labs/
-│   │   │   ├── 01-broken-system/
-│   │   │   │   ├── README.md       # Scenario brief (no step-by-step)
-│   │   │   │   ├── Dockerfile      # Broken environment to fix
-│   │   │   │   └── docker-compose.yml
-│   │   │   └── ...
-│   │   └── solutions/
-│   │       ├── 01-navigate-filesystem.md
-│   │       └── 02-fix-permissions.md
-│   │
-│   ├── 02-networking/
-│   ├── 03-sysadmin/
-│   ├── 04-docker/
-│   ├── 05-cicd/
-│   ├── 06-iac/
-│   ├── 07-cloud/
-│   ├── 08-monitoring/
-│   └── 09-configuration-management/
-│
-├── environments/
-│   └── base-linux/                 # Shared base Docker image all exercises inherit from
-│       └── Dockerfile
-│
-└── .planning/                      # Course planning artifacts (not learner-facing)
+components/
+└── content/
+    ├── AnnotatedCommand.tsx          # NEW — per-flag command annotation component
+    └── ChallengeReferenceSheet.tsx   # NEW — challenge mode command reference panel
+
+hooks/
+└── useDifficultyPreference.ts        # NEW (optional) — thin hook wrapper for clean DX
 ```
+
+No new routes, no new API endpoints, no new lib utilities. This is entirely a component-layer addition.
 
 ### Structure Rationale
 
-- **`modules/NN-name/`:** Numeric prefix enforces ordering without any tooling. Learner navigates top-to-bottom. Each module is self-contained — can be read independently once prerequisites are met.
-- **`lessons/` vs `exercises/` vs `labs/`:** Separation of concern is critical. Lessons = passive reading. Exercises = guided doing with verification. Labs = open-ended environment problems. Mixing them into a single file creates a bloated doc that is hard to navigate and makes verification impossible.
-- **`check.sh` per exercise:** Verification lives next to the exercise, not in a central runner. This keeps each exercise independently testable and makes authoring simple: write the exercise, write its check script, done.
-- **`solutions/`:** Committed but not linked prominently. Learner can `cd solutions/` but won't stumble into them during normal navigation.
-- **`environments/`:** Shared base image reduces Docker build time and ensures all exercises start from a consistent Linux environment regardless of the host OS (macOS).
+- **`components/content/`:** All new components are content primitives used in MDX. They belong with existing content components, not in a new directory. The existing content component set has clear precedent for this organization.
+- **`hooks/useDifficultyPreference.ts`:** Optional extraction. If multiple components read `preferredMode` from context, a named hook is cleaner than calling `useProgress()` and destructuring everywhere.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Lesson → Exercise → Lab Separation
+### Pattern 1: Props-in-MDX for Content Data
 
-**What:** Each lesson (concept delivery) is separate from exercises (guided practice) and labs (open scenarios). Three distinct content types with different files, different cognitive modes.
+**What:** All annotation data and challenge prompts live entirely in MDX JSX props. No external JSON, no fetched data, no content database.
 
-**When to use:** Always. Every module follows this structure.
+**When to use:** Always, for both `AnnotatedCommand` and `ExerciseCard` challenge props. The annotation belongs adjacent to the command it describes in the same file.
 
-**Trade-offs:** More files per module. But learner knows exactly what they are reading: "this README is teaching me something" vs "this README is giving me a task." No cognitive switching mid-file.
-
-**Example:**
-```
-01-linux-fundamentals/
-├── lessons/01-filesystem/README.md   ← reads like a textbook chapter
-├── exercises/01-navigate-filesystem/README.md  ← reads like a task list
-└── labs/01-broken-system/README.md   ← reads like a ticket/scenario
-```
-
-### Pattern 2: Verification-First Exercise Authoring
-
-**What:** Write `check.sh` before writing `README.md` for every exercise. The check script defines what "done" means; the instructions are just guidance toward that state.
-
-**When to use:** Every exercise.
-
-**Trade-offs:** Takes more discipline. Pays off by ensuring every exercise has a clear, testable success condition and prevents exercises that say "explore the filesystem" with no measurable outcome.
+**Trade-offs:** Verbose MDX authoring. Correct trade-off because: annotations live with their commands (no sync problem), works with the static build, no runtime fetch, author intent is explicit.
 
 **Example:**
-```bash
-#!/usr/bin/env bash
-# check.sh for exercise: set-permissions
-set -euo pipefail
+```mdx
+<AnnotatedCommand
+  command="find /var/log -name '*.log' -mtime +7 -delete"
+  tokens={[
+    { token: "-name '*.log'", annotation: "Filter by filename pattern — glob syntax, quoted to prevent shell expansion before find sees it" },
+    { token: "-mtime +7", annotation: "Modified more than 7 days ago. + means more than, - means less than, no prefix means exactly N days" },
+    { token: "-delete", annotation: "Primary action — deletes matched files. Must come after all filters or it runs on everything" }
+  ]}
+/>
+```
 
-PASS=0; FAIL=0
+### Pattern 2: Context-Driven Render Branching
 
-check() {
-  if eval "$2" &>/dev/null; then
-    echo "PASS: $1"
-    ((PASS++))
-  else
-    echo "FAIL: $1"
-    ((FAIL++))
-  fi
+**What:** `ExerciseCard` reads `preferredMode` from `ProgressContext` to choose between guided and challenge render paths. The MDX author does not decide at read-time — the learner's preference does.
+
+**When to use:** Any component that must respond to a persistent learner preference.
+
+**Trade-offs:** ExerciseCard becomes a context consumer. It already is ('use client' directive exists). The context re-render touches every ExerciseCard on the page when the preference changes. Acceptable: at most 3-5 exercises per lesson page, React reconciliation handles this with no perceptible cost.
+
+**Example:**
+```typescript
+// Inside ExerciseCard
+const { preferredMode } = useProgress()
+const effectiveMode = mode ?? preferredMode ?? difficultyDefault(difficulty)
+```
+
+### Pattern 3: Explicit Mode Override for Pedagogy Requirements
+
+**What:** The `mode` prop on `ExerciseCard` lets the MDX author pin a specific render mode regardless of the learner's global preference. Used for exercises where pedagogy absolutely requires one path.
+
+**When to use:** Foundation exercises that must always be annotated/guided (learner's first encounter with a command). Challenge capstone exercises that must never degrade to step-by-step.
+
+**Example:**
+```mdx
+{/* Always guided — first encounter with chmod, annotations are essential */}
+<ExerciseCard mode="guided" difficulty="Foundation" ... />
+
+{/* Always challenge — final module capstone */}
+<ExerciseCard mode="challenge" difficulty="Challenge" ... />
+```
+
+---
+
+## New Component Specifications
+
+### `AnnotatedCommand`
+
+**File:** `components/content/AnnotatedCommand.tsx`
+
+**Props:**
+```typescript
+interface CommandToken {
+  token: string          // exact substring from command, e.g. "-R", "--format=json"
+  annotation: string     // educational explanation of this token
+  type?: 'flag' | 'argument' | 'subcommand' | 'option-value'
 }
 
-check "script.sh is executable by owner" \
-  "[[ -x /home/learner/script.sh ]]"
-
-check "script.sh is NOT world-writable" \
-  "[[ ! -w /home/learner/script.sh ]] || [[ $(stat -c '%a' /home/learner/script.sh) != *2 ]]"
-
-echo ""
-echo "Results: $PASS passed, $FAIL failed"
-[[ $FAIL -eq 0 ]] && exit 0 || exit 1
+interface AnnotatedCommandProps {
+  command: string         // full command string, displayed verbatim
+  tokens: CommandToken[]  // tokens to annotate (can be a subset)
+  language?: string       // for display hint, defaults to 'bash'
+  copyable?: boolean      // show copy button, default true
+}
 ```
 
-### Pattern 3: Disposable Docker Environments
+**Rendering contract:**
+- Base command always renders in full, in monospace, with copy button
+- Annotated tokens are visually highlighted in the command display (underline or subtle color)
+- Annotations panel below the command, collapsed by default
+- Each annotation row links visually to its token
+- Collapsed state is correct default: advanced learners can skip; Foundation learners expand
 
-**What:** Each lab provides a `docker-compose.yml` that spins up a clean environment. Learner starts it, does the lab, tears it down. No state leaks between labs.
+**'use client' required:** Yes — interactive collapse/expand state.
 
-**When to use:** All labs. For Linux-specific kernel topics (e.g., cgroups, namespaces, kernel parameters) that don't work correctly inside Docker, use a Vagrantfile pointing to a minimal Linux VM instead.
+### `ChallengeReferenceSheet`
 
-**Trade-offs:** Docker adds a layer of abstraction that hides some Linux internals (systemd, udev). For the early Linux fundamentals modules, this is acceptable. For sysadmin topics requiring systemd, switch to Vagrant. Document the tradeoff explicitly in the lab README.
+**File:** `components/content/ChallengeReferenceSheet.tsx`
 
-**Example:**
-```yaml
-# docker-compose.yml for lab: broken-permissions
-services:
-  lab:
-    build: .
-    container_name: learn-systems-lab
-    hostname: lab-machine
-    tty: true
-    stdin_open: true
-    volumes:
-      - ./workspace:/home/learner/workspace
+**Props:** Extends `QuickReferenceProps` from the existing QuickReference component:
+```typescript
+interface ChallengeReferenceSheetProps extends QuickReferenceProps {
+  collapsible?: boolean  // default false — always visible during a challenge
+}
 ```
+
+**Rendering contract:**
+- Thin wrapper over existing `QuickReference` with distinct visual treatment: different border accent color, "Command Reference" header label, slightly elevated bg to signal "this is your toolkit"
+- Reuses `ReferenceSection` and `ReferenceItem` types already exported from `QuickReference.tsx`
+- `collapsible=false` (default): never hidden, always visible as the learner works
+- No separate state management needed
+
+**'use client' required:** Only if `collapsible=true` is implemented. Start with server component; add 'use client' if collapse behavior is added later.
+
+### `ExerciseCard` Additions
+
+**New props:**
+```typescript
+interface ExerciseCardProps {
+  // existing props unchanged — no breaking changes
+  title: string
+  scenario: string
+  difficulty: Difficulty
+  objective: string
+  steps: ExerciseStep[]
+  children?: React.ReactNode
+  // NEW:
+  mode?: 'guided' | 'challenge'          // explicit author override
+  challengePrompt?: string               // English goal description for challenge mode
+  challengeReference?: ReferenceSection[] // commands available in challenge mode
+}
+```
+
+**Mode resolution inside ExerciseCard:**
+```
+1. explicit `mode` prop — beats everything (author override)
+2. ProgressContext.preferredMode (learner's global preference)
+3. difficulty default:
+     'Foundation'    -> 'guided'
+     'Intermediate'  -> 'guided'
+     'Challenge'     -> 'challenge'
+```
+
+**Guided render path:** Existing behavior. Steps list unchanged. If a step's command is in an `AnnotatedCommand` placed as children, it renders there; plain `step.command` strings continue to render as inline code.
+
+**Challenge render path (new):** Shows `challengePrompt` paragraph, renders `ChallengeReferenceSheet` if `challengeReference` is provided, renders `children` (which includes `VerificationChecklist`). Hides the numbered step list.
+
+### `ProgressProvider` Additions
+
+**Context value additions:**
+```typescript
+interface ProgressContextValue {
+  // existing fields unchanged
+  progress: ProgressState
+  isHydrated: boolean
+  markLessonComplete: (lessonId: LessonId) => void
+  markExerciseComplete: (lessonId: LessonId, exerciseId: string) => void
+  resetProgress: () => void
+  // NEW:
+  preferredMode: 'guided' | 'challenge' | null
+  setPreferredMode: (mode: 'guided' | 'challenge' | null) => void
+}
+```
+
+**Storage:** Use a separate localStorage key `'learn-systems-preferences'` rather than extending `ProgressState`. Mode preference is a UI setting, not progress data. Keeping them in separate keys means a progress reset does not wipe the learner's mode preference, and the storage shapes stay cohesive.
+
+### `LessonLayout` Additions
+
+**What changes:** Render a difficulty toggle control in the lesson metadata row when the lesson supports challenge mode.
+
+**Gate condition:** Render the toggle only when `frontmatter.difficulty === 'Challenge'`. This is a simple heuristic: Challenge-difficulty lessons are the ones where the challenge render path is meaningful. Foundation and Intermediate lessons always show guided.
+
+**Toggle placement:** In the existing metadata row (same line as difficulty badge and estimated time), after the difficulty badge. A compact two-option control: `Guided | Challenge` with active option highlighted.
+
+**Wire-up:** Toggle calls `setPreferredMode` from `useProgress()`. The toggle is a client component ('use client'). Extract it as a small `DifficultyToggle.tsx` component in `components/lesson/` to keep LessonLayout server-friendly.
 
 ---
 
 ## Data Flow
 
-### Learner Progression Flow
+### Annotated Command Rendering
 
 ```
-Module README (orient)
-    |
-    v
-Lesson README (understand concept)
-    |
-    v
-Exercise README (follow guided steps)
-    |
-    v
-run check.sh --> PASS: move to next exercise
-            --> FAIL: re-read, retry, check solutions/
-    |
-    (all exercises complete)
-    v
-Lab README (apply knowledge to open scenario)
-    |
-    v
-Submit to self (no automated check — lab success is subjective scenario completion)
-    |
-    (all labs complete)
-    v
-Next module (verify prerequisites met)
+MDX author writes <AnnotatedCommand command="..." tokens={[...]} />
+        | mdx-components.tsx maps JSX element to AnnotatedCommand component
+        v
+AnnotatedCommand renders:
+  - Full command string in monospace (copyable)
+  - Highlighted tokens in command display
+  - Collapsible annotation panel (collapsed by default)
+  (no external data source — all data is in MDX props, static at build time)
 ```
 
-### Exercise State Machine
+### Challenge Mode Toggle
 
 ```
-[NOT STARTED]
-     |
-     | (learner reads README.md)
-     v
-[IN PROGRESS]
-     |
-     | (learner runs check.sh)
-     v
-[PASS] ──────────────────────────────> [NEXT EXERCISE]
-     |
-     | (check.sh exits non-zero)
-     v
-[FAIL: investigate]
-     |
-     |-- re-read lesson README
-     |-- check solutions/ directory
-     |-- retry exercise
-     |
-     v
-[IN PROGRESS] (loop)
+Learner clicks "Challenge" in DifficultyToggle (in LessonLayout header)
+        |
+        v
+DifficultyToggle calls setPreferredMode('challenge') via useProgress()
+        |
+        v
+ProgressProvider writes 'challenge' to localStorage key 'learn-systems-preferences'
+        | (React context re-render propagates to all consumers)
+        v
+Every ExerciseCard on the page re-reads context
+        | resolves effectiveMode via fallback chain
+        v
+Cards with challengePrompt + effective challenge mode -> render challenge UI
+Cards without challengePrompt -> remain in guided mode (graceful fallback)
+Foundation cards with explicit mode="guided" -> unaffected by toggle
 ```
 
-### Key Data Flows
+### Exercise Card Mode Resolution
 
-1. **Concept to skill:** Lesson README delivers model → Exercise makes learner apply model against real system → Lab makes learner use skill without scaffolding.
-2. **Environment to verification:** Docker/Vagrant creates deterministic system state → Learner modifies state → `check.sh` asserts system state matches expected outcome.
-3. **Module to module:** Each module's README lists prerequisites (prior modules). Learner controls pacing; no automated gating because this is local/single-learner.
+```
+ExerciseCard renders:
+  effectiveMode = mode (explicit prop)
+               ?? context.preferredMode (learner preference)
+               ?? (difficulty === 'Challenge' ? 'challenge' : 'guided')
 
----
+  effectiveMode === 'guided':
+    render numbered steps list (existing)
+    step.command -> inline code block (existing)
+    children -> VerificationChecklist etc. (existing)
 
-## Scaling Considerations
-
-This is a single-learner, file-based course. "Scaling" means content volume, not users.
-
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 1-3 modules | Single `modules/` directory, no index needed — directory names are sufficient |
-| 4-9 modules (target) | Add `modules/README.md` as course index with learning path diagram and time estimates per module |
-| 10+ modules | Consider grouping modules into tracks (e.g., `tracks/linux/`, `tracks/cloud/`) — but avoid this until content volume demands it |
-
-### Scaling Priorities
-
-1. **First bottleneck: Docker image build time.** As labs multiply, cold builds get slow. Mitigation: shared base image in `environments/base-linux/` that all labs extend. Labs only add their specific state on top.
-2. **Second bottleneck: Exercise check script maintenance.** As exercises multiply, keeping check scripts accurate becomes the main maintenance burden. Mitigation: keep checks focused on observable state (file permissions, process existence, port open) not on implementation details.
-
----
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Monolithic Lesson Files
-
-**What people do:** Write one giant `lesson.md` per topic that includes concepts, step-by-step exercises, and verification all inline.
-
-**Why it's wrong:** Learner cannot skip to the exercise without reading all the theory. Verification cannot be automated because steps are prose. Impossible to reuse the lab environment for a different exercise. File becomes 500+ lines and unmaintainable.
-
-**Do this instead:** Separate `lessons/`, `exercises/`, and `labs/` directories. Each file has one job.
-
-### Anti-Pattern 2: Implicit Success Criteria
-
-**What people do:** Exercises say "explore the systemd journal" or "play with Docker networking" with no measurable success condition.
-
-**Why it's wrong:** Learner doesn't know when they're done. No reinforcement of correct behavior. Nothing distinguishes a learner who did the exercise from one who skipped it.
-
-**Do this instead:** Every exercise ends with a concrete, checkable state. If you can't write a `check.sh` for it, it's not an exercise — it's a lesson. Move it there.
-
-### Anti-Pattern 3: Hardcoded Environment State in Exercises
-
-**What people do:** Exercise instructions assume specific file paths, usernames, or host state from the learner's macOS machine.
-
-**Why it's wrong:** macOS environment varies. Exercise fails for reasons unrelated to the learning objective. Learner debugs their machine instead of the concept.
-
-**Do this instead:** All exercises that require a Linux environment must provide a Docker container. The container's state is known and reproducible. `check.sh` runs inside the container, not on the host.
-
-### Anti-Pattern 4: Burying Solutions in the Main Reading Path
-
-**What people do:** Put solutions inline after the exercise instructions, separated by a horizontal rule.
-
-**Why it's wrong:** Learner scrolls down out of impatience and reads the solution before attempting the problem. Kills the learning value of the exercise.
-
-**Do this instead:** Solutions live in a separate `solutions/` directory. Main exercise `README.md` ends with: "If you're stuck, see `solutions/NN-exercise-name.md`." Learner has to actively navigate there.
+  effectiveMode === 'challenge':
+    render challengePrompt paragraph
+    if challengeReference -> render <ChallengeReferenceSheet sections={challengeReference} />
+    render children (VerificationChecklist, etc.)
+    hide step list
+```
 
 ---
 
 ## Integration Points
 
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Docker Hub / GHCR | `FROM` base images in Dockerfiles | Pin specific image digests for reproducibility. Don't use `:latest`. |
-| GitHub | Repository hosting — learner clones locally | No runtime dependency. Course works entirely offline after clone. |
-
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| Lesson README → Exercise README | None (learner navigates manually) | Lesson should end with "Now practice this in `exercises/01-name/`" — a navigational cue, not a programmatic link |
-| Exercise README → check.sh | Learner runs `bash check.sh` from exercise directory | check.sh must be executable and self-contained. No arguments required. |
-| Lab README → Docker environment | Learner runs `docker compose up -d` then works inside container | Lab README must include the exact commands to start and stop the environment |
-| Module N → Module N+1 | Prerequisites listed in Module README | No automated enforcement. Single-learner; trust the curriculum sequence. |
+| MDX content → `AnnotatedCommand` | JSX props in MDX body | All annotation data is static at build time; no runtime fetch |
+| MDX content → `ExerciseCard` | JSX props in MDX body | `challengePrompt` and `challengeReference` are new optional props; existing MDX files need no changes |
+| `ExerciseCard` → `ProgressContext` | React context read via `useProgress()` | ExerciseCard already 'use client'; adding a context read is zero friction |
+| `DifficultyToggle` → `ProgressContext` | React context write via `setPreferredMode` | New client component in `components/lesson/`; thin — just a toggle UI |
+| `ChallengeReferenceSheet` → `QuickReference` | Composition — wraps QuickReference | Reuse `ReferenceSection` and `ReferenceItem` types already exported from QuickReference.tsx |
+| `LessonLayout` → `DifficultyToggle` | Renders DifficultyToggle conditionally on frontmatter.difficulty | LessonLayout stays server-friendly; DifficultyToggle is the only client piece added |
+
+### What Does NOT Change
+
+These are confirmed no-touch from code inspection:
+
+- `getLessonContent()` in `lib/mdx.ts` — no change; frontmatter already has `difficulty`
+- `generateStaticParams()` in lesson page — no change
+- `LessonFrontmatter` type in `types/content.ts` — no change
+- `ProgressState` shape in `types/progress.ts` — mode preference stored in a separate key
+- `TerminalBlock` — no change; used for expected output display, not exercises
+- `QuickReference` — no change to existing component; ChallengeReferenceSheet wraps it
+- `VerificationChecklist` — no change; still used as ExerciseCard children in both render paths
+- `Callout` — no change
+- `CodeBlock` — no change; AnnotatedCommand is a separate primitive, not a CodeBlock variant
 
 ---
 
-## Build Order Implications for Roadmap
+## Anti-Patterns
 
-The component dependencies establish a clear build order for the course itself:
+### Anti-Pattern 1: Reading Lesson-Level Difficulty Inside ExerciseCard
 
-1. **Environment infrastructure first** (Module 00: Setup) — Nothing else works without Docker/tools confirmed working on macOS.
-2. **Shared base Docker image** — Build this before authoring any lab that requires a Linux environment. All subsequent labs depend on it.
-3. **Module content in curriculum order** — Each module depends on the previous. Linux fundamentals must exist before networking (which assumes you understand processes and file descriptors). Networking before Docker (which uses Linux networking primitives). Docker before CI/CD (which uses Docker as a build environment).
-4. **Lesson before exercise before lab** (within each module) — Lesson delivers the model. Exercise verifies basic application of the model. Lab tests independent application. This ordering within a module is non-negotiable.
-5. **check.sh before exercise README** — As described in Pattern 2, defining what done looks like before writing how to get there prevents vague exercises.
+**What people do:** Pass `frontmatter.difficulty` down through props or context into ExerciseCard and use it to determine mode.
+
+**Why it's wrong:** A lesson has one difficulty in frontmatter but may contain exercises of multiple effective difficulties. A Foundation lesson can include a bonus Challenge exercise. The ExerciseCard's own `difficulty` prop is the correct signal, not the lesson-level field.
+
+**Do this instead:** Use the card's `difficulty` prop for the default fallback, and `ProgressContext.preferredMode` for the learner override. The lesson-level frontmatter difficulty only controls whether the DifficultyToggle renders in the header.
+
+### Anti-Pattern 2: Annotating Inside TerminalBlock
+
+**What people do:** Add annotation metadata to TerminalBlock's line types.
+
+**Why it's wrong:** TerminalBlock shows what you would see in a real terminal session — command + output sequences. Annotations are pedagogical metadata. Mixing them creates a component with two jobs and makes neither work well.
+
+**Do this instead:** Use `AnnotatedCommand` for a single command with educational breakdown. Use `TerminalBlock` for showing a session with multiple commands and their expected output. These are intentionally distinct primitives.
+
+### Anti-Pattern 3: Per-Lesson or Per-Exercise Toggle UI Instead of Global Preference
+
+**What people do:** Put a small toggle on each exercise card, or in a per-lesson route.
+
+**Why it's wrong:**
+- Per-exercise toggle: clutters every card with mode-switch UI; learner has to set it N times per lesson.
+- Per-lesson URL query string (`?mode=challenge`): creates shareable URLs with mode baked in, breaks back-button expectation, requires query-param parsing on every render.
+
+**Do this instead:** Global preference in `ProgressProvider`, stored in localStorage. Set once, affects all exercises on all pages. Consistent with how the app handles all other persistent state.
+
+### Anti-Pattern 4: Building ChallengeReferenceSheet from Scratch
+
+**What people do:** Write ChallengeReferenceSheet with its own table rendering.
+
+**Why it's wrong:** `QuickReference` already renders a well-styled, tested command reference table. Duplicating the rendering logic creates two components to maintain for the same presentation.
+
+**Do this instead:** `ChallengeReferenceSheet` wraps `QuickReference` and applies distinct visual treatment (border accent, header label). Reuse `ReferenceSection` and `ReferenceItem` types already exported from `QuickReference.tsx`.
+
+---
+
+## Build Order
+
+Dependencies determine order. Build bottom-up.
+
+**Step 1 — Type and context contracts (no component dependencies)**
+- Extend `ProgressContextValue` with `preferredMode` and `setPreferredMode`
+- Extend `ProgressProvider` with localStorage persistence for mode preference (separate key)
+
+**Step 2 — Leaf components (no context reads, no dependencies on new components)**
+- Build `AnnotatedCommand` — standalone, all data from props
+- Build `ChallengeReferenceSheet` — wraps existing `QuickReference`, no context reads
+
+**Step 3 — ExerciseCard modification (depends on Steps 1 and 2)**
+- Add `mode`, `challengePrompt`, `challengeReference` props
+- Add `useProgress()` context read for `preferredMode`
+- Add mode resolution logic and render branching
+
+**Step 4 — LessonLayout integration (depends on Step 1)**
+- Build `DifficultyToggle` client component (reads and writes `preferredMode`)
+- Add DifficultyToggle to LessonLayout header, gated on `frontmatter.difficulty === 'Challenge'`
+
+**Step 5 — Registration**
+- Register `AnnotatedCommand` and `ChallengeReferenceSheet` in `mdx-components.tsx`
+
+**Step 6 — Content authoring**
+- Add `<AnnotatedCommand>` to Foundation exercises across all 8 modules
+- Add `challengePrompt` and `challengeReference` to Challenge difficulty exercises
+- No changes needed to existing MDX for Intermediate exercises (graceful fallback)
+
+---
+
+## Scaling Considerations
+
+This is a local single-learner app. The relevant scaling axis is content volume — 56 lessons across 8 modules.
+
+| Concern | Reality | Approach |
+|---------|---------|----------|
+| 56 lessons need annotation | All content is static MDX | Add AnnotatedCommand incrementally per lesson; no migration required on unmodified MDX |
+| Context re-render on mode switch | 3-5 ExerciseCards per lesson page max | No optimization needed; React reconciliation handles this trivially |
+| localStorage key management | Two keys currently exist | Add `'learn-systems-preferences'` as third key, isolated from progress state |
+| MDX authoring verbosity | AnnotatedCommand props are detailed | Acceptable tradeoff — annotations are editorial content, not boilerplate |
 
 ---
 
 ## Sources
 
-- [KodeKloud: Hands-On DevOps Learning 2025](https://kodekloud.com/blog/hands-on-devops-cloud-ai-learning-2025/) — Lab-integrated-into-lesson-flow pattern, validation approach (MEDIUM confidence: marketing page, but describes real platform behavior)
-- [moeinfatehi/LinuxForCyberSecurityCourse](https://github.com/moeinfatehi/LinuxForCyberSecurityCourse) — Numbered module directory pattern, lectures/assignments/resources per module (HIGH confidence: inspected repository structure directly)
-- [freeCodeCamp/learn-bash-scripting-by-building-five-programs](https://github.com/freeCodeCamp/learn-bash-scripting-by-building-five-programs/blob/main/TUTORIAL.md) — Step-based exercise format, hints section, observable output verification (HIGH confidence: inspected file directly)
-- [bregman-arie/devops-exercises](https://github.com/bregman-arie/devops-exercises) — Topic-folder organization, Q&A exercise format (HIGH confidence: inspected repository structure)
-- [DevOps with Docker / University of Helsinki](https://github.com/oneiromancy/devops-with-docker) — Pass/fail criteria per exercise, skip allowances, mandatory flags (MEDIUM confidence: course description, not direct code inspection)
-- [CMU: Course Content & Schedule](https://www.cmu.edu/teaching/designteach/design/contentschedule.html) — Curriculum sequencing principles: simple to complex, dependency identification (HIGH confidence: academic source)
-- [Skytap: Self-Paced Hands-On Learning](https://www.skytap.com/blog/maximizing-the-value-of-self-paced-hands-on-learning-with-interactive-lab-guides/) — Lab guide structure, step-by-step vs open-ended distinction (MEDIUM confidence: vendor blog but describes real instructional design patterns)
+All findings are HIGH confidence — based on direct codebase inspection (2026-03-20):
+
+- `components/content/CodeBlock.tsx`
+- `components/content/ExerciseCard.tsx`
+- `components/content/TerminalBlock.tsx`
+- `components/content/QuickReference.tsx`
+- `components/content/VerificationChecklist.tsx`
+- `components/lesson/LessonLayout.tsx`
+- `components/progress/ProgressProvider.tsx`
+- `hooks/useLocalStorage.ts`
+- `hooks/useProgress.ts`
+- `types/content.ts`
+- `types/progress.ts`
+- `mdx-components.tsx`
+- `app/modules/[moduleSlug]/[lessonSlug]/page.tsx`
+- `lib/mdx.ts`
+- `content/modules/01-linux-fundamentals/04-file-permissions.mdx` (representative lesson)
+- `.planning/PROJECT.md`
 
 ---
-*Architecture research for: Interactive DevOps & Systems Engineering Course (local, file-based)*
-*Researched: 2026-03-18*
+
+*Architecture research for: command pedagogy features (v1.1 milestone)*
+*Researched: 2026-03-20*

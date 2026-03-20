@@ -1,173 +1,205 @@
 # Pitfalls Research
 
-**Domain:** Interactive DevOps & Systems Engineering Course (local, file-based, self-paced)
-**Researched:** 2026-03-18
-**Confidence:** HIGH (multiple sources confirm patterns; platform-specific issues verified against current docs)
+**Domain:** Command Pedagogy Retrofit — Annotated Commands + Challenge-Mode Exercises for Existing CLI Teaching Platform
+**Researched:** 2026-03-20
+**Confidence:** HIGH (analysis grounded in direct codebase inspection of all 56 lessons + 6 existing components; supplemented by instructional design literature)
 
 ---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Tool-Operator Syndrome — Teaching Commands Without Engineering Context
+### Pitfall 1: Prop Interface Breakage on ExerciseCard — Silent Regression Across 52 Lessons
 
 **What goes wrong:**
-Learners execute commands and complete exercises without understanding the underlying system. They can follow a recipe but break down when something goes wrong or the recipe changes. The course becomes a cheat sheet, not an education. This is the single most-cited failure in DevOps curricula: "Most people become tool operators, not engineers."
+The new annotation and challenge-mode features require extending ExerciseCard's prop interface. If `steps` item shape changes (e.g., adding `annotations?: Annotation[]` as required) without making it optional, every existing MDX file that uses `ExerciseCard` passes the old shape and TypeScript compile errors surface across all 52 lesson files simultaneously. Worse — if the prop is added as optional but the rendering branch is wrong, lessons silently render annotation UI in Foundation exercises without the data, producing empty UI elements.
 
 **Why it happens:**
-Lesson authors default to "here is the command, run it" because it is fast to write and easy to verify. Conceptual depth requires more authoring effort. The temptation is to show working commands and declare success.
+ExerciseCard is a single component consumed in MDX via `mdx-components.tsx`. It has no versioning. Adding behavior to it is always additive to the entire corpus. The new features require rendering different UI based on `difficulty`, but the `steps` prop is currently a flat array — retrofitting annotation data onto it means either changing the shape (breaking) or adding a parallel prop (messy but safe).
 
 **How to avoid:**
-Every command or tool introduction must be preceded by a "why this exists" section explaining the underlying mechanism — what kernel subsystem, protocol, or system call is being used. Exercises should include a "what would happen if..." variant that breaks the happy path and asks the learner to reason through the failure. Never introduce a command without first explaining what it is doing under the hood.
+- Make all new props strictly optional with fallback behavior: `annotations?: CommandAnnotation[]`, `challengeMode?: boolean`, `referenceSheet?: ReferenceItem[]`
+- Never change the shape of the existing `steps` prop — leave it untouched, add new parallel props
+- TypeScript strict mode (`"strict": true` is already in `tsconfig.json`) will catch missing required props at build time — use this as the regression gate
+- Run `next build` after any interface change and treat compile errors as blocking before touching any MDX
 
 **Warning signs:**
-- Lesson structure is `explanation → run this → done` with no "why does this work?" section
-- Exercises have exactly one correct path with no failure/debug scenario
-- Learner can complete a module but cannot explain what happened in their own words
-- Glossary or concept section comes after the exercise instead of before
+- Any new prop on ExerciseCard is non-optional
+- The `steps` array item interface changes to add required fields
+- TypeScript reports errors in MDX files after the component change
+- `next build` passes but the rendered page has empty annotation sections on old lessons
 
 **Phase to address:**
-Foundation phase (Linux fundamentals). Establish the "explain the mechanism first" pattern from the very first lesson. If this pattern is not established early, every subsequent module inherits the problem.
+Phase 1 (component design). Lock the interface contract before writing any MDX. The rule: existing lessons must render identically with zero modification.
 
 ---
 
-### Pitfall 2: Lab Environment Brittleness — Exercises Break on the Learner's Machine
+### Pitfall 2: Annotation Coverage Inconsistency — Half the Foundation Lessons Get Annotations, Half Don't
 
 **What goes wrong:**
-An exercise works on the author's machine and fails silently (or noisily) on the learner's. The learner spends hours debugging environment issues that have nothing to do with the lesson. Frustration peaks, abandonment follows. Research shows technical difficulties directly lower learning outcomes and increase dropout.
+There are 22 Foundation-difficulty lessons. The milestone says "annotated command blocks for Foundation exercises." If annotations are written for 8 lessons in the first phase and the feature ships, learners see inconsistent experiences — some lessons have rich flag explanations, others have the same bare `command` field as before. The asymmetry is pedagogically confusing: learners do not know whether missing annotations mean "this command needs no explanation" or "this lesson is incomplete."
 
 **Why it happens:**
-Three root causes apply specifically to this project:
-1. **macOS ARM / Apple Silicon**: Docker images built for `linux/amd64` fail or are slow via QEMU emulation on M1/M2/M3 Macs. The project targets macOS as the dev machine. This is a live, documented problem.
-2. **"Latest" tag drift**: Exercises that pull `image:latest` or install packages without pinned versions silently change behavior as upstream updates.
-3. **Host dependency pollution**: Exercises that assume specific versions of tools installed on the host (e.g., `docker compose v1` vs `v2` CLI syntax) fail as host environments diverge.
+Content migration at scale (22 lessons, potentially 200+ step entries with `command` fields) is underestimated. It feels like a data-entry task but each annotation requires understanding the command well enough to explain every flag in context. Authors annotate the first few lessons thoroughly, then rush the rest. The feature flag (Foundation → show annotations) makes the gap visible everywhere at once.
 
 **How to avoid:**
-- All Docker images used in exercises must specify exact versions (e.g., `ubuntu:22.04`, not `ubuntu:latest`)
-- All Dockerfiles must include `--platform linux/amd64` or provide explicit ARM-native alternatives
-- Every lab must be self-contained: the exercise setup script must install everything it needs; no assumption about host state beyond Docker/Vagrant being available
-- Provide a `verify-env.sh` script at the start of each module that checks prerequisites and fails fast with a clear error message
-- Pin package versions in all `apt install`, `pip install`, and similar commands
+- Audit all Foundation lesson `ExerciseCard` steps before writing any annotations — count every `command` field that needs annotation
+- Write annotations module by module, completing one module before starting the next
+- Do not ship the annotation UI feature until at least one complete module is annotated — use a per-exercise opt-in prop (`annotated={true}`) to gate display, not a lesson-level flag, so unannotated exercises stay clean
+- Define the annotation schema precisely before writing content: `{ flag: string; description: string; example?: string }[]`
 
 **Warning signs:**
-- Any exercise uses `latest` tags
-- Setup instructions say "make sure you have X installed" without version specification
-- No pre-exercise environment check script exists
-- Exercise was only tested on one machine architecture
+- More than one module is "in progress" on annotations simultaneously
+- The annotation component renders but some exercises show it empty
+- No pre-migration audit exists of how many `command` fields need annotations
 
 **Phase to address:**
-Before writing any exercises. Establish a lab template (Dockerfile + setup script + verify script) in the project scaffold phase. Every exercise module must use the template.
+Phase 1 (design) must include the audit. Phase 2 (content migration) must be module-by-module, never lesson-by-lesson across modules.
 
 ---
 
-### Pitfall 3: Scope Inflation — Too Many Tools, Not Enough Depth
+### Pitfall 3: Challenge-Mode Exercises Lose Verification Integrity — Goals Without Checks
 
 **What goes wrong:**
-The curriculum tries to cover Git, Linux, Docker, Kubernetes, Terraform, Ansible, AWS, GCP, CI/CD, monitoring, and security in one course. Each tool gets a 30-minute intro. Learners gain awareness of tool names but no working fluency. They finish the course and still cannot solve real problems.
+Challenge-mode exercises describe a goal in English ("Set up a Docker Compose stack with health checks") instead of providing step-by-step commands. The existing VerificationChecklist provides manually-ticked checkboxes. If the challenge-mode variant uses the same VerificationChecklist with the same manually-ticked design, learners can mark all items complete without actually completing the challenge — the "verification" becomes performative. The existing exercises (like the capstone) already have this weakness; challenge-mode at scale amplifies it.
 
 **Why it happens:**
-DevOps is legitimately broad. Curriculum authors feel pressure to cover everything because learners expect comprehensive coverage. Adding a section on Tool X costs little effort to plan but dilutes depth everywhere. The roadmap.sh DevOps path lists 50+ topics; treating that as a checklist is the trap.
+The VerificationChecklist is a client-side toggle component — it stores checked state in React local state that resets on page refresh. There is no actual command verification; it is purely self-assessed. This was acceptable for Foundation exercises where commands are given and output is predictable. Challenge exercises without commands have no clear expected output, making even self-assessment vague.
 
 **How to avoid:**
-Define a depth target for each topic upfront: Can the learner use this tool to solve a novel problem they have not seen before? Not: Can they follow a tutorial? Each module must have a stated competency goal, and scope must be cut if depth cannot be achieved. Defer breadth (e.g., advanced Kubernetes) explicitly — this project already marks it out-of-scope, which is the right call.
+- Challenge-mode verification items must include precise success criteria as the `hint` field — not "you completed the task" but "run `docker ps | grep healthy` and verify all containers show `(healthy)` in the STATUS column"
+- Each challenge-mode exercise needs 3–5 verification items that correspond to independently verifiable states, not a single "did you do it" checkbox
+- Consider adding a `type: 'command-check'` field to VerificationChecklist items for challenge exercises — the hint becomes the verification command the learner runs and compares against expected output
+- Never write a challenge-mode exercise with fewer verification checkpoints than Foundation exercises for the same topic
 
 **Warning signs:**
-- A module introduces more than 2-3 major new tools
-- Any tool section is shorter than enough to complete one real-world task end-to-end
-- Module titles are tool names without stated competency goals (e.g., "Introduction to Terraform" vs. "Provision a repeatable local environment with Terraform")
-- The curriculum covers a tool in a lesson but never uses it again in later exercises
+- Challenge exercise verification items are written as vague accomplishment statements ("you deployed the stack")
+- Fewer than 3 verification items for any challenge exercise
+- No expected command output is specified in any hint field
+- A challenge-mode exercise can be "completed" by reading it without touching a terminal
 
 **Phase to address:**
-Roadmap / curriculum design phase. Write competency goals before writing any content. If a competency goal cannot be achieved in the allotted space, cut the topic or expand the space.
+Phase 1 (design). The challenge-mode exercise template must include the verification pattern before any challenge-mode content is written. This cannot be retrofitted after 20 challenge exercises are written.
 
 ---
 
-### Pitfall 4: Missing or Ambiguous Exercise Verification — Learner Does Not Know If They Succeeded
+### Pitfall 4: Command Reference Sheet Scope Creep — Becoming a Second Lesson
 
 **What goes wrong:**
-An exercise ends with "you should now see X." The learner sees something slightly different, is unsure if that is correct, and either moves on without understanding or gets stuck. Self-paced learning without verification steps turns exercises into guesswork. Research confirms that lack of feedback is a primary cause of self-paced course abandonment.
+Challenge-mode exercises provide a command reference sheet instead of step-by-step instructions. Reference sheets intended to be a constrained "you may need these" guide expand into full command tutorials — every flag documented, every edge case noted, with examples for each. The reference sheet becomes longer and more instructional than the original Foundation lesson it accompanies. Learners read the reference sheet as a lesson and the challenge reduces to following its implicit sequence.
 
 **Why it happens:**
-Verification feels redundant to the author who knows the expected outcome. Writing precise verification steps requires anticipating what can go wrong, which is effort. Authors write "expected output" as a screenshot or prose description instead of a runnable check.
+Reference sheet authors know the material thoroughly and want to be complete. The QuickReference component (`sections[].items[]` with `command`, `description`, `example`) has no structural limit on how much content it can hold. There is no content policy differentiating "reference" from "tutorial."
 
 **How to avoid:**
-Every exercise must end with a machine-checkable verification: a shell command the learner runs whose output unambiguously says "correct" or "try again." These can be simple (`systemctl is-active nginx` returning `active`) but must exist. Where machine checks are impractical, provide exact expected output with an explanation of each line so the learner can self-verify with confidence. Include a "common mistakes" section per exercise listing the 2-3 most likely failure modes and how to diagnose them.
+- Define a hard content budget for challenge-mode reference sheets: maximum 15 items, no sequential ordering (commands listed alphabetically or by category, never in the order you would use them), no "first do X, then do Y" narrative
+- Reference sheet items must not name the solution — they can list `docker compose up --build` as a command but cannot say "use this to build and start your application from scratch"
+- Use the existing QuickReference component without adding narrative structure; the component's table format enforces conciseness naturally
+- Review reference sheets separately from exercises — read the reference sheet alone and verify it does not imply a solution sequence
 
 **Warning signs:**
-- Exercise ends with prose like "you should see the service running"
-- No expected output is provided
-- Exercises have no troubleshooting section
-- Exercises were never tested by someone other than the author
+- Reference sheet has more than 15 command items
+- Any reference sheet item description contains the words "first," "then," "after," or "next"
+- Reference sheet items are ordered in the sequence the challenge requires them
+- A learner could complete the challenge without reading the challenge description — only the reference sheet
 
 **Phase to address:**
-Exercise template definition (early, before first exercise is written). The template must include a required `## Verification` section. Enforce this structurally so it cannot be skipped.
+Phase 1 (design). Write the reference sheet policy before writing the first challenge-mode exercise.
 
 ---
 
-### Pitfall 5: Prerequisite Order Violations — Cognitive Overload From Skipped Foundations
+### Pitfall 5: MDX Prop Serialization Failure — Annotation Objects Cause Parse Errors
 
 **What goes wrong:**
-A networking module assumes understanding of processes; a Docker module assumes understanding of namespaces; a CI/CD module assumes understanding of both. When a learner hits the Docker module without solid Linux fundamentals, every new concept requires simultaneously learning three prior concepts. Cognitive load spikes, retention collapses, and learners conclude they are "not smart enough" when the real problem is ordering.
+MDX parses JSX prop values as JavaScript expressions. The existing `steps` prop is an array of objects with simple string values. Annotation data is more complex: `annotations={[{ flag: '-it', description: '...', example: '...' }]}`. If the annotation description string contains unescaped quotes, angle brackets, curly braces, or backticks, the MDX parser throws a parse error that blocks the entire lesson from rendering — not just the annotation. This is a hard failure, not a degraded experience.
 
 **Why it happens:**
-Module authors work on their section in isolation. Each section looks reasonable in isolation. The cross-module dependency graph is only visible when you read the whole curriculum sequentially as a learner would.
+MDX inline JSX expressions do not support JavaScript template literals or multi-line strings in prop values. Writing `description="Run as --rm cleans up the container when it exits"` is fine; writing `description="The -v flag mounts a volume: /host:/container"` with a colon in a quoted attribute can confuse parsers in some MDX configurations. Complex annotation data written directly as inline JSX props is fragile.
 
 **How to avoid:**
-Maintain an explicit prerequisite graph. Before each module, list exactly which prior modules are required. When writing a new module, any concept introduced that is not yet covered must either be taught inline or deferred until its prerequisite exists. Do a full sequential read-through of the curriculum at each major milestone.
+- Keep annotation data in co-located TypeScript data files rather than inline JSX in MDX: `import { annotations } from './annotations/03-filesystem.ts'` and `<ExerciseCard annotations={annotations} ...>`
+- If inline is required, restrict annotation strings to single-line, no embedded quotes, no curly braces, no markdown syntax — enforce this with a linter rule or content style guide
+- Test MDX parse in `next build` after writing each annotated exercise, not in batch — catch parse errors one at a time rather than all at once
+- Prefer double quotes in annotation prop values and use HTML entities for embedded quotes if needed
 
 **Warning signs:**
-- A module references a concept (e.g., "Linux namespaces") without explaining or linking to where it was taught
-- Exercises in a module require knowledge not in any prior module
-- The curriculum was written in topic order (Linux, then Networking, then Docker) without verifying each module only uses prior knowledge
-- No prerequisites listed at the start of each module
+- Any annotation description string contains `"`, `` ` ``, `{`, `}`, or `<` characters
+- Annotation data is written inline in MDX for complex, multi-sentence descriptions
+- `next build` is only run after a batch of annotations are written
+- The team writes all annotations before testing any of them in the browser
 
 **Phase to address:**
-Curriculum sequencing during roadmap design. The phase order in the roadmap must reflect cognitive dependency, not topic grouping. Explicitly map what each module requires before writing it.
+Phase 1 (design). Decide inline vs. imported data pattern before writing any annotation content. The pattern choice determines whether this pitfall exists at all.
 
 ---
 
-### Pitfall 6: Content Staleness — Exercises Rot as Tools Evolve
+### Pitfall 6: Difficulty Label Divergence — Frontmatter Difficulty vs. ExerciseCard Difficulty
 
 **What goes wrong:**
-Docker Compose v1 (`docker-compose`) is replaced by v2 (`docker compose`). A Terraform exercise uses HCL syntax from 0.12 era. A GitHub Actions exercise uses deprecated `set-output`. The course was correct when written but exercises fail 12-18 months later, creating the same broken-lab frustration as environment issues.
+Each lesson has a `difficulty` in frontmatter (the lesson-level difficulty). Each `ExerciseCard` has its own `difficulty` prop (the exercise-level difficulty). These can diverge — a lesson with `difficulty: "Foundation"` in frontmatter that contains an `<ExerciseCard difficulty="Intermediate" ...>` already exists in the codebase (e.g., the Processes lesson is `Intermediate` but has steps structured more like Foundation content). When the new rendering logic uses `difficulty` to decide "show annotations" vs. "show challenge mode," the wrong `difficulty` value drives the wrong rendering path.
 
 **Why it happens:**
-Tools in the DevOps space evolve rapidly. Courses are written once and not maintained. Even pinned versions become a problem if the learner cannot install that version on a current OS.
+The annotation/challenge-mode feature is described as "difficulty-aware exercise rendering tied to existing Foundation/Intermediate/Challenge system." This is ambiguous — tied to which `difficulty`? The lesson frontmatter or the ExerciseCard prop? They can differ. If the new component reads props.difficulty, it is tied to the ExerciseCard prop. If it reads a context value from lesson frontmatter, it is tied to the lesson. Neither is wrong, but they must be deliberately chosen and consistently applied.
 
 **How to avoid:**
-- Pin tool versions in exercises AND document the pinned version clearly (e.g., "This exercise uses Docker Compose 2.24. If you have a different version, check the migration notes here.")
-- Prefer stable, slow-moving tool interfaces over bleeding-edge features
-- For exercises that touch CLIs, prefer flag forms less likely to change (`--format json` over default output) so verification scripts remain valid
-- Build a "test the course" script that runs all exercises in a fresh container, runnable as a health check
+- Establish the rule explicitly in Phase 1: annotation rendering is tied to the ExerciseCard `difficulty` prop, not lesson frontmatter
+- Audit all lessons where ExerciseCard `difficulty` differs from frontmatter `difficulty` before implementing the rendering logic — there may be 5-10 such cases
+- The ExerciseCard prop is the source of truth because it is the component that renders the exercise; frontmatter is for navigation/filtering
 
 **Warning signs:**
-- Any exercise refers to a tool behavior without citing the tool version
-- No date or version metadata on exercise files
-- Exercises use default output formats that could change between versions
+- The word "difficulty-aware" appears in implementation decisions without specifying which `difficulty` field
+- A Foundation exercise in an Intermediate lesson renders annotations (when it should show challenge mode, or vice versa)
+- The team does not know how many ExerciseCard/frontmatter difficulty mismatches exist before starting implementation
 
 **Phase to address:**
-Throughout all content phases. Establish a versioning convention (frontmatter in each lesson file noting tool versions) at the start of the first content phase.
+Phase 1 (design). Run the audit before writing any rendering logic.
 
 ---
 
-### Pitfall 7: "Read-Heavy, Do-Light" — Lesson Text Dominates Over Practice
+### Pitfall 7: Content Migration Without a Migration Script — Manual Error at Scale
 
 **What goes wrong:**
-A module has 2,000 words of explanation and one five-minute exercise. Learners read about `iptables` for 20 minutes and then run two commands. The conceptual-to-practice ratio is inverted. Research on self-paced technical learning consistently shows passive reading without immediate practice produces low retention.
+Adding annotations to 22 Foundation lessons means touching ~200 ExerciseCard step entries across 52 MDX files. Doing this by hand introduces inconsistencies: some annotations use `flag` as the key, others use `flags`; some include the leading dash (`-it`), others omit it (`it`); description prose style varies wildly between lessons written by different contributors (even if the same author, written across weeks). The corpus looks inconsistent and learners lose trust.
 
 **Why it happens:**
-Writing explanatory text is familiar. Designing exercises is harder: you need to define a scenario, set up an environment, anticipate failures, and write verification. Authors write more text as a proxy for doing the hard work of exercise design.
+Content migrations at this scale feel manageable when you think about them lesson-by-lesson ("just 22 lessons") but each lesson has multiple steps, each step has multiple flags to annotate. No tooling is used to enforce schema consistency. Human pattern-matching is applied to data that should be machine-validated.
 
 **How to avoid:**
-Target a ratio of approximately 40% explanation / 60% hands-on practice by time. Introduce a concept, immediately apply it in a small exercise, then build on it. Use "pause and try" markers — short inline exercises before the full module exercise — to break up reading with practice at each conceptual step. Any explanation block longer than 5 minutes of reading without an exercise is a red flag.
+- Write a TypeScript type for the annotation schema and generate a JSON schema from it; validate all annotation data against the schema before building
+- Use a consistent annotation style guide: flag format (always with leading dash), description length (one sentence, max 120 chars), example format (actual runnable snippet)
+- Consider a code generation approach: write a canonical annotation source (TypeScript constant files per lesson) that gets imported into MDX, rather than authoring annotations inline per-lesson
+- Do a content review pass after each module's annotations are complete — read all annotations in one sitting to catch voice/format drift
 
 **Warning signs:**
-- Lesson word count is much higher than number of exercise tasks
-- Exercises are clustered at the end of long explanations
-- No inline "try this" prompts break up conceptual sections
-- A learner could pass a comprehension quiz without running a single command
+- Annotations are written directly in MDX without a shared TypeScript type enforcing the schema
+- No style guide exists for annotation prose format before migration starts
+- The team discovers annotation format inconsistencies during the final review pass, not during migration
 
 **Phase to address:**
-All content phases. Enforce the ratio at lesson template level: the template structure should alternate explanation and exercise sections rather than allowing a single monolithic explanation block.
+Phase 1 (design). Schema and style guide must exist before the first annotation is written.
+
+---
+
+### Pitfall 8: ExerciseCard Step Command Embedded in UI — Annotation Renders Next to Unrelated Command
+
+**What goes wrong:**
+The existing `ExerciseCard` step structure has `{ step, description, command? }`. The `command` field is a string rendered in a `<code>` block. For annotation to work, the annotation data must be structurally paired with the command it annotates. If annotations are passed as a separate prop array indexed by step number, any reordering of steps or insertion of a step without a command breaks the index alignment — step 4's annotation appears under step 5's command, or annotations are shown for descriptive steps that have no command at all.
+
+**Why it happens:**
+Separating annotation data from the step data it belongs to creates an implicit coupling that breaks when content changes. Authors add a step, forget to update the annotation array index, and the mismatch is invisible in code review but visible (and confusing) in the rendered lesson.
+
+**How to avoid:**
+- Annotations must be co-located with the step they annotate — extend the step object: `{ step, description, command?, annotations?: CommandAnnotation[] }`
+- Never implement annotations as a parallel top-level prop indexed by step number
+- This means the ExerciseCard step interface does change — but it changes by adding an optional field to each step object, not by changing any required field
+- Enforce in code review: every `command` field in a Foundation ExerciseCard should have an accompanying `annotations` array (can be empty but must be present as intent marker)
+
+**Warning signs:**
+- Annotation data is stored as a top-level `annotations` prop on ExerciseCard rather than nested in each step
+- Steps with descriptions but no `command` have annotation entries
+- Annotation count for a lesson does not match command count for that lesson
+
+**Phase to address:**
+Phase 1 (design). This structural decision is load-bearing — it determines how MDX is written for all 22 Foundation lessons.
 
 ---
 
@@ -175,12 +207,12 @@ All content phases. Enforce the ratio at lesson template level: the template str
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Using `latest` image tags in exercises | Faster to write | Exercises break silently on next upstream update | Never |
-| Single happy-path exercises (no failure scenarios) | Faster exercise design | Learner cannot handle real-world breakage | Never for core topics; acceptable for optional advanced sections |
-| Skipping inline concept explanations ("just run this") | Faster authoring | Learner memorizes commands without understanding | Never |
-| No verification script, just prose description | Much faster to write | Learner cannot self-assess; abandonment risk | Never (always provide machine-checkable verification) |
-| Writing modules in topic order without prerequisite check | Natural authoring flow | Cognitive overload for learner, broken learning path | Never on first write; acceptable as draft structure if immediately validated |
-| Platform-agnostic instructions ("install docker") without version | Fast to write | Breaks on ARM Mac, different OS versions | Only in optional "reference" sections, never in required exercises |
+| Add annotation rendering directly into ExerciseCard with multiple if/else blocks | Single file to change | ExerciseCard becomes a god component handling Foundation, Intermediate, and Challenge rendering in one 200-line file | Never — extract to sub-components |
+| Write annotations inline in MDX as raw JSX props | No import boilerplate | Parse errors on any special character; annotation data is not reusable or queryable | Only for short, simple annotations with no special characters |
+| Use lesson frontmatter `difficulty` to drive annotation rendering | Simpler — no prop needed | Diverges from ExerciseCard prop; wrong rendering when frontmatter and prop disagree | Never |
+| Ship challenge-mode with placeholder reference sheets ("coming soon") | Faster initial launch | Learners encounter challenge exercises with no reference material; worse than Foundation exercises | Never — do not ship partial challenge-mode |
+| Add a global `ANNOTATION_ENABLED = true` flag to gate the feature | Easy on/off during development | Feature flag proliferation; old branches of conditionals rot; hard to remove later | Acceptable during development only, must be removed before merge |
+| Write all 22 Foundation annotation sets before testing any | Maximizes batch efficiency | Batch parse errors discovered at test time, not write time; all rework at once | Never — test each module after annotating it |
 
 ---
 
@@ -188,24 +220,23 @@ All content phases. Enforce the ratio at lesson template level: the template str
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Docker on macOS ARM (M1/M2/M3) | Using `linux/amd64` images without `--platform` flag; QEMU emulation silently degrades performance 15-30% | Explicitly build ARM-native lab images; document which exercises need `--platform linux/amd64` and why |
-| Docker Compose v1 vs v2 | Writing `docker-compose` (v1 standalone binary) when macOS installs v2 as plugin (`docker compose`) | Always use v2 syntax; note in setup that v1 is deprecated |
-| Vagrant + VirtualBox on ARM Mac | VirtualBox does not support Apple Silicon; Vagrant exercises using VirtualBox fail entirely | Use UTM or Lima for VM exercises on macOS; or use Docker-based alternatives |
-| Package managers (apt/brew) in exercises | Assuming internet access or specific mirror availability; `apt-get install` without `-y` hangs in scripts | Always include `-y`; use offline-capable Docker images where possible; cache packages in lab images |
-| Shell exercises on macOS (zsh default) | bash-specific syntax in exercises that fails in zsh (e.g., `#!/bin/bash` vs `#!/bin/zsh`, array syntax) | Always run shell exercises inside Docker Linux containers; never rely on host shell |
+| MDX + complex JSX props | Writing multi-line object literals as inline prop values in MDX | Import annotation data from `.ts` files; keep MDX props simple strings and booleans |
+| rehype-pretty-code + annotation overlay | Adding annotation UI inside the `<pre>` element that rehype-pretty-code wraps | Annotation UI must be outside `<pre>` — use a wrapper `<div>` in ExerciseCard, not inside CodeBlock |
+| ExerciseCard in mdx-components.tsx | Passing new annotation component from mdx-components without registering it | Any new component used in MDX (e.g., `CommandAnnotation`) must be registered in `useMDXComponents` in `mdx-components.tsx` |
+| QuickReference for challenge reference sheets | Using `children` markdown table mode (prose mode) instead of structured `sections` prop | Use structured `sections` prop for reference sheets — it enforces table format and resists scope creep; markdown children mode allows arbitrary prose |
+| VerificationChecklist in challenge-mode | Reusing the same component with no changes | Challenge verification items need a richer `hint` field with exact commands and expected output — document this in the style guide even if the component does not change |
 
 ---
 
 ## Performance Traps
 
-These apply to the course infrastructure itself (the exercise environments), not to what learners are building.
+For a local Next.js app read by one user, traditional performance at scale is not the concern. The traps here are build-time and authoring-time.
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Large Docker images in lab environments | Exercise setup takes 5+ minutes; learner quits before starting | Build slim lab images; pre-pull in setup script with progress indicator | Every time a learner starts a fresh lab |
-| Nested virtualization (VM inside Docker) | Exercises requiring KVM inside containers fail on macOS | Avoid kernel module exercises inside Docker; use native Linux VMs (Lima) for kernel-level content | Any exercise requiring `/dev/kvm` or kernel modules |
-| Multiple services in `docker-compose` for single concept exercise | Compose startup takes 2-3 minutes; learner distracted | Keep lab environments minimal — only the services needed for the specific concept | Multi-service exercises (e.g., full app stack for networking lesson) |
-| Unbounded resource consumption in exercises | Mac fan spins up; subsequent exercises are slow | Set resource limits in Compose (`mem_limit`, `cpus`) for all lab containers | Any exercise running resource-intensive services |
+| Importing annotation data from many `.ts` files in MDX | `next build` time grows as each MDX file now imports a companion `.ts` file | Structure annotations as static JSON imports, not full TypeScript modules | After 20+ annotated lessons |
+| Large annotation datasets inline in MDX | MDX compilation of individual lesson files slows; hot reload during development lags | Keep annotation arrays small per step (2–5 flags max); move large datasets to imports | Any step with 10+ annotation entries |
+| ExerciseCard re-rendering on annotation expand/collapse | If annotation state is lifted to ExerciseCard level, toggling one annotation collapses/expands the whole card | Annotation open/close state must be local to the annotation subcomponent, not ExerciseCard | Every annotation interaction |
 
 ---
 
@@ -213,25 +244,26 @@ These apply to the course infrastructure itself (the exercise environments), not
 
 | Pitfall | Learner Impact | Better Approach |
 |---------|----------------|-----------------|
-| No indication of module duration | Learner starts a 2-hour module with 20 minutes available; stops mid-way; loses context | Add estimated time to every module header |
-| No module summary / "what you learned" section | Learner cannot articulate what they just learned; knowledge feels vague | End every module with a 5-bullet summary of concepts covered and skills gained |
-| Error messages in exercises are unexplained | Learner sees a red error, assumes they failed, quits | Catalog expected error messages in each exercise; explain which errors mean "you succeeded" vs. "something is wrong" |
-| Prerequisites listed but not linked | Learner does not know where the prerequisite is; has to search | Link every prerequisite to the specific module that covers it |
-| Long exercises with no checkpoint saves | Learner loses progress if they must stop | Structure exercises as checkpointed steps; state at each step should be independently resumable |
+| Annotation displayed by default (always expanded) | Foundation lessons become visually dense; learner cannot scan the command first | Annotations collapsed by default; learner clicks/taps to reveal flag explanations |
+| Annotation displayed for every token including the command name | Annotations for `docker` itself on every Docker lesson step; learner already knows the main command | Only annotate flags and arguments, not the base command name |
+| Challenge reference sheet appears above the challenge description | Learner reads solutions before reading the problem | Reference sheet always below the objective and scenario sections |
+| No visual distinction between Foundation (annotated) and Intermediate/Challenge (no annotations) | Learner in an Intermediate lesson expects annotations that are not there | Difficulty badge already exists in ExerciseCard header — add subtle copy under the badge: "Foundation exercises include command annotations" |
+| Challenge mode looks identical to Foundation mode except commands are missing | Learner thinks the exercise is incomplete or broken | Challenge-mode ExerciseCard needs distinct visual treatment — different header copy, reference sheet component, goal-oriented step wording ("Achieve..." not "Run...") |
+| Annotation popover clips on mobile/tablet | Annotation explanation cut off; learner scrolls to find it | Use inline expand (accordion below command) not tooltip/popover; the lesson is prose-heavy, inline expansion respects flow |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Exercise**: Has verification step — verify there is a shell command that outputs a clear pass/fail, not just prose
-- [ ] **Exercise**: Has failure scenario — verify there is at least one "what if X goes wrong" path the learner works through
-- [ ] **Docker image**: Is version-pinned — verify no `latest` tags in any Dockerfile or docker-compose.yml
-- [ ] **Lesson**: Has "why this works" explanation — verify the mechanism is explained before the commands are shown
-- [ ] **Module**: Has prerequisites listed — verify each module explicitly states which prior modules it requires
-- [ ] **Module**: Has time estimate — verify duration is noted in the module header
-- [ ] **Exercise**: Works on ARM Mac — verify the exercise has been tested on Apple Silicon or explicitly uses `--platform`
-- [ ] **Exercise**: Has troubleshooting section — verify the 2-3 most common failures are documented with diagnosis steps
-- [ ] **Lesson**: Concept-to-practice ratio — verify there is no explanation block longer than 5 minutes of reading without a hands-on prompt
+- [ ] **Annotation component:** Annotations are collapsed by default — verify they do not auto-expand on lesson load
+- [ ] **ExerciseCard interface:** All new props are optional — verify `next build` passes on all 52 existing ExerciseCard usages without any MDX changes
+- [ ] **Foundation annotation coverage:** All Foundation lesson step `command` fields have `annotations` arrays — verify no Foundation step with a command has an empty/missing annotations field after migration
+- [ ] **Challenge-mode verification:** Every challenge exercise has 3–5 precise verification items with specific commands in hints — verify no item is a vague accomplishment statement
+- [ ] **Reference sheet scope:** No reference sheet has more than 15 items or uses sequential ordering language — read each one as if you are a learner who has not read the lesson
+- [ ] **MDX parse health:** `next build` passes clean after each module's content is written — verify before moving to next module, not after all modules are done
+- [ ] **Difficulty source:** ExerciseCard `difficulty` prop, not frontmatter, drives annotation rendering — verify the rendering logic reads `props.difficulty`, not a context or page-level value
+- [ ] **New component registration:** Any new MDX-usable component is registered in `mdx-components.tsx` — verify by using it in one test lesson and checking the rendered output
+- [ ] **Challenge vs. Foundation rendering in same lesson:** If a lesson has both a Foundation and Intermediate ExerciseCard, verify each renders its correct mode independently
 
 ---
 
@@ -239,13 +271,13 @@ These apply to the course infrastructure itself (the exercise environments), not
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Tool-operator syndrome (commands without context) | HIGH — requires rewriting lessons | Audit each lesson for "why" sections; add mechanism explanations and failure scenario exercises; cannot be patched, must be rewritten |
-| Broken lab environments (version drift, ARM) | MEDIUM — exercises need targeted fixes | Run all exercises in a fresh Docker environment; create a test matrix (Intel Mac, ARM Mac, Linux); fix environment configs without rewriting lesson content |
-| Scope inflation | HIGH — requires curriculum redesign | Define competency goals retroactively; cut modules that cannot achieve depth; merge thin tool-intro sections into exercises of modules that actually use the tool |
-| Missing verification steps | LOW — additive fix | Add `## Verification` section to each exercise; write verification commands; this does not require rewriting existing content |
-| Prerequisite order violations | MEDIUM — may require module reordering | Build the prerequisite graph; identify violations; reorder modules (may break cross-references in existing content) |
-| Content staleness | LOW per exercise, HIGH in aggregate | Pin versions; run full exercise suite as a CI job; fix exercises that fail the CI run |
-| Read-heavy ratio | MEDIUM — requires exercise design work | Identify explanation blocks over 5 minutes; insert "try this" inline exercises; cannot be done by editing prose alone |
+| Prop interface breaking 52 lessons | HIGH — TypeScript errors block build | Revert ExerciseCard interface change; redesign as optional-only additions; re-run build |
+| Annotation coverage inconsistency (half-annotated modules) | MEDIUM — content work, not code | Gate annotation display on per-exercise `annotated` prop; unannotated exercises show nothing new; complete remaining modules before removing the gate |
+| MDX parse errors from annotation strings | LOW per error, MEDIUM if batched | Run `next build` after each lesson; parse errors are line-specific; fix character escaping or move to imported data |
+| Challenge-mode verification too vague | MEDIUM — requires content rewrite, not code | Audit all verification items; rewrite vague items with specific commands + expected output; does not require component changes |
+| Reference sheet scope creep | LOW — content edit only | Edit reference sheets to remove sequential/narrative items; trim to 15 items; no component changes needed |
+| Difficulty source confusion (wrong field drives rendering) | MEDIUM — requires component logic fix + regression test | Fix rendering to use ExerciseCard prop; audit all lessons where prop and frontmatter disagree; verify each in browser |
+| Annotation co-location vs. parallel array misalignment | HIGH if caught late — requires content rework | If caught during design (Phase 1): choose co-located structure before any content is written; if caught mid-migration: rewrite annotations into step objects |
 
 ---
 
@@ -253,30 +285,27 @@ These apply to the course infrastructure itself (the exercise environments), not
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Tool-operator syndrome | Phase 1: Linux Fundamentals (establish "why first" pattern) | Every lesson reviewed: does mechanism explanation precede commands? |
-| Lab environment brittleness | Phase 0: Project scaffold (create lab template with version pinning) | Run full exercise suite in fresh Docker environment on both Intel and ARM |
-| Scope inflation | Roadmap design (before any content written) | Every module has a stated competency goal; no module introduces more than 2-3 major tools |
-| Missing verification steps | Phase 0: Exercise template definition | Every exercise file has a `## Verification` section with a runnable command |
-| Prerequisite order violations | Roadmap design + curriculum sequencing review | Full sequential read-through; prerequisite graph is documented and consistent |
-| Content staleness | All content phases (ongoing) | Version metadata in every lesson file; test-the-course script runs cleanly |
-| Read-heavy ratio | All content phases (enforced by template) | Lesson template alternates explanation/exercise; no 5+ minute explanation block without inline prompt |
+| ExerciseCard prop interface breakage | Phase 1: Component design — all new props optional | `next build` passes with zero MDX changes after interface update |
+| Annotation coverage inconsistency | Phase 1: Audit — count all Foundation command fields before migration | Checklist of Foundation lessons with command counts exists before Phase 2 starts |
+| Challenge verification integrity | Phase 1: Template design — verification pattern defined before any challenge content | No challenge exercise has fewer than 3 verification items; all hints include runnable commands |
+| Reference sheet scope creep | Phase 1: Policy — reference sheet content rules defined in style guide | Read each completed reference sheet and confirm it has no sequential narrative |
+| MDX prop serialization failures | Phase 1: Pattern decision — inline vs. imported annotation data | `next build` runs clean after each module is annotated |
+| Difficulty label divergence | Phase 1: Audit — identify all ExerciseCard/frontmatter mismatches | Rendering reads ExerciseCard prop; mismatches documented and intentionally resolved |
+| Manual migration inconsistency | Phase 1: Schema + style guide — TypeScript type + prose rules defined first | All annotation data validates against schema; style review per module |
+| Annotation/step misalignment | Phase 1: Structure decision — annotations co-located in step objects | No lesson has a top-level `annotations` prop on ExerciseCard |
 
 ---
 
 ## Sources
 
-- [My Approach: Clarifying DevOps Gaps Before Teaching Tools — DEV Community](https://dev.to/srinivasamcjf/my-approach-clarifying-devops-gaps-before-teaching-tools-5053) — tool-operator syndrome, fundamentals gap (MEDIUM confidence, single source, corroborated by academic research)
-- [Overcoming Challenges in DevOps Education through Teaching Methods — arXiv 2302.05564](https://arxiv.org/abs/2302.05564) — project-based learning as best practice, challenges in DevOps education (MEDIUM confidence — abstract only accessed)
-- [Prepare DevOps Students for the Real World — Brokee](https://brokee.io/blog/prepare-devops-students-for-the-real-world-with-brokee) — practical experience gaps, missing real-world environments (MEDIUM confidence)
-- [Why Most Self-Paced Courses Fail — Le Wagon Blog](https://blog.lewagon.com/skills/why-most-self-paced-courses-fail/) — feedback absence as primary abandonment cause (MEDIUM confidence)
-- [10 Reasons People Don't Finish Online Courses — DigitalDefynd 2025](https://digitaldefynd.com/IQ/why-people-not-finish-online-courses/) — isolation, feedback, difficulty calibration (MEDIUM confidence)
-- [Effects of Technical Difficulties on Learning and Attrition During Online Training — ResearchGate](https://www.researchgate.net/publication/46379506_The_Effects_of_Technical_Difficulties_on_Learning_and_Attrition_During_Online_Training) — technical issues directly reduce learning outcomes and increase dropout (HIGH confidence, peer-reviewed)
-- [Why New Macs Break Your Docker Build — Python Speed](https://pythonspeed.com/articles/docker-build-problems-mac/) — ARM/Intel Docker compatibility, QEMU overhead (HIGH confidence, technical)
-- [Running Docker on Apple Silicon — OneUptime Blog 2026](https://oneuptime.com/blog/post/2026-01-16-docker-mac-apple-silicon/view) — current Apple Silicon Docker issues (HIGH confidence, current)
-- [Cognitive Load Theory and Instructional Design — eLearning Industry](https://elearningindustry.com/cognitive-load-theory-and-instructional-design) — prerequisite ordering, chunking, scaffolding (HIGH confidence, established theory)
-- [7 Common DevOps Mistakes to Avoid — Qovery 2024](https://www.qovery.com/blog/7-common-devops-mistakes-to-avoid) — tool-first approaches, speed over quality (MEDIUM confidence)
-- [Automated Grading and Feedback Tools for Programming Education — ACM Transactions on Computing Education](https://dl.acm.org/doi/10.1145/3636515) — verification step importance in exercise design (HIGH confidence, peer-reviewed)
+- Direct codebase inspection: `components/content/ExerciseCard.tsx`, `components/content/VerificationChecklist.tsx`, `components/content/QuickReference.tsx`, `components/content/TerminalBlock.tsx`, `mdx-components.tsx` — HIGH confidence
+- Direct content inspection: 56 MDX lessons in `content/modules/`, `_exercise-template.mdx` — HIGH confidence; 22 Foundation lessons identified, ~200 command fields estimated
+- [MDX JSX expression parsing edge cases — MDX docs](https://mdxjs.com/docs/what-is-mdx/#expressions) — string literal restrictions in JSX attribute values (MEDIUM confidence; verified by reading official docs)
+- [Next.js MDX configuration — Next.js docs](https://nextjs.org/docs/app/guides/mdx) — component registration in useMDXComponents required for custom components (HIGH confidence, official)
+- [Cognitive scaffolding in programming education — ACM Computing Surveys](https://dl.acm.org/doi/10.1145/3457922) — graduated difficulty scaffolding; removing scaffolding without replacement causes performance drop (MEDIUM confidence)
+- [Worked examples vs. problem solving in skill acquisition — Sweller 1994, revisited in Kalyuga 2007](https://link.springer.com/article/10.1007/s10648-007-9053-6) — annotations as worked-example scaffolding appropriate for novices; challenge mode appropriate for intermediate learners (HIGH confidence, established instructional design research)
+- Existing `PITFALLS.md` v1 research (2026-03-18) — tool-operator syndrome, verification integrity patterns already established for this codebase (HIGH confidence, project-specific)
 
 ---
-*Pitfalls research for: Interactive DevOps & Systems Engineering Course*
-*Researched: 2026-03-18*
+*Pitfalls research for: v1.1 Command Pedagogy — Annotation + Challenge-Mode Retrofit*
+*Researched: 2026-03-20*

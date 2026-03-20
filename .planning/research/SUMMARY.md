@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** learn-systems — Interactive DevOps & Systems Engineering Course
-**Domain:** Local-first, file-based, self-paced technical course (repo-as-curriculum)
-**Researched:** 2026-03-18
-**Confidence:** HIGH (stack), HIGH (features), MEDIUM-HIGH (architecture), HIGH (pitfalls)
+**Project:** learn-systems v1.1 — Command Pedagogy
+**Domain:** CLI teaching platform retrofit — annotated command blocks and challenge-mode exercises
+**Researched:** 2026-03-20
+**Confidence:** HIGH
 
 ## Executive Summary
 
-This project is a local-first, file-based DevOps and systems engineering course delivered entirely through a git repository. Research across comparable curricula and platforms confirms the strongest pattern for this format: a layered directory structure separating concepts (lessons), guided practice (exercises), and open scenarios (labs), with machine-checkable verification scripts per exercise. The course is not a documentation site — it is an interactive learning environment where the repo IS the medium. Docker Desktop and Multipass provide the lab runtime on macOS without cloud costs or external platform dependencies, which is the core differentiator against KodeKloud and similar subscription-based platforms.
+v1.1 is a focused retrofit of an existing, working Next.js MDX course platform. The core problem is that the `difficulty` prop on `ExerciseCard` is purely cosmetic — Foundation, Intermediate, and Challenge exercises all render identically (numbered steps with optional inline `command` code). Research confirms this is fixable with minimal new dependencies: one npm package (`@shikijs/transformers@4.0.2`, matching the already-installed `shiki` version) and two new authored components (`AnnotatedCommand`, `ChallengeReferenceSheet`), both built on already-installed primitives. All three tier behaviors flow through a single modified `ExerciseCard` — this is the single control point, and all implementation depends on it being designed correctly first.
 
-The recommended approach builds in three phases. First, establish infrastructure and the module template with the Linux Fundamentals module — Linux gates every subsequent topic and establishes the "explain the mechanism before showing the command" pattern that defines course quality. Second, add Networking Foundations and Docker/Containerization as an interconnected tier, since Docker networking is just Linux networking with Docker branding on it. Third, extend to CI/CD, Infrastructure as Code, and monitoring as an advanced tier after the foundational skills are proven. A MkDocs Material site can be layered on at any point as an optional publishing step.
+The recommended approach is bottom-up construction with strict interface contracts established before any content migration. `ExerciseCard` is consumed across 52 MDX lesson files — all new props must be strictly optional, and the existing `steps` array item shape must not change to add required fields. Architecture research (based on direct codebase inspection) confirms that a `preferredMode` global preference lives in `ProgressProvider` under a separate localStorage key (`'learn-systems-preferences'`), a `DifficultyToggle` client component in `LessonLayout` writes to it, and `ExerciseCard` resolves effective mode via a three-tier fallback chain: explicit `mode` prop, then learner preference, then difficulty default. The build order is non-negotiable: context/types, then leaf components, then `ExerciseCard` modification, then `LessonLayout` integration.
 
-The single greatest risk to this course is what the research calls "tool-operator syndrome": exercises that teach command execution without explaining the underlying kernel subsystem, protocol, or system call. This produces learners who can follow recipes but cannot troubleshoot. The second-largest risk is lab environment brittleness — Docker images with unpinned versions or missing ARM Mac compatibility that cause learners to debug infrastructure rather than learn. Both risks must be addressed at the template level before any content is written, not patched retroactively.
+The highest-risk area is content migration: 22 Foundation lessons with approximately 200 `command` step entries that each need an `annotations` array co-located in the step object (not a parallel top-level array indexed by step number). Pitfalls research is emphatic on two constraints: annotation data must be structurally co-located with the step it annotates to prevent silent misalignment on step reordering, and `next build` must be run after each module — not in batch — to catch MDX prop serialization errors early. Challenge-mode content carries a parallel risk: reference sheets must be capped at 15 items with no sequential ordering language, and verification items must specify exact runnable commands with expected output rather than vague accomplishment statements. Eight distinct pitfalls are classified as Phase 1 prevention items — all design decisions must be locked before any code or content is written.
 
 ---
 
@@ -19,174 +19,129 @@ The single greatest risk to this course is what the research calls "tool-operato
 
 ### Recommended Stack
 
-The toolchain is purpose-built for a local-first, macOS-based DevOps course. Docker Desktop (4.65.0) is the primary lab runtime — it handles 80% of exercises that need a Linux environment. Multipass (1.16.1) fills the gaps where Docker is insufficient: systemd, init systems, kernel module exercises that require a real VM. The combination eliminates the need for cloud accounts entirely. Material for MkDocs (9.7.5) delivers the course site if publishing is desired; all Insiders features are now free as of 9.7.0. The `just` task runner standardizes every lab lifecycle to `just up`, `just reset`, `just verify` — a consistent interface across all modules. OpenTofu replaces HashiCorp Terraform for the IaC module, eliminating license confusion for learners.
+The platform already runs Next.js 16.2, React 19, Tailwind v4, `@next/mdx` 3.1.1, `rehype-pretty-code` 0.14.3, `shiki` 4.0.2, and `@base-ui/react` 1.3.0. v1.1 adds one npm package and two authored components — everything else is reuse of existing primitives.
 
 **Core technologies:**
-- Docker Desktop 4.65.0: primary lab runtime for all container-based exercises — industry standard (71% developer adoption), single install, supports Compose natively
-- Multipass 1.16.1: lightweight Ubuntu VMs for systemd and kernel-level content — Docker alone cannot host these; Multipass is faster than VirtualBox on Apple Silicon
-- Material for MkDocs 9.7.5: course site delivery if publishing is needed — all Insiders features free, pure Markdown, no Node.js required
-- bats-core 1.13.0 + bats-assert + bats-support: exercise verification — TAP-compliant, learner runs `bats verify.bats` and sees PASS/FAIL per check
-- just 1.47.1: lab lifecycle commands — cleaner than Make, self-documenting via `just --list`, cross-platform
-- OpenTofu 1.11.0: IaC module labs — drop-in HCL compatibility with Terraform, MPL 2.0 license, no BUSL issues
-- ShellCheck 0.11.0: lint gate on course shell scripts and a teachable tool in the shell scripting content
+- `@shikijs/transformers@4.0.2`: Word highlighting via `[!code word:X]` notation in existing code fences — ships at the same major version as the installed `shiki` 4.0.2; slots into the existing `rehype-pretty-code` `transformers: ShikiTransformer[]` option with no version conflict; added to `next.config.ts` only
+- `AnnotatedCommand` (new authored component, zero deps): Renders a full CLI command with a collapsible per-token annotation panel below — built on `@base-ui/react` Tooltip (already at v1.3.0); registered in `mdx-components.tsx`; 'use client' required for collapse state
+- `ChallengeReferenceSheet` (new authored component, zero deps): Thin wrapper over existing `QuickReference` with distinct visual treatment (different border accent, "Command Reference" header label); reuses exported `ReferenceSection` and `ReferenceItem` types; starts as a server component
 
-**Critical version requirements:**
-- Docker Compose v2 only (bundled with Docker Desktop) — v1 is deprecated and EOL; exercises must use `docker compose` not `docker-compose`
-- Multipass preferred over Vagrant+VirtualBox — VirtualBox has no Apple Silicon support as of 2026
-- bats-support is a required dependency of bats-assert — both must be installed as git submodules
+What NOT to add: Code Hike (replaces rehype-pretty-code entirely — not additive; migration cost is the entire lesson corpus), `@radix-ui/react-tooltip` (`@base-ui/react` already provides Tooltip at v1.3.0), `framer-motion` (Tailwind CSS transitions cover accordion behavior), any global state management library (annotation state is component-local, progress uses the existing `localStorage` hooks).
 
 ### Expected Features
 
-Linux, Networking, and Docker are the non-negotiable v1 modules — every learner expects them and every subsequent module depends on them. Shell scripting is not a standalone module; it is woven into Linux Fundamentals and reinforced throughout. Machine-checkable verification scripts per exercise are the primary differentiator against text-based courses. "Under the hood" explanations (explaining kernel subsystems and protocols before showing commands) are the explicit value proposition of this course over tool-focused alternatives.
+**Must have (table stakes — these make the difficulty system meaningful, not cosmetic):**
+- Per-flag inline annotation on Foundation commands — full visible breakdown below each command; collapsed by default, learner expands; static (no hover required), persists for mobile users
+- Difficulty-aware ExerciseCard rendering — Foundation (annotated steps), Intermediate (steps without commands), Challenge (goal + reference sheet, no step list)
+- Challenge-mode goal-only display — shows `challengePrompt` paragraph, `ChallengeReferenceSheet`, and `VerificationChecklist` children; hides numbered step list entirely
+- Intermediate command suppression — step descriptions remain but `command` field is not rendered; learner must recall or look up syntax (scaffolding-fading principle from instructional design research)
+- Global `preferredMode` toggle in lesson header for Challenge-difficulty lessons — learner switches between guided and challenge for the whole page at once, stored persistently
 
-**Must have (table stakes — v1):**
-- Linux Fundamentals module (filesystem, permissions, processes, shell, text tools, package management) — gates everything
-- Networking Foundations module (OSI, TCP/IP, DNS, HTTP/S, SSH, firewalls) — prerequisite for Docker and cloud
-- Docker/Containerization module (images, containers, volumes, networking, Compose) — highest learner demand
-- Machine-checkable verification scripts per exercise — core differentiator; without this, exercises are documentation
-- Local lab setup guide (Docker Desktop + macOS setup, Module 00) — learners cannot start without it
-- "Under the hood" mechanism explanations per lesson — stated core value of the course
-- Cheat sheet / REFERENCE.md per module — low cost, high retention value, persists after course
-
-**Should have (add after v1 validation — v1.x):**
-- CI/CD Pipelines module — requires Docker module to be solid; CI/CD without containers is incomplete
-- System Administration module — natural progression after Linux and Networking
-- Cross-module capstone (Linux + Networking + Docker) — integration skill; add when three foundation modules exist
-- Progressive difficulty labels (Foundation / Intermediate / Challenge) — add when enough exercises exist to differentiate
+**Should have (differentiators):**
+- Anatomical annotation format: full command first (copyable), then per-flag breakdown rows below — matches explainshell.com spatial pattern and tldr-pages example-first approach; command is immediately usable even if annotation is skipped
+- Explicit `mode` prop on `ExerciseCard` for pedagogy-critical overrides — some Foundation exercises must always be guided (learner's first encounter with a command); some Challenge exercises must never degrade to step-by-step
+- Per-exercise opt-in gate (`annotated={true}`) during migration — prevents partially-annotated modules from showing empty annotation UI; remove after full coverage
 
 **Defer (v2+):**
-- Infrastructure as Code (OpenTofu) module — high complexity; defer until cloud context exists
-- Cloud Fundamentals module — requires IaC context; lightweight given local-first constraint
-- Monitoring & Observability module (Prometheus, Grafana) — multi-service lab complexity; defer until container networking is solid
-- Kubernetes Basics module — explicitly deferred per project scope; add only after containers and networking are solid
-- Advanced cross-module capstone (full CI/CD → Docker → Cloud pipeline) — requires all prior modules
+- Browser terminal / live command execution — explicitly deferred per PROJECT.md
+- Auto-graded exercise responses — explicitly deferred per PROJECT.md
+- Per-step difficulty overrides within one exercise — anti-feature per FEATURES.md; inconsistent scaffolding within one exercise breaks the learning model
 
 ### Architecture Approach
 
-The architecture is a 4-layer repo: Course layer (module index), Module layer (numbered directories), Lesson layer (lessons/exercises/labs separation), and Verification layer (check.sh per exercise). The strict separation of lesson files (passive reading), exercise files (guided practice with machine-checkable outcomes), and lab files (open scenarios without step-by-step guidance) is the core architectural decision. It prevents monolithic files, enables per-exercise verification, and matches the three distinct cognitive modes: understanding, applying, and synthesizing. All exercise environments are disposable Docker containers or Multipass VMs — no host state is assumed.
+All new behavior is a component-layer addition — no new routes, no new API endpoints, no new lib utilities. The five files that do not change are confirmed from direct codebase inspection: `getLessonContent()` in `lib/mdx.ts`, `generateStaticParams()` in the lesson page, `LessonFrontmatter` type, `TerminalBlock`, `VerificationChecklist`, `Callout`, and `CodeBlock`.
 
 **Major components:**
-1. Module directories (`modules/NN-name/`) — ordered by numeric prefix; each contains `lessons/`, `exercises/`, `labs/`, `solutions/`; self-contained after prerequisites met
-2. Exercise verification scripts (`check.sh`) — live adjacent to each exercise; assert system state (file permissions, process state, port open, command output); emit PASS/FAIL; exit 0/1
-3. Lab environments (`docker-compose.yml` + `Dockerfile` per lab) — disposable, reproducible; learner runs `docker compose up`, works inside container, tears it down; no state leaks between labs
-4. Shared base Docker image (`environments/base-linux/`) — all labs extend it; reduces build time and ensures consistent Linux starting state regardless of host OS
-5. Module 00 setup verification — checks Docker, tools, and macOS prerequisites with clear error messages before learner touches content
-6. Solutions directory (`solutions/`) — committed but not linked in main reading path; learner navigates there explicitly if stuck
+1. `AnnotatedCommand` (`components/content/AnnotatedCommand.tsx`, NEW) — renders command + collapsible per-token annotation panel; 'use client'; all data from MDX props; no context reads
+2. `ChallengeReferenceSheet` (`components/content/ChallengeReferenceSheet.tsx`, NEW) — wraps `QuickReference` with challenge visual treatment; starts as server component; reuses `ReferenceSection`/`ReferenceItem` types
+3. `ExerciseCard` (MODIFIED) — adds `mode?`, `challengePrompt?`, `challengeReference?` props; reads `preferredMode` from `ProgressContext`; three-tier mode resolution: explicit prop, then learner preference, then difficulty default
+4. `ProgressProvider` (MODIFIED) — adds `preferredMode` / `setPreferredMode` to context; persists to `'learn-systems-preferences'` localStorage key (separate from progress state so a progress reset does not wipe mode preference)
+5. `DifficultyToggle` (`components/lesson/DifficultyToggle.tsx`, NEW) — small 'use client' component; writes `preferredMode` via `useProgress()`; rendered by `LessonLayout` only when `frontmatter.difficulty === 'Challenge'`
 
-**Key patterns:**
-- Verification-first authoring: write `check.sh` before writing exercise README — defines "done" before describing "how to get there"
-- Lesson → Exercise → Lab progression within each module is non-negotiable; no mixing content types into single files
-- All exercises run inside Docker containers; no exercises assume host state beyond Docker availability
-- Pin all Docker image versions (never `:latest`); document pinned versions in exercise frontmatter
+**Build order (non-negotiable, derived from dependency analysis):** Step 1: context/types. Step 2: leaf components (no context reads). Step 3: ExerciseCard modification. Step 4: LessonLayout integration. Step 5: mdx-components.tsx registration. Step 6: content authoring.
 
 ### Critical Pitfalls
 
-1. **Tool-operator syndrome** — teaching commands without explaining the underlying system (kernel subsystem, protocol, system call). Prevention: every tool introduction must be preceded by a "why this exists" section. Establish this pattern in Module 1 Linux Fundamentals; it infects all subsequent modules if not caught early.
+1. **ExerciseCard prop interface breakage** — Adding a required prop or changing the shape of the `steps` array item to include required fields creates TypeScript compile errors across all 52 existing MDX lesson files simultaneously. All new props must be strictly optional with safe fallback behavior. Run `next build` immediately after any interface change and treat compile errors as blocking before touching any MDX.
 
-2. **Lab environment brittleness** — Docker images with unpinned versions, ARM/Apple Silicon incompatibility, or host dependency assumptions. Prevention: establish a lab template with version pinning, explicit `--platform` flags, and a `verify-env.sh` pre-check before writing any exercises. Never use `:latest` tags. This is the highest-frequency cause of learner abandonment per research.
+2. **Annotation co-location vs. parallel array misalignment** — Annotations must live inside the step object (`{ step, description, command?, annotations?: CommandAnnotation[] }`), not as a top-level `annotations` prop on `ExerciseCard` indexed by step number. A parallel top-level array breaks silently when steps are reordered or a new step is inserted — the annotation for step 4 appears under step 5's command with no error.
 
-3. **Missing or ambiguous verification** — exercises that end with "you should see X" in prose rather than a runnable check command. Prevention: enforce a required `## Verification` section in every exercise template. Without machine-checkable verification, exercises become guesswork and self-paced abandonment rates spike.
+3. **MDX prop serialization failures** — Annotation description strings with unescaped quotes (`"`), backticks (`` ` ``), curly braces (`{}`), or angle brackets (`<>`) cause MDX parse errors that block the entire lesson from rendering. Decide the inline-vs-imported-data pattern before writing any annotation content. If inline annotation strings are used, restrict them to plain prose with no special characters. Run `next build` per module, not in batch.
 
-4. **Scope inflation** — covering too many tools at surface level instead of building working fluency with fewer tools. Prevention: write competency goals before content; each module must have a stated goal the learner can demonstrate on a novel problem. This project already marks advanced Kubernetes and deep Ansible as out of scope — hold that line.
+4. **Annotation coverage inconsistency** — 22 Foundation lessons with ~200 command fields. If annotations are written for 8 lessons and the feature ships, learners see inconsistent experiences with no signal about whether missing annotations mean "complete" or "incomplete." Use a per-exercise opt-in gate (`annotated={true}`) so unannotated exercises show nothing new; complete one module fully before starting the next; do not remove the gate until full coverage is achieved.
 
-5. **Prerequisite order violations** — modules that implicitly require knowledge from prior modules not yet covered. Prevention: maintain an explicit prerequisite graph; list prerequisites at each module header; do a full sequential read-through at each milestone. The dependency chain is: Linux → Networking → Docker → CI/CD → IaC → Cloud → Monitoring.
-
-6. **Read-heavy, do-light ratio** — lesson text vastly outnumbering exercise time. Prevention: target 40% explanation / 60% hands-on practice by time; enforce this in the lesson template by requiring inline "try this" prompts after every major concept block; no explanation section longer than 5 minutes without a hands-on prompt.
+5. **Challenge verification integrity** — `VerificationChecklist` is self-assessed (client-side state, resets on page refresh, no actual command verification). Challenge-mode verification items must specify exact runnable commands and expected output in the `hint` field, not vague accomplishment statements. Minimum 3 verification items per challenge exercise. This is a content policy decision that must be in the authoring template before any challenge content is written.
 
 ---
 
 ## Implications for Roadmap
 
-The research establishes clear phase ordering based on three constraints: (1) cognitive dependency — each topic requires genuine prior knowledge, not just familiarity; (2) tool dependency — Docker must exist before CI/CD; (3) pitfall prevention — infrastructure templates must exist before content, and the "explain the mechanism first" pattern must be established in Phase 1 before it can be inherited.
+Research is unanimous that all design decisions — interface contracts, annotation data structure, MDX prop pattern, challenge content policy, reference sheet scope rules, and difficulty source (ExerciseCard prop, not frontmatter) — must be locked in Phase 1 before any implementation begins. PITFALLS.md maps all eight critical pitfalls to Phase 1 prevention. None can be cheaply recovered after the schema is in use across 52 files.
 
-### Phase 0: Infrastructure and Templates
-**Rationale:** Nothing else works without this. Lab environment brittleness (Pitfall 2) and missing verification (Pitfall 4) must be solved at the template level before any content is written. Retrofitting these is expensive.
-**Delivers:** Module 00 setup verification; shared base Docker image; exercise template (lesson/exercise/lab directory structure + check.sh pattern); justfile with `up`/`down`/`reset`/`verify` targets; bats submodule setup; confirmed macOS ARM compatibility
-**Addresses:** Lab environment brittleness pitfall; missing verification pitfall; establishes repo structure for all subsequent phases
-**Avoids:** The two highest-recovery-cost pitfalls are addressed structurally before any content exists
-**Research flag:** Standard patterns — skip research-phase. Docker template structure and bats verification are well-documented.
+### Phase 1: Design Lock — Interface Contracts, Schema, and Content Policy
 
-### Phase 1: Linux Fundamentals
-**Rationale:** Linux gates every subsequent module. More importantly, this phase establishes the "explain the mechanism first" pattern that must be inherited by all subsequent modules. If tool-operator syndrome takes root in Phase 1, every later module inherits it.
-**Delivers:** Filesystem, permissions, processes, signals, shell scripting, text manipulation, package management — all with mechanism-first lesson structure; first working verification scripts; cheat sheet; module template proven in practice
-**Addresses:** Table stakes feature: Linux Fundamentals module; table stakes feature: shell scripting woven through; differentiator: "under the hood" explanations
-**Avoids:** Tool-operator syndrome (establish pattern here); prerequisite violations (this is the foundation)
-**Research flag:** Standard patterns — skip research-phase. Linux fundamentals curriculum is well-established.
+**Rationale:** Eight critical pitfalls are explicitly classified as "Phase 1: design" prevention items. The annotation data structure, MDX prop serialization pattern, reference sheet content rules, challenge verification standards, and difficulty source must all be decided before any code or content is written. An audit of frontmatter-vs-ExerciseCard difficulty mismatches must also be completed here to know where the rendering logic's difficulty-source assumption holds and where it diverges.
 
-### Phase 2: Networking Foundations
-**Rationale:** Networking must precede Docker because Docker networking (bridge networks, overlay networks, DNS between services) is implemented on Linux networking primitives. A learner who does not understand TCP/IP and DNS cannot troubleshoot Docker Compose service discovery.
-**Delivers:** OSI model, TCP/IP, DNS, HTTP/HTTPS, SSH, firewalls (iptables/ufw) — all with Docker-based lab environments; multi-host networking labs using Docker Compose
-**Addresses:** Table stakes feature: Networking Foundations module
-**Avoids:** Prerequisite order violations — Docker module cannot be taught without this
-**Research flag:** Standard patterns — skip research-phase.
+**Delivers:** Locked `ExerciseCard` prop interface (all new props optional, no existing shape changes); `CommandAnnotation` TypeScript type; annotation style guide (flag format with leading dash, one-sentence description, max 120 chars, optional example); reference sheet content policy (max 15 items, no sequential ordering language, items do not name the solution); challenge verification standard (min 3 items, hints include runnable commands and expected output); audit of Foundation lesson command field count (~200 estimate confirmed or revised); list of all ExerciseCard/frontmatter difficulty mismatches.
 
-### Phase 3: Docker and Containerization
-**Rationale:** Docker is the highest-demand module and unlocks CI/CD, monitoring, and IaC labs. It must come after Networking (Docker networking requires prior understanding) but before CI/CD (pipelines build and push images).
-**Delivers:** Images, containers, volumes, networking, Docker Compose — with scenario-based labs (broken containers, misconfigured networks); introduces multi-service lab environments that subsequent modules inherit
-**Uses:** Docker Desktop 4.65.0, Docker Compose v2, just task runner, bats verification
-**Addresses:** Table stakes feature: Docker/Containerization module; differentiator: local-first lab environments; differentiator: scenario-based exercises with failure modes
-**Avoids:** ARM Mac compatibility (use explicit `--platform` declarations); Docker Compose v1 vs v2 syntax trap
-**Research flag:** Standard patterns — skip research-phase. Docker curriculum patterns are well-documented.
+**Addresses:** Per-flag annotation format (table stakes); challenge verification policy (table stakes); annotation schema definition.
 
-### Phase 4: Foundation Capstone
-**Rationale:** A capstone after the three foundation modules validates integration skills before adding new tool complexity. Forces the learner to combine Linux, networking, and Docker knowledge in one scenario without step-by-step guidance.
-**Delivers:** Cross-module capstone project: deploy a real (non-toy) Dockerized web service, diagnose a networking failure, write a shell script to automate setup — produces a portfolio artifact
-**Addresses:** Differentiator: cross-module capstone; differentiator: real-world scenarios not toy examples
-**Avoids:** Scope inflation — capstone reuses skills from prior modules, introduces no new tools
-**Research flag:** Needs research-phase during planning — defining a realistic, non-trivial scenario that validates all three prior modules without scope creeping into CI/CD territory requires careful design.
+**Avoids:** All eight critical pitfalls from PITFALLS.md — all are Phase 1 preventions.
 
-### Phase 5: System Administration and CI/CD
-**Rationale:** System administration (process management, service configuration, logging) is a natural extension of Linux fundamentals and is required context for understanding what CI/CD pipelines are actually doing when they deploy services. CI/CD requires Docker (build/push images) and shell scripting (pipeline scripts).
-**Delivers:** systemd, journald, log management, user/group management (sysadmin); GitHub Actions pipelines that build, test, and deploy Docker images (CI/CD); progressive difficulty labels introduced across all modules
-**Uses:** Multipass for systemd exercises (Docker cannot host systemd); bats-core for CI pipeline verification; GitHub Actions as lowest-friction CI tool for local-first course
-**Addresses:** Table stakes features: CI/CD module, System Administration module
-**Avoids:** Premature introduction of Multipass (only introduced here when Docker is genuinely insufficient for systemd)
-**Research flag:** CI/CD with GitHub Actions is well-documented (skip research-phase). Multipass for systemd exercises has less course-design documentation — light research warranted during planning.
+### Phase 2: Component Implementation
 
-### Phase 6: Infrastructure as Code
-**Rationale:** IaC belongs after CI/CD because the most compelling IaC use case in this course is infrastructure provisioned by a pipeline, not manual `tofu apply`. Learners who understand CI/CD grasp why declarative infrastructure matters.
-**Delivers:** OpenTofu HCL basics, local state, modules, a working pipeline that provisions infrastructure — with explicit competency goal: learner can write Terraform for a novel local environment without following a tutorial
-**Uses:** OpenTofu 1.11.0, Docker-based lab targets for local IaC practice without cloud costs
-**Addresses:** Table stakes feature: IaC module; anti-feature: avoids HashiCorp license confusion (OpenTofu)
-**Avoids:** Scope inflation — IaC module has one stated competency goal; advanced state backends and remote runners are explicitly deferred
-**Research flag:** OpenTofu 1.11.0 is a relatively recent version; state encryption feature introduced in 1.11 may have limited community documentation — research-phase recommended during planning.
+**Rationale:** Architecture research mandates bottom-up build order based on explicit dependency analysis. Leaf components have no context reads and no dependencies on other new components. ExerciseCard modification depends on context types from Step 1 and the leaf components from Step 2. LessonLayout integration depends on the context being extended.
 
-### Phase 7: Cloud Fundamentals and Monitoring
-**Rationale:** Cloud fundamentals can be lightweight in a local-first course because the networking and IaC modules already cover the underlying concepts (VPCs are just networks, security groups are just firewall rules). Monitoring (Prometheus, Grafana) requires multi-service Docker Compose environments that are only tractable after Docker and sysadmin are solid.
-**Delivers:** Cloud conceptual layer (AWS/GCP core services mapped to prior networking/IaC concepts) with minimal free-tier exercises and explicit cost guardrails; Prometheus + Grafana monitoring stack for a Dockerized application with alerting basics
-**Uses:** Docker Compose multi-service environments for monitoring labs; OpenTofu for any cloud provisioning exercises
-**Addresses:** Table stakes features: Cloud Fundamentals, Monitoring & Observability
-**Avoids:** Cloud-heavy labs with real cost (local-first constraint; explicit `terraform destroy` reminders); nested virtualization traps in monitoring labs (resource-limit all Compose services)
-**Research flag:** Both modules have high implementation complexity and multi-service lab environments — research-phase recommended during planning for both.
+**Delivers:**
+- `AnnotatedCommand` component (new, `components/content/`)
+- `ChallengeReferenceSheet` component (new, `components/content/`)
+- `ProgressProvider` extended with `preferredMode` / `setPreferredMode` (separate localStorage key `'learn-systems-preferences'`)
+- `ExerciseCard` modified with mode-aware rendering branches and three-tier mode resolution
+- `DifficultyToggle` client component (`components/lesson/`)
+- `LessonLayout` updated to render `DifficultyToggle` gated on `frontmatter.difficulty === 'Challenge'`
+- `mdx-components.tsx` updated to register `AnnotatedCommand` and `ChallengeReferenceSheet`
+- `next.config.ts` updated to add `transformerNotationWordHighlight()` to `rehypePrettyCode` options
 
-### Phase 8: Advanced Capstone
-**Rationale:** Final integration project requiring skills from all prior modules. Produces a portfolio-worthy artifact. Deferred until all prior modules are validated.
-**Delivers:** Full pipeline capstone: Dockerized application with CI/CD pipeline, infrastructure provisioned with OpenTofu, monitoring with Prometheus/Grafana, deployed scenario with intentional failure to diagnose
-**Addresses:** Differentiator: cross-module capstone (advanced tier)
-**Research flag:** Needs research-phase during planning — scenario design for a capstone spanning this many modules is complex and needs deliberate scoping to avoid scope inflation.
+**Uses:** `@shikijs/transformers@4.0.2` (the one new npm install), `@base-ui/react` Tooltip (existing at v1.3.0), `QuickReference` (existing, unchanged).
+
+**Implements:** Full architecture from ARCHITECTURE.md: Props-in-MDX pattern, Context-Driven Render Branching, and Explicit Mode Override for pedagogy requirements.
+
+**Avoids:** Anti-patterns from ARCHITECTURE.md — reading lesson-level frontmatter difficulty inside ExerciseCard; annotating inside TerminalBlock; per-exercise toggle UI instead of global preference; building ChallengeReferenceSheet from scratch instead of wrapping QuickReference.
+
+### Phase 3: Proof-of-Concept Content (One Complete Module)
+
+**Rationale:** FEATURES.md explicitly defines the MVP as requiring at least one migrated example per difficulty tier before v1.1 ships. Migrating one complete module validates the annotation schema, MDX authoring DX, and component integration before committing to 22 Foundation lessons. The inline-vs-imported annotation data pattern must also be validated against the actual Next.js 16.2 + `@next/mdx` 3.1.1 configuration (a gap identified in confidence assessment).
+
+**Delivers:** One complete module with Foundation annotations (all command fields annotated), Intermediate command suppression, and Challenge reference sheet with verified checklist items. Exercise template updated with authoring guide covering all three difficulty tiers. Per-exercise opt-in gate (`annotated={true}`) in place.
+
+**Validates:** Annotation schema works end-to-end in the actual MDX pipeline. MDX prop serialization behavior confirmed. Component rendering correct for all three difficulty tiers simultaneously.
+
+**Avoids:** Batch annotation discovery pitfall (MDX parse errors caught per-module, not in batch); annotation coverage inconsistency pitfall (per-exercise gate ensures only the annotated module shows annotation UI).
+
+### Phase 4: Full Content Migration
+
+**Rationale:** Once the component and schema are validated by Phase 3, the remaining 21 Foundation lessons, ~20 Intermediate lessons, and ~3 Challenge lessons can be migrated module by module. This is the highest-effort phase — ~200 command fields across Foundation lessons alone — and requires the style guide, schema, and per-exercise gate established in Phase 1 to maintain consistency.
+
+**Delivers:** All Foundation lessons annotated (per-flag breakdowns co-located in step objects), all Intermediate lessons with commands suppressed, all Challenge lessons with reference sheets (max 15 items, no sequential language) and precise verification items (min 3 items, runnable command checks in hints). Full authoring guide in `_exercise-template.mdx`. Per-exercise gate removed once coverage is confirmed.
+
+**Implements:** Module-by-module migration strategy from FEATURES.md — complete one module before starting the next; run `next build` after each module; style review pass per module to catch voice/format drift.
 
 ### Phase Ordering Rationale
 
-- **Cognitive dependency drives all ordering:** Linux → Networking → Docker → CI/CD → IaC → Cloud → Monitoring is the only sequence where every module builds on prior knowledge. Deviating from this creates prerequisite violations (Pitfall 5), the second-hardest pitfall to recover from.
-- **Infrastructure first (Phase 0) prevents the two most expensive pitfalls:** Lab environment brittleness and missing verification have HIGH recovery costs if caught late. They are architectural — only fixable by establishing the template before content exists.
-- **Capstones are placed after module tiers, not at the end:** Foundation capstone (Phase 4) validates before adding new tool complexity. This prevents scope inflation from creeping into the advanced tier.
-- **IaC before Cloud:** Cloud fundamentals without IaC context produces click-through AWS console exercises that teach nothing transferable. IaC first means cloud concepts land as "things you provision with code."
-- **Multipass introduced only when Docker is insufficient (Phase 5):** Introducing Multipass earlier adds toolchain complexity before learners need it.
+- Phase 1 before everything: eight critical pitfalls are Phase 1 preventions; none can be cheaply recovered after the schema is in use across 52 files. The annotation co-location structure and MDX prop pattern are architectural — only fixable before content is written.
+- Phase 2 before Phase 3: cannot validate annotation schema in content until the component exists to render it.
+- Phase 3 before Phase 4: proof-of-concept validates schema, authoring DX, and MDX serialization behavior before committing to high-effort migration across the full corpus. Discovering a problem at Phase 3 is cheap; discovering it mid-Phase 4 requires reworking all migrated lessons.
+- Phase 4 is internally parallelizable (module-by-module) but cannot start until Phase 2 is complete and Phase 3 validates the pattern.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 4 (Foundation Capstone):** Capstone scenario design needs careful scoping to be genuinely non-trivial without scope creeping into Phase 5 tools.
-- **Phase 6 (IaC):** OpenTofu 1.11.0 is recent; state encryption and new features may have limited course-design precedent. Verify exercise patterns against current docs.
-- **Phase 7 (Cloud + Monitoring):** Multi-service monitoring lab environments have performance traps (large images, slow Compose startup). Need specific research on slim Prometheus/Grafana images and resource limits for macOS.
-- **Phase 8 (Advanced Capstone):** Scenario scoping across all prior modules is the hardest design problem in the course.
+Phases with standard patterns (skip research-phase — all integration points verified against live codebase):
+- **Phase 2 (component implementation):** `@base-ui/react` Tooltip API verified against base-ui.com. `rehype-pretty-code` `transformers` option verified against official docs. `ExerciseCard` interface and `mdx-components.tsx` registration pattern confirmed by direct codebase inspection. Build order derived from explicit dependency analysis. No additional research needed.
+- **Phase 3 (proof-of-concept content):** Authoring pattern defined in Phase 1; component exists from Phase 2; no new unknowns.
+- **Phase 4 (full content migration):** Pure execution of schema and style guide defined in Phase 1.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 0 (Infrastructure):** Docker template structure, bats setup, and just task runner patterns are well-documented.
-- **Phase 1 (Linux Fundamentals):** Curriculum scope and lesson structure are the most well-documented area in technical education.
-- **Phase 2 (Networking):** Networking fundamentals curriculum order is established; Docker Compose multi-host lab patterns are well-documented.
-- **Phase 3 (Docker):** Docker curriculum patterns and bats verification integration are extensively documented in open-source course repos.
-- **Phase 5 (Sysadmin + CI/CD):** GitHub Actions documentation is comprehensive; Multipass for systemd is documented (lighter research may still be useful).
+Phases that warrant a closer look during planning:
+- **Phase 1 (design):** The frontmatter-vs-ExerciseCard difficulty mismatch audit may reveal more edge cases than the ~5-10 PITFALLS.md estimate. Run the grep before finalizing Phase 1 scope to avoid surprises during Phase 2. The exact Foundation command field count (~200 estimate) should also be confirmed to right-size Phase 4.
 
 ---
 
@@ -194,53 +149,50 @@ Phases with standard patterns (skip research-phase):
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All tool versions verified against official release pages; Homebrew install paths confirmed; version compatibility table validated |
-| Features | HIGH | Curriculum scope validated against roadmap.sh, bregman-arie/devops-exercises (2,624 exercises), and KodeKloud platform analysis; module ordering confirmed by feature dependency graph |
-| Architecture | MEDIUM-HIGH | Directory structure pattern confirmed in multiple inspected open-source course repos; verification-first authoring pattern is sound but not universally documented; some patterns are reasoned from first principles |
-| Pitfalls | HIGH | Key pitfalls corroborated by peer-reviewed sources (ACM, ResearchGate); Apple Silicon Docker issues confirmed by current 2026 technical sources; tool-operator syndrome pattern cited across multiple independent DevOps education sources |
+| Stack | HIGH | All version checks performed against live `node_modules` (shiki 4.0.2, rehype-pretty-code 0.14.3, @base-ui/react 1.3.0 confirmed); `@shikijs/transformers` API verified against official shiki docs; Code Hike ruled out via official docs |
+| Features | HIGH | Existing component set audited by direct inspection; instructional design rationale grounded in PMC 2022 scaffolding study and Sweller/Kalyuga worked-examples research (peer-reviewed); competitor patterns confirmed via official sources |
+| Architecture | HIGH | All findings based on direct codebase inspection of every relevant file; build order derived from explicit dependency analysis; no external sources required; no inference |
+| Pitfalls | HIGH | All pitfalls grounded in direct inspection of 52 MDX lesson files and 6 existing components; MDX parse behavior verified against official MDX docs; recovery strategies classified by cost |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Ansible scope:** Research recommends covering Ansible basics in a configuration management module but notes this is genuinely hard to demonstrate locally without multiple VMs. The decision to include or exclude a dedicated Ansible module is not resolved by research alone. Address during roadmap planning by deciding if Multipass-hosted VMs are sufficient for Ansible lab environments or if it should remain a stretch module.
-- **Kubernetes Basics timing:** Research defers Kubernetes to after containers and networking are solid but does not define what "solid" means in practice. Define the competency gate during roadmap planning (e.g., learner completes Docker module capstone before Kubernetes module unlocks).
-- **Course site publishing (MkDocs):** Whether to publish a MkDocs site is an open decision. The stack supports it (Material for MkDocs 9.7.5 is in the recommended toolchain) but it is not required for the local-first format. Treat as optional infrastructure that can be added at any phase.
-- **Content staleness strategy:** Research identifies content staleness as a medium-term risk. The mitigation (version metadata in lesson frontmatter + a "test the course" CI script) requires a concrete implementation decision during Phase 0 planning.
+- **Frontmatter/ExerciseCard difficulty mismatch count:** PITFALLS.md estimates 5-10 mismatches but this has not been enumerated. Run a grep across all MDX files during Phase 1 planning to get the exact list before writing rendering logic that depends on ExerciseCard `difficulty` prop as the authoritative source.
+- **Foundation command field exact count:** PITFALLS.md estimates ~200 command fields across 22 Foundation lessons. This is an estimate from lesson structure inspection, not an exact count. An exact count during Phase 1 planning surfaces whether Phase 4 needs to be split across multiple sessions.
+- **MDX inline prop parse behavior with complex objects in this specific configuration:** The recommendation is to import annotation data from `.ts` files rather than write it inline in MDX. This pattern has not been tested against the specific Next.js 16.2 + `@next/mdx` 3.1.1 configuration. Validate the import pattern in Phase 3 (proof-of-concept) before committing it across 22 lessons in Phase 4.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Docker Desktop release notes — https://docs.docker.com/desktop/release-notes/ — version 4.65.0 confirmed March 16, 2026
-- bats-core GitHub releases — https://github.com/bats-core/bats-core — v1.13.0 confirmed November 2025
-- ShellCheck GitHub releases — https://github.com/koalaman/shellcheck — v0.11.0 confirmed August 2025
-- just GitHub releases — https://github.com/casey/just — v1.47.1 confirmed March 16, 2026
-- mkdocs-material PyPI — https://pypi.org/project/mkdocs-material/ — 9.7.5 March 2026; Insiders free since 9.7.0
-- OpenTofu official site — https://opentofu.org/ — v1.11.0 current stable
-- Multipass GitHub releases — https://github.com/canonical/multipass — v1.16.1 latest stable
-- moeinfatehi/LinuxForCyberSecurityCourse — inspected directly — numbered module directory pattern
-- freeCodeCamp/learn-bash-scripting — inspected directly — step-based verification pattern
-- bregman-arie/devops-exercises — inspected directly — 2,624 exercises; topic coverage reference
-- roadmap.sh/devops — authoritative community consensus on DevOps topic ordering
-- ACM Transactions on Computing Education — automated grading research — verification step importance
-- ResearchGate: Effects of Technical Difficulties on Learning — peer-reviewed — environment brittleness and dropout
-- Cognitive Load Theory and Instructional Design (eLearning Industry) — prerequisite ordering principles
-- Running Docker on Apple Silicon (OneUptime 2026) — current ARM Docker issues
+
+- Direct inspection of `components/content/ExerciseCard.tsx` — existing prop interface, Difficulty type usage, steps rendering pattern
+- Direct inspection of `components/content/QuickReference.tsx` — ReferenceSection, ReferenceItem types, sections prop API
+- Direct inspection of `components/progress/ProgressProvider.tsx` — ProgressContextValue shape, localStorage key pattern
+- Direct inspection of `mdx-components.tsx` — component registration pattern for all existing content components
+- Direct inspection of `node_modules/shiki/package.json` — shiki 4.0.2 confirmed installed
+- Direct inspection of `node_modules/rehype-pretty-code/package.json` — 0.14.3 confirmed installed
+- Direct inspection of `node_modules/@base-ui/react/package.json` — 1.3.0, `./tooltip` export confirmed
+- `rehype-pretty.pages.dev` — `transformers: ShikiTransformer[]` option in rehype-pretty-code Options API
+- `shiki.style/packages/transformers` — `@shikijs/transformers` 4.0.2; `transformerNotationWordHighlight` API; `[!code word:X]` notation
+- `base-ui.com/react/components/tooltip` — `@base-ui/react` Tooltip component API (Provider, Root, Trigger, Positioner, Popup parts)
+- `codehike.org/docs` — Code Hike v1 is a remark plugin replacing (not extending) rehype-pretty-code; ruled out as additive option
+- PMC 2022 — "Fade-in scaffolding is better than fade-out for novice programmers" — direct justification for Foundation → Intermediate → Challenge tier design
+- Sweller 1994 / Kalyuga 2007 — worked examples appropriate for novices; problem-solving for intermediate learners — direct justification for annotation on Foundation, suppression on Intermediate
+- OverTheWire Bandit — goal-only challenge model (no steps, scenario + objective only)
 
 ### Secondary (MEDIUM confidence)
-- KodeKloud platform analysis — lab format and verification approach reference
-- Lima CNCF blog — v2.0 features; alternative to Multipass for power users
-- CMU Teaching Design — curriculum sequencing: simple-to-complex, dependency identification
-- Le Wagon Blog: Why Self-Paced Courses Fail — feedback absence as primary abandonment cause
-- Skytap: Self-Paced Hands-On Learning — lab guide structure patterns
-- DEV Community: DevOps tool-operator syndrome — single source, corroborated by arXiv paper
 
-### Tertiary (LOW confidence / inference)
-- Vagrant vs VirtualBox macOS ARM limitations — HashiCorp documentation (not directly tested against current VirtualBox release)
-- Katacoda shutdown 2023 — community knowledge, not directly verified against Red Hat announcement
+- HTB Guided Mode announcement — guided vs. adventure mode distinction; maps to Foundation vs. Challenge tier
+- HTB Academy FAQ — module structure: theory + checkpoints + skills assessments
+- KodeKloud hands-on lab format — embedded challenge with scoped command reference
+- explainshell.com — spatial per-token annotation UX pattern (site inspected; full UI not rendered via fetch)
+- tldr-pages style guide — example-first command explanation pattern; annotation format reference
+- MDX JSX expression parsing edge cases — string literal restrictions in JSX attribute values
 
 ---
-*Research completed: 2026-03-18*
+
+*Research completed: 2026-03-20*
 *Ready for roadmap: yes*

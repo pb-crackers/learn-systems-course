@@ -1,66 +1,136 @@
 # Stack Research
 
-**Domain:** Interactive DevOps & Systems Engineering Course (local, file-based)
-**Researched:** 2026-03-18
-**Confidence:** MEDIUM-HIGH (core tools verified against official sources; some version claims from official releases pages)
+**Domain:** Interactive DevOps Course — v1.1 Command Pedagogy additions to existing Next.js app
+**Researched:** 2026-03-20
+**Confidence:** HIGH (all library versions verified against npm and official docs; integration points verified against existing codebase)
 
 ---
 
-## Recommended Stack
+## Context: What Already Exists (Do Not Re-Research)
 
-### Core Technologies
+The app runs Next.js 16.2, React 19, Tailwind v4, shadcn/ui, MDX via `@next/mdx` 3.1.1 with `rehype-pretty-code` 0.14.3 and `shiki` 4.0.2. The component library includes `ExerciseCard`, `CodeBlock`, `TerminalBlock`, `QuickReference`, `Callout`, and `VerificationChecklist`, all registered in `mdx-components.tsx`. The `@base-ui/react` 1.3.0 package is already installed and provides `Tooltip` and `Popover` primitives. No `@radix-ui/react-*` primitives are installed separately — the project uses `@base-ui/react` for accessible primitives.
+
+This STACK.md covers only what is **new or changed** for v1.1.
+
+---
+
+## Recommended Stack (New/Changed Only)
+
+### Core New Additions
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Docker Desktop | 4.65.0 | Primary lab environment for containerized exercises | Industry standard (71% developer adoption per StackOverflow 2025); enables Linux-specific content on macOS without a full VM; single install for all container-based labs; supports Docker Compose networking simulations natively |
-| Docker Compose | v2 (bundled with Desktop) | Multi-container lab environments (networking, service meshes, multi-tier apps) | Declarative YAML config enables students to spin up complex lab topologies in one command; version 2 CLI is now the default and v1 is deprecated |
-| Multipass | 1.16.1 | Lightweight Ubuntu VMs for OS-level content (kernel, init systems, package management) | Canonical-maintained; uses Apple Hypervisor Framework on macOS for near-native performance; single command to launch named Ubuntu instances; essential when containers are insufficient (e.g., systemd, full kernel module labs) |
-| Material for MkDocs | 9.7.5 | Static site generator for course content delivery | Best-in-class documentation theme; supports code annotations, search-in-code, tabbed content, admonitions, and offline browsing — all features a course site needs; all Insiders features are now free (as of 9.7.0); pure Markdown input |
-| bats-core | 1.13.0 | Shell script exercise verification | TAP-compliant Bash testing framework; lets exercises have machine-checkable pass/fail criteria; students run `bats verify.bats` and see exactly which checks pass; integrates with CI if course is ever automated |
-| ShellCheck | 0.11.0 | Static analysis for course shell scripts and student scripts | Catches common Bash mistakes before runtime; used both as a linting gate on course scripts and as a teachable tool in the shell scripting module |
-| just | 1.47.1 | Task runner for lab lifecycle commands | Modern Makefile replacement without tab/PHONY ceremony; `just up`, `just reset`, `just verify` become the consistent interface for every lab; cross-platform (macOS and Linux); self-documenting via `just --list` |
-| OpenTofu | 1.11.0 | Infrastructure as Code labs (Terraform module) | Open-source, MPL 2.0 fork of Terraform under Linux Foundation governance; drop-in HCL compatibility with Terraform; preferred over HashiCorp Terraform for a course because no license ambiguity for learners; v1.11 introduces state encryption |
+| `@shikijs/transformers` | 4.0.2 | Notation-based line and word highlighting in code blocks | Ships at the same version as the already-installed `shiki` 4.0.2, so no version conflict; `rehype-pretty-code` has a first-class `transformers: []` option that accepts `ShikiTransformer[]` from this package; enables `[!code word:X]` inline word highlighting needed for flag annotation |
+| `AnnotatedCommand` component (new, zero deps) | n/a | Render a CLI command with per-token flag/argument tooltips | Built on `@base-ui/react` Tooltip (already installed); no new runtime dependency; renders server-side without `use client` for the layout, tooltip triggers are client-side; integrates into MDX via `mdx-components.tsx` same as existing components |
+| `ChallengeCard` component (new, zero deps) | n/a | Goal-based exercise with collapsible command reference sheet | Extends `ExerciseCard` pattern; adds `mode="challenge"` rendering path that shows English goal description and a `QuickReference` panel instead of step-by-step commands; uses existing `Difficulty` type and existing `QuickReference` component |
 
-### Supporting Libraries / Tools
+### No New Runtime Libraries Required
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| bats-assert | latest (compatible with bats 1.x) | Assertion helpers for bats test files | Use in every `verify.bats` file — provides readable `assert_output`, `assert_success`, `refute_output` helpers instead of raw bash comparisons |
-| bats-support | latest (compatible with bats 1.x) | Formatting helpers for bats failure output | Required dependency of bats-assert; include in every lab that uses bats-assert |
-| mkdocs-minify-plugin | latest | Minify HTML/CSS/JS output for MkDocs site | Use when publishing the course site; skip during local development |
-| mkdocs-git-revision-date-localized | latest | Show last-updated dates on lesson pages | Adds "last updated" metadata to lessons automatically from git history |
-| Ansible | latest stable (2.x via pip) | Configuration management module labs | Use only for the configuration management module; install via pip in a dedicated virtual environment; target Docker containers or Multipass VMs as inventory |
+The three v1.1 features (annotated command blocks, challenge-mode exercises, difficulty-aware rendering) can be fully implemented with:
 
-### Development Tools
+1. `@shikijs/transformers` — the only new npm package
+2. Two new React components (`AnnotatedCommand`, `ChallengeCard`) built on already-installed primitives
+3. Modifications to `ExerciseCard` to support `difficulty`-driven rendering branches
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| VS Code | Primary authoring environment | Install the `ShellCheck` extension (timonwong.shellcheck) and `markdownlint` extension (davidanson.vscode-markdownlint) for inline feedback while writing lessons and scripts |
-| Homebrew | macOS package manager for toolchain installation | Install Docker Desktop, Multipass, just, ShellCheck, bats-core, and OpenTofu all via `brew`; keeps versions consistent and upgradeable |
-| git | Version control and course structure backbone | Course repo IS the course; each module is a directory; `git log` teaches students about real repo history as they work through it |
-| Python 3.11+ (via pyenv or system) | Required runtime for MkDocs / Material | Use pyenv if system Python is outdated; pin version in `.python-version` file; MkDocs + Material install via pip into a virtualenv |
+---
+
+## Feature-to-Stack Mapping
+
+### Feature 1: Annotated Command Blocks
+
+**Approach: Custom `AnnotatedCommand` React component (not a code fence)**
+
+The approach is a purpose-built JSX component, not a rehype/shiki extension. Here is why:
+
+- Annotating individual flags (e.g., `-aG` in `usermod -aG sudo alice`) requires associating free-text explanations with arbitrary token substrings. Shiki transformers can highlight words but cannot attach rich tooltip content — they only apply CSS classes.
+- Code Hike v1 can do per-token annotations but it is a remark plugin that **replaces** rehype-pretty-code as the syntax highlighter, not a companion to it. Replacing rehype-pretty-code would require rewriting all 56 lessons and rebuilding the `CodeBlock` pipe. This is out of scope.
+- `@base-ui/react` Tooltip (already installed at v1.3.0) provides the accessible popup behavior needed. It handles keyboard focus, delay management via `Tooltip.Provider`, and positioning via `Tooltip.Positioner` — no new code needed for those concerns.
+
+**Component API (design target for implementation):**
+
+```typescript
+interface CommandToken {
+  text: string        // The literal text of this token (e.g. "-aG")
+  annotation?: string // Explanation shown in tooltip (e.g. "append to groups without removing existing ones")
+}
+
+interface AnnotatedCommandProps {
+  tokens: CommandToken[]
+  className?: string
+}
+```
+
+Tokens without `annotation` render as plain monospace text. Tokens with `annotation` render as underlined/highlighted spans with a `@base-ui/react` Tooltip. The component registers in `mdx-components.tsx` and is called from MDX as `<AnnotatedCommand tokens={[...]} />`.
+
+**`@shikijs/transformers` role (supplementary):**
+
+The `transformers` option in `rehype-pretty-code` accepts `ShikiTransformer[]`. Adding `transformerNotationWordHighlight()` from `@shikijs/transformers` enables `[!code word:X]` syntax in regular fenced code blocks. This is useful for highlighting a flag or keyword in a multi-line bash block without needing the full `AnnotatedCommand` component. It is a lightweight addition that augments existing `CodeBlock` rendering.
+
+**Integration point:** `next.config.ts` — add `transformers` array to the existing `rehypePrettyCode` options object.
+
+### Feature 2: Challenge-Mode Exercises
+
+**Approach: New `ChallengeCard` component**
+
+`ChallengeCard` follows the same collapsible card pattern as `ExerciseCard` but renders a goal description and a reference sheet instead of numbered steps with commands. It uses:
+
+- Existing `QuickReference` component for the reference sheet (already registered in MDX)
+- Existing `Difficulty` type from `types/content.ts`
+- Existing `shadcn/ui` styling tokens (border, muted, card)
+- `@base-ui/react` Collapsible (already installed at v1.3.0) for the expandable reference section, or the same `useState` pattern as `ExerciseCard`
+
+No new library required.
+
+**Component API (design target):**
+
+```typescript
+interface ChallengeCardProps {
+  title: string
+  scenario: string
+  difficulty: 'Intermediate' | 'Challenge'  // Foundation exercises don't use ChallengeCard
+  goal: string                               // English description: "Configure nginx to..."
+  hints?: string[]                           // Optional hints revealed on demand
+  referenceSheet: ReferenceSection[]         // Passed to <QuickReference sections={...} />
+  children?: React.ReactNode                 // Verification section
+}
+```
+
+### Feature 3: Difficulty-Aware Rendering in ExerciseCard
+
+**Approach: Conditional rendering within existing `ExerciseCard`**
+
+`ExerciseCard` already receives `difficulty: Difficulty` as a required prop. The rendering branch is:
+
+- `difficulty === 'Foundation'` → current behavior (numbered steps with optional `command` per step, annotated via `AnnotatedCommand` if needed)
+- `difficulty === 'Intermediate' | 'Challenge'` → steps list is replaced by a goal statement; an expandable reference sheet appears instead of copy-paste commands
+
+This avoids introducing a second card component and keeps the MDX authoring API consistent. The `steps` prop becomes optional for non-Foundation exercises; a new `goal` prop and `referenceSheet` prop are added.
+
+**Alternative considered:** Two separate components (`ExerciseCard` + `ChallengeCard`). This is cleaner for authors but requires updating all 56 existing lessons to remain consistent. A single component with a rendering branch is preferred because existing Foundation exercises require zero MDX changes.
 
 ---
 
 ## Installation
 
 ```bash
-# macOS toolchain via Homebrew
-brew install just shellcheck bats-core opentofu
-brew install --cask docker multipass
-
-# MkDocs site (Python virtual environment)
-python3 -m venv .venv
-source .venv/bin/activate
-pip install mkdocs-material==9.7.5 mkdocs-minify-plugin mkdocs-git-revision-date-localized
-
-# bats helper libraries (install as git submodules in test/libs/)
-git submodule add https://github.com/bats-core/bats-support test/libs/bats-support
-git submodule add https://github.com/bats-core/bats-assert  test/libs/bats-assert
-
-# Ansible (isolated per-module, not global)
-pip install ansible  # inside module-specific venv or just for the config-management module
+# The one new npm package
+npm install @shikijs/transformers@4.0.2
 ```
+
+No other installation steps. `AnnotatedCommand` and `ChallengeCard` are authored components, not npm packages.
+
+---
+
+## What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| Code Hike (`codehike`) | Replaces rehype-pretty-code as the syntax pipeline — not a companion. Adding it would require removing `rehype-pretty-code` and rewriting the `CodeBlock` component and all 56 lesson code fences. The migration cost is out of scope for v1.1. | `@shikijs/transformers` for in-fence highlighting; `AnnotatedCommand` component for rich per-token explanations |
+| `@radix-ui/react-tooltip` | Not installed; `@base-ui/react` Tooltip is already installed at v1.3.0 and provides equivalent functionality | `@base-ui/react` Tooltip (already available) |
+| `framer-motion` | Animation for expand/collapse is handled by `tailwind-merge` utility classes (`transition-all`, `overflow-hidden`) already in the bundle; adding a motion library is unnecessary complexity for simple accordion behavior | CSS transitions via Tailwind |
+| `react-syntax-highlighter` | Runtime syntax highlighting; the project uses build-time highlighting via `rehype-pretty-code` + `shiki` which is faster and produces no client JS | `rehype-pretty-code` (already configured) |
+| `tippy.js` or `floating-ui` (direct) | `@base-ui/react` internally uses `@floating-ui/react` and wraps it in an accessible component API. Using floating-ui directly would duplicate that work. | `@base-ui/react` Tooltip / Popover |
+| Any new state management library | Progress tracking uses `localStorage` via existing hooks; annotation state is component-local (`useState`); no global state needed | `useState` in component |
 
 ---
 
@@ -68,82 +138,47 @@ pip install ansible  # inside module-specific venv or just for the config-manage
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Docker Desktop | Podman Desktop | If the learner is on Linux and prefers a fully rootless daemon; not preferred here because Docker Compose v2 integration is simpler and Docker is what students will encounter in 90% of job contexts |
-| Multipass | Lima | Lima v2.0 is excellent and lower-level; choose Lima if you need GPU acceleration, MCP integration, or want non-Ubuntu distros; Multipass wins on simplicity and Canonical-backed Ubuntu focus for this course |
-| Multipass | Vagrant + VirtualBox | Vagrant provides richer provisioning scripts but VirtualBox is slower, requires a separate download, and is falling behind on Apple Silicon support; Multipass is the better choice for macOS learners in 2026 |
-| Material for MkDocs | Docusaurus | Use Docusaurus if you need React components, i18n, or versioned docs; this course is pure-Markdown and single-user, MkDocs is lighter and requires no Node.js toolchain |
-| Material for MkDocs | Zensical (next-gen) | Zensical is the MkDocs-Material team's next-generation tool; it is still early-stage as of March 2026; revisit in 6-12 months |
-| OpenTofu | HashiCorp Terraform | Use Terraform if learner will work in an enterprise that has standardized on Terraform; for a course, OpenTofu avoids license confusion and is CLI-compatible |
-| bats-core | pytest + pexpect | Python-based test approach is viable but adds a language context switch; bats keeps everything in Bash which is coherent with the shell scripting curriculum |
-| just | GNU Make | Make is fine and ubiquitous, but tab-sensitivity causes student confusion; just is cleaner for a learning context and explicitly not a build system |
+| Custom `AnnotatedCommand` component | Code Hike `codehike` v1 | Only if you are starting the project fresh or willing to replace the entire rehype-pretty-code pipeline. Code Hike's annotation system is powerful but not additive to an existing rehype-pretty-code setup. |
+| `@shikijs/transformers` word highlight | rehype-pretty-code's native `/word/` meta string | The native meta string approach works for simple character highlighting but produces only CSS classes. Use the native approach for simple emphasis; use `@shikijs/transformers` for `[!code word:X]` inline notation which is more readable in multi-line blocks. |
+| Difficulty branch inside `ExerciseCard` | Separate `ChallengeCard` component | Use a separate component if lesson authors want explicit MDX API clarity (no shared props) and are willing to audit all 56 existing lessons to decide which card type to use. |
 
 ---
 
-## What NOT to Use
+## Integration Points in Existing Code
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| Killercoda / Katacoda / browser-based labs | These external platforms go down, change pricing, and remove course control; Katacoda was shut down in 2023; course portability is lost | Local Docker + Multipass labs that run entirely offline |
-| Vagrant + VirtualBox | VirtualBox has poor Apple Silicon (M-series) support as of 2026; Vagrant itself hasn't seen significant active development; startup times are slow compared to Multipass | Multipass for VM needs |
-| Docker Compose v1 (`docker-compose`) | Deprecated; `docker-compose` (Python, v1) EOL'd in 2023; `docker compose` (Go, v2) is the maintained tool | `docker compose` (v2, bundled with Docker Desktop) |
-| Ansible Galaxy roles as lab targets | Galaxy role quality is inconsistent and network-dependent; labs become fragile when upstream roles change | Write minimal custom playbooks directly in the lessons; keep labs self-contained |
-| Jupyter Notebooks for shell content | Notebooks are the wrong abstraction for terminal-centric DevOps skills; shell muscle memory requires a real terminal | Plain Markdown lesson files + shell scripts run in a real terminal |
-| HashiCorp Vault / Boundary for early modules | Adds auth complexity before foundational skills are established; learner gets frustrated before they learn anything | Introduce secrets management in later modules after Linux and Docker fundamentals are solid |
-
----
-
-## Stack Patterns by Variant
-
-**If a module requires a full Linux system (init, systemd, kernel):**
-- Use Multipass to launch a named Ubuntu 24.04 LTS instance
-- Provision with a `cloud-init` YAML file committed to the repo
-- Tear down with `multipass delete --purge <name>` after the lab
-
-**If a module requires networked services (HTTP, DNS, load balancing):**
-- Use Docker Compose with user-defined bridge networks
-- Name services to use Docker's internal DNS (service names resolve automatically)
-- Use `just up` / `just down` wrappers defined in the module's `justfile`
-
-**If a module requires verifiable exercise outcomes:**
-- Write a `verify.bats` file in the lab directory
-- Load bats-support and bats-assert as submodule paths
-- Document the verification command in the lesson's "Check Your Work" section
-
-**If the learner wants to publish the course as a website:**
-- Build with `mkdocs build` (output to `site/`)
-- Deploy to GitHub Pages via `mkdocs gh-deploy`
-- No additional tooling needed
+| File | Change Required | Why |
+|------|----------------|-----|
+| `next.config.ts` | Add `transformers: [transformerNotationWordHighlight()]` to `rehypePrettyCode` options | Enables `[!code word:X]` in code fences |
+| `components/content/ExerciseCard.tsx` | Add `goal?`, `referenceSheet?` props; add difficulty-conditional render branch | Core of difficulty-aware feature |
+| `components/content/AnnotatedCommand.tsx` | New file | Implements per-token tooltip component |
+| `mdx-components.tsx` | Add `AnnotatedCommand` to the exports map | Makes `<AnnotatedCommand />` available in all MDX files |
+| `types/content.ts` | No change required | `Difficulty` type already covers all three values |
 
 ---
 
 ## Version Compatibility
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| mkdocs-material 9.7.5 | Python 3.8+ (recommend 3.11+) | Requires MkDocs >= 1.6; all Insiders features included in open version |
-| bats-core 1.13.0 | bash 3.2+ | Compatible with macOS default bash (/bin/bash is bash 3.2 on macOS — acceptable); also works with bash 5.x in Docker containers |
-| bats-assert (latest) | bats-core 1.x, bats-support (required) | Always install bats-support when using bats-assert; they share output formatting internals |
-| OpenTofu 1.11.0 | HCL configs written for Terraform <= 1.5 | Not compatible with Terraform >= 1.6 configs that use BUSL-licensed modules; no issue for course-authored HCL |
-| just 1.47.1 | macOS (Homebrew), Linux, Windows | Shell recipes default to `sh`; set `set shell := ["bash", "-c"]` in justfile for Bash-specific syntax |
-| Docker Compose v2 | Docker Desktop 4.x | v2 is bundled; do not install the standalone `docker-compose` binary separately — it will conflict |
+| Package | Version | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| `@shikijs/transformers` | 4.0.2 | `shiki` 4.0.2 (installed), `rehype-pretty-code` 0.14.3 | Must match `shiki` major version; 4.x aligns with installed shiki 4.0.2 |
+| `@base-ui/react` Tooltip | 1.3.0 (installed) | React 19.2.4, Next.js 16.2 | Already verified — currently in use via `@base-ui/react` dialog; Tooltip subpackage follows same peer dep |
+| `rehype-pretty-code` | 0.14.3 (installed) | `transformers: ShikiTransformer[]` option available since 0.13.x | No upgrade needed; `transformers` option is documented and stable |
 
 ---
 
 ## Sources
 
-- Docker Desktop release notes (verified) — https://docs.docker.com/desktop/release-notes/ — Docker Desktop 4.65.0 confirmed March 16, 2026 — HIGH confidence
-- bats-core GitHub releases (verified) — https://github.com/bats-core/bats-core — v1.13.0 released November 7, 2025 — HIGH confidence
-- ShellCheck GitHub releases (verified) — https://github.com/koalaman/shellcheck — v0.11.0 released August 4, 2025 — HIGH confidence
-- just GitHub releases (verified) — https://github.com/casey/just — v1.47.1 released March 16, 2026 — HIGH confidence
-- mkdocs-material PyPI (verified) — https://pypi.org/project/mkdocs-material/ — 9.7.5 released March 10, 2026 — HIGH confidence
-- Material for MkDocs Insiders announcement (verified) — https://squidfunk.github.io/mkdocs-material/blog/2025/11/11/insiders-now-free-for-everyone/ — All Insiders features free in 9.7.0+ — HIGH confidence
-- OpenTofu official site (verified) — https://opentofu.org/ — v1.11.0 current stable — HIGH confidence
-- Multipass GitHub releases (verified) — https://github.com/canonical/multipass — v1.16.1 latest stable — HIGH confidence
-- Lima CNCF blog (verified) — https://www.cncf.io/blog/2025/12/11/lima-v2-0-new-features-for-secure-ai-workflows/ — Lima v2.0 released November 2025 — MEDIUM confidence
-- HashiCorp Vagrant vs Docker comparison — https://developer.hashicorp.com/vagrant/intro/vs/docker — VirtualBox macOS ARM limitations — MEDIUM confidence (WebSearch, not directly verified against release page)
-- Katacoda shutdown (training data + community knowledge) — Katacoda shut down in 2023 per Red Hat announcement — MEDIUM confidence
+- `rehype-pretty.pages.dev` — Verified `transformers: ShikiTransformer[]` option in rehype-pretty-code Options API — HIGH confidence
+- `shiki.style/packages/transformers` — Verified `@shikijs/transformers` 4.0.2 current version; `transformerNotationWordHighlight` API; `[!code word:X]` notation — HIGH confidence
+- `base-ui.com/react/components/tooltip` — Verified `@base-ui/react` Tooltip component API (Provider, Root, Trigger, Positioner, Popup parts); accessibility constraints — HIGH confidence
+- `codehike.org/docs` — Verified Code Hike v1 is a remark plugin replacing (not extending) rehype-pretty-code; ruled out as additive option — HIGH confidence
+- Direct inspection of `/node_modules/shiki/package.json` — shiki 4.0.2 confirmed installed — HIGH confidence
+- Direct inspection of `/node_modules/rehype-pretty-code/package.json` — 0.14.3 confirmed installed — HIGH confidence
+- Direct inspection of `/node_modules/@base-ui/react/package.json` — 1.3.0, `./tooltip` export confirmed — HIGH confidence
+- Direct inspection of `components/content/ExerciseCard.tsx` — existing `Difficulty` type usage, `steps` prop API confirmed — HIGH confidence
+- Direct inspection of `mdx-components.tsx` — existing component registration pattern confirmed — HIGH confidence
 
 ---
 
-*Stack research for: Interactive DevOps & Systems Engineering Course (local, file-based)*
-*Researched: 2026-03-18*
+*Stack research for: v1.1 Command Pedagogy — annotated command blocks, challenge-mode exercises, difficulty-aware rendering*
+*Researched: 2026-03-20*
