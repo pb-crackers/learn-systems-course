@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 11-05-PLAN.md
-last_updated: "2026-03-20T13:42:15.508Z"
+stopped_at: Completed 11-04-PLAN.md
+last_updated: "2026-03-20T13:42:26.846Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
@@ -100,6 +100,7 @@ Recent decisions affecting v1.1 work:
 - [Phase 11-06]: Sysadmin ScenarioQuestion answers emphasize multi-step diagnostic reasoning — consistent with Phase 10 paragraph-length answer decision
 - [Phase 11-full-content-migration]: Docker command annotation granularity: docker run -d --name mybox ubuntu:22.04 sleep infinity annotated as 8 separate tokens including positional arguments
 - [Phase 11-full-content-migration]: ChallengeReferenceSheet for Docker capstone uses 3 sections (Image Operations, Container Management, Compose Operations) with 15 items and distractors
+- [Phase 11-04]: Terraform CLI annotation pattern: tofu is the base command token, subcommands (init, plan, apply, destroy) are annotated separately as distinct subcommand tokens
 
 ### Pending Todos
 
@@ -112,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:42:11.862Z
-Stopped at: Completed 11-05-PLAN.md
+Last session: 2026-03-20T13:42:26.844Z
+Stopped at: Completed 11-04-PLAN.md
 Resume file: None
