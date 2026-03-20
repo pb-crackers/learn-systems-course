@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
 stopped_at: Completed 11-07-PLAN.md
-last_updated: "2026-03-20T13:44:51.716Z"
+last_updated: "2026-03-20T13:54:58.273Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
