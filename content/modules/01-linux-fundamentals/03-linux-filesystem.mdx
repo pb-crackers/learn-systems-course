@@ -275,7 +275,7 @@ The VFS defines interfaces (as C function pointers: `inode_operations`, `file_op
         { token: "/tmp/testfile-softlink.txt", description: "Specifies the path where the new symbolic link file will be created" },
         { token: "&&", description: "Runs the next command only if the preceding command exited successfully" },
         { token: "ls", description: "Lists files with detailed metadata" },
-        { token: "-l", description: "Shows permissions, link count, owner, size, and the -> target for symlinks" },
+        { token: "-l", description: "Shows permissions, link count, owner, size, and the symlink target path" },
         { token: "-i", description: "Displays inode numbers so you can see the soft link has a different inode than the original file" },
         { token: "/tmp/testfile*.txt", description: "Matches all testfile entries in /tmp ending with .txt, showing hard link, original, and soft link together" }
       ]
