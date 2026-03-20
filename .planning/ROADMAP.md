@@ -92,7 +92,16 @@ Plans:
   3. Every Challenge and capstone exercise has a scoped reference sheet (max 15 items) and at least 3 verification items with runnable commands and expected output in the hint field
   4. Every exercise across all modules includes at least one ScenarioQuestion linking command execution back to the opening scenario
   5. `next build` passes for each module after its migration is complete — no batch build, no deferred errors
-**Plans**: TBD
+**Plans:** 7 plans
+
+Plans:
+- [ ] 11-01-PLAN.md — Migrate Cloud module (07-cloud): 2 Foundation annotated, 3 Intermediate ScenarioQuestions
+- [ ] 11-02-PLAN.md — Migrate CI/CD module (05-cicd): 2 Foundation annotated, 2 Intermediate ScenarioQuestions, fix cheat sheet mismatch
+- [ ] 11-03-PLAN.md — Migrate Monitoring module (08-monitoring): 2 Foundation annotated, 3 Intermediate ScenarioQuestions, 1 Challenge capstone
+- [ ] 11-04-PLAN.md — Migrate IaC module (06-iac): 2 Foundation annotated, 2 Intermediate ScenarioQuestions
+- [ ] 11-05-PLAN.md — Migrate Docker module (03-docker): 3 Foundation annotated, 4 Intermediate ScenarioQuestions, 1 Challenge capstone
+- [ ] 11-06-PLAN.md — Migrate Sysadmin module (04-sysadmin): 3 Foundation annotated, 3 Intermediate ScenarioQuestions
+- [ ] 11-07-PLAN.md — Migrate Networking module (02-networking): 4 Foundation annotated, 3 Intermediate ScenarioQuestions
 
 ## Progress
 
@@ -108,7 +117,7 @@ Plans:
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
 | 9. Component Implementation | 2/3 | In Progress|  | - |
 | 10. Linux Fundamentals Prototype | 3/3 | Complete    | 2026-03-20 | - |
-| 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
+| 11. Full Content Migration | v1.1 | 0/7 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-18*
