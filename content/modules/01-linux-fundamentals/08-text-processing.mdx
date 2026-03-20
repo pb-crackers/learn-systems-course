@@ -351,6 +351,14 @@ Reading this pipeline stage by stage is a key skill. Each `|` is a hand-off: "ta
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You built a pipeline showing /api/users/search has the most 500 errors. The team now asks which specific client IP is hitting that endpoint most. How would you modify your pipeline to answer this question?"
+    answer="You would add a filter for the specific endpoint and then extract field 1 (the IP address) instead of field 7 (the URL): grep ' 500 ' /tmp/access.log | grep '/api/users/search' | awk '{print $1}' | sort | uniq -c | sort -rn | head -5. The key insight is that grep and awk can be chained to first filter by status code and then by URL, narrowing the data before you count. You could also do both filters in one awk command: awk '$9 == \"500\" && $7 == \"/api/users/search\" {print $1}' /tmp/access.log | sort | uniq -c | sort -rn — awk's ability to combine field matching with conditional logic often lets you replace a grep | grep | awk chain with a single awk expression."
+  />
+  <ScenarioQuestion
+    question="Your colleague ran uniq -c on the access log without sorting first and got wrong counts — some endpoints showed a count of 1 even though they appeared hundreds of times. What did they forget, and why does uniq behave this way?"
+    answer="They forgot to run sort before uniq -c. The uniq command only collapses consecutive identical lines — it compares each line to the one immediately before it and removes it if they match. If the same URL appears on lines 1, 500, and 2000 in the original log (as it would in a real access log where requests are interleaved), uniq sees three separate non-adjacent occurrences and counts each as 1. The correct pattern is always sort | uniq -c: sort brings all identical lines together so they are adjacent, then uniq -c can correctly count each run of consecutive duplicates. This is not a bug in uniq — it was designed this way intentionally, as it enables efficient single-pass processing without loading the entire file into memory."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

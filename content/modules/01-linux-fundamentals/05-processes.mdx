@@ -287,6 +287,14 @@ disown %1
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You found the runaway 'yes' process consuming 100% CPU using ps aux. Before you send SIGKILL with kill -9, what information should you gather from /proc first, and why is trying SIGTERM safer as a first step?"
+    answer="Before using SIGKILL, check /proc/$PID/cmdline to confirm you have the right process, /proc/$PID/fd/ to see if it has open file descriptors that might be mid-write, and /proc/$PID/status for its parent PID so you know if a parent needs to be notified. SIGTERM is safer because it gives the process a chance to flush any write buffers, close open file descriptors cleanly, remove lock files, and log its shutdown — SIGKILL bypasses all of this. If the process is in the middle of writing to a file or database when SIGKILL hits, you can end up with corrupted or incomplete data."
+  />
+  <ScenarioQuestion
+    question="Your colleague's zombie process shows state Z in ps aux. You tried kill -9 on its PID and it had no effect. Why can't SIGKILL kill a zombie, and what actually needs to happen for the zombie to disappear?"
+    answer="A zombie process (state Z) has already exited — its code is no longer running, so there is nothing left to kill. The zombie entry in the process table exists only because the parent process has not yet called wait() to collect the child's exit status. SIGKILL cannot affect something that is not running. For the zombie to disappear, the parent process must call wait() or waitpid() to read the exit status, which tells the kernel it can release the zombie's process table slot. If the parent is still running but not calling wait(), you can send SIGCHLD to the parent (which signals it to check for dead children), or if that fails, kill the parent process — when the parent dies, PID 1 (systemd) adopts the orphaned zombie and reaps it."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

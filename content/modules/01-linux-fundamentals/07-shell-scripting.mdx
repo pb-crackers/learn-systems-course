@@ -440,6 +440,14 @@ set +x
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your script uses set -euo pipefail. A colleague's script did not, and it once deleted the production config because BACKUP_DIR was unset. Which specific flag in set -euo pipefail would have caught this unset variable, and what would the script have done differently?"
+    answer="The -u flag (treat unset variables as errors) would have caught this. Without -u, bash silently expands an unset variable to an empty string, so rm -rf $BACKUP_DIR/* becomes rm -rf /*, which deletes everything the process has permission to delete. With set -u, accessing an unset BACKUP_DIR immediately aborts the script with the message 'BACKUP_DIR: unbound variable' before the rm command ever runs. This is one of the most dangerous failure modes in bash: silent empty-string expansion combined with a destructive command. The -u flag makes the script fail loudly at the source of the problem rather than silently proceeding to catastrophic consequences."
+  />
+  <ScenarioQuestion
+    question="Your backup function copies the config with a timestamp suffix before deployment. If the script fails halfway through, the trap cleanup runs. Why is trap EXIT more reliable than putting cleanup code at the bottom of the script?"
+    answer="Code at the bottom of a script only runs if execution reaches that line. With set -e active, any failing command causes the script to exit immediately — the cleanup code at the bottom is simply never reached. trap EXIT registers a handler that runs whenever the script exits, regardless of whether it exited normally (fell off the end), via set -e catching a failed command, or via an explicit exit N call. Even if the script receives SIGTERM (if you add INT TERM to the trap), the cleanup still runs. The trap is attached to the exit event itself, not to a position in the code, making it the correct mechanism for guaranteed cleanup in bash scripts."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

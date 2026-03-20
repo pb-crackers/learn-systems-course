@@ -296,6 +296,14 @@ apt-get update && apt-get install -y nginx && systemctl start nginx
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After restoring PATH so ls works again, you discover the deployment still fails because a custom tool at /opt/tools/bin/deploy is not found. What PATH modification would fix this, and where in the system would you put it so the fix persists across shell sessions in this container?"
+    answer="You would prepend /opt/tools/bin to PATH: export PATH=/opt/tools/bin:$PATH. Putting the custom directory at the front ensures it takes precedence over any system binary with the same name. To make it persist across shell sessions, you add that export line to /etc/environment (system-wide, no shell required), /etc/profile (for login shells), or /etc/bash.bashrc (for interactive non-login shells). In a Docker container the most reliable location is /etc/environment or sourced in the entrypoint script — since containers rarely have interactive login shells, ~/.bash_profile would not be read by the deployment runner."
+  />
+  <ScenarioQuestion
+    question="Your monitoring pipeline produces PIDs with ps aux | grep bash | awk '{print $2}'. If you need to send SIGTERM to all of those PIDs at once, which tool bridges the gap between the pipe output (which is stdin) and kill's argument-based interface?"
+    answer="xargs bridges this gap. Commands like kill only accept arguments, not stdin. The pipeline would be: ps aux | grep bash | awk '{print $2}' | xargs kill. xargs converts each line of stdin into an argument to the given command, so it effectively turns the PID list into kill 1234 5678 9012. For safety you can add -r to xargs so it does nothing if stdin is empty, and use pkill -f bash instead of this pipeline when the intent is to signal by name — but xargs is the general-purpose answer whenever you need to feed stdin output as arguments to a command that does not read stdin."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
