@@ -26,7 +26,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
 
 **Milestone Goal:** Transform CLI exercises from copy-paste instructions into active learning experiences — annotated commands for Foundation tier, challenge-mode exercises for Intermediate/Challenge tier, and scenario-contextualized questions throughout. Applied consistently across all 8 modules.
 
-- [ ] **Phase 8: Design Lock** — Lock all interface contracts, annotation schema, and content policy before any code is written
+- [x] **Phase 8: Design Lock** — Lock all interface contracts, annotation schema, and content policy before any code is written (completed 2026-03-20)
 - [ ] **Phase 9: Component Implementation** — Build all new components and modify ExerciseCard in bottom-up dependency order
 - [ ] **Phase 10: Linux Fundamentals Prototype** — Migrate one complete module to validate the schema and authoring pattern end-to-end
 - [ ] **Phase 11: Full Content Migration** — Apply validated patterns across all remaining modules (7 modules, ~42 lessons)
@@ -43,7 +43,7 @@ Full details: `.planning/milestones/v1.0-ROADMAP.md`
   3. The challenge content policy is written: goal-only format means no procedural steps, reference sheet capped at 15 items with no sequential ordering language
   4. The Foundation safety-net rule is documented: Foundation exercises are always guided regardless of any global preference toggle
   5. The localStorage key for preference (`'learn-systems-preferences'`) and its shape are specified and separate from the progress key
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 08-01-PLAN.md — Type contracts, annotation style guide, and preference specification
@@ -95,7 +95,7 @@ Plans:
 | 5. System Administration & CI/CD | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 6. Infrastructure as Code & Cloud | v1.0 | 4/4 | Complete | 2026-03-19 |
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
-| 8. Design Lock | 1/2 | In Progress|  | - |
+| 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
 | 9. Component Implementation | v1.1 | 0/TBD | Not started | - |
 | 10. Linux Fundamentals Prototype | v1.1 | 0/TBD | Not started | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |

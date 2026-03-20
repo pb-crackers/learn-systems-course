@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 08-01-PLAN.md
-last_updated: "2026-03-20T12:25:03.847Z"
+stopped_at: Completed 08-02-PLAN.md
+last_updated: "2026-03-20T12:29:01.313Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 
 *Updated after each plan completion*
 | Phase 08-design-lock P01 | 4 | 2 tasks | 3 files |
+| Phase 08-design-lock P08-02 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,10 @@ Recent decisions affecting v1.1 work:
 - [Phase 08-design-lock]: Foundation safety net is a hard override in ExerciseCard — applies regardless of learner preferredMode or explicit mode prop
 - [Phase 08-design-lock]: Preferences stored under 'learn-systems-preferences' (separate from 'learn-systems-progress') — progress reset cannot wipe mode preference
 - [Phase 08-design-lock]: annotated={true} is a migration gate on ExerciseCard — prevents partial annotation coverage from showing empty UI; removed after full coverage
+- [Phase 08-design-lock]: Challenge exercises author the full steps array for guided fallback but challengePrompt-only displays in compose mode
+- [Phase 08-design-lock]: Foundation safety-net is a hard code override — difficulty===Foundation returns guided immediately, skipping all prop and preference checks
+- [Phase 08-design-lock]: Foundation command field count is 160 (not ~200 estimate) — 22 lessons with ExerciseCard content across 8 modules; research over-estimated 20%
+- [Phase 08-design-lock]: Only 1 difficulty mismatch found (05-cicd/05-cheat-sheet.mdx); must be resolved before Phase 11 migrates 05-cicd module
 
 ### Pending Todos
 
@@ -80,6 +85,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T12:25:03.844Z
-Stopped at: Completed 08-01-PLAN.md
+Last session: 2026-03-20T12:29:01.311Z
+Stopped at: Completed 08-02-PLAN.md
 Resume file: None
