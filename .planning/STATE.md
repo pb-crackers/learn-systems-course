@@ -5,7 +5,7 @@ milestone_name: Learn Systems
 status: complete
 stopped_at: Milestone v1.0 complete
 last_updated: "2026-03-19T17:00:00.000Z"
-last_activity: "2026-03-20 - Completed quick task 260320-9il: Fix lesson page readability"
+last_activity: "2026-03-20 - Completed quick task 260320-9oq: Fix build error and visible frontmatter"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -161,9 +161,10 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260320-9il | Fix lesson page readability: improve header/metadata area and heading styles | 2026-03-20 | c726a5b | [260320-9il-fix-lesson-page-readability-improve-head](./quick/260320-9il-fix-lesson-page-readability-improve-head/) |
+| 260320-9oq | Fix build error (Callout type="info") and visible frontmatter (remark-frontmatter) | 2026-03-20 | da73b54 | [260320-9oq-fix-build-error-and-visible-frontmatter-](./quick/260320-9oq-fix-build-error-and-visible-frontmatter-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-19T16:06:20.793Z
-Stopped at: Completed 07-monitoring-advanced-capstone-03-PLAN.md
+Last session: 2026-03-20T11:09:00Z
+Stopped at: Completed quick task 260320-9oq
 Resume file: None
