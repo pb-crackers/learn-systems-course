@@ -122,29 +122,54 @@ Metrics are the cheapest data type to collect and store — they are just number
   difficulty="Foundation"
   scenario="Your web application has three services: a frontend, an API, and a database. Three problems have been reported. For each problem, identify which observability pillar you would use FIRST to investigate, explain why, and describe what specific data you would look for."
   objective="By the end of this exercise, you will be able to classify operational problems to the correct observability pillar and explain the cost-effectiveness of each pillar."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Problem 1: API response times doubled over the last 10 minutes. Users are noticing slowness but not getting errors. Which pillar do you start with, and why?",
-      command: "echo 'Analysis: Start with METRICS. Response time is a numeric measurement over time — exactly what metrics capture. Look for: request latency histogram (P95/P99), broken down by route and service. Metrics will tell you which routes are slow and whether it started suddenly or gradually.'"
+      command: "echo 'Analysis: Start with METRICS. Response time is a numeric measurement over time — exactly what metrics capture. Look for: request latency histogram (P95/P99), broken down by route and service. Metrics will tell you which routes are slow and whether it started suddenly or gradually.'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the analysis response." },
+        { token: "'Analysis: Start with METRICS...'", description: "Specifies the text to print, containing the diagnostic reasoning for this scenario question." }
+      ]
     },
     {
       step: 2,
       description: "Problem 2: The frontend is showing 500 errors on the checkout page. Error rate is spiking in your metrics dashboard. Now what?",
-      command: "echo 'Analysis: Metrics already told you WHEN (error rate spiking) and WHERE (checkout page). Now use LOGS to find WHAT. Filter logs for 500 errors on /checkout in the last 15 minutes. Look for: the specific exception, stack trace, or error message that explains why requests are failing.'"
+      command: "echo 'Analysis: Metrics already told you WHEN (error rate spiking) and WHERE (checkout page). Now use LOGS to find WHAT. Filter logs for 500 errors on /checkout in the last 15 minutes. Look for: the specific exception, stack trace, or error message that explains why requests are failing.'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the analysis response." },
+        { token: "'Analysis: Metrics already told you...'", description: "Specifies the text to print, containing the diagnostic reasoning explaining the handoff from metrics to logs." }
+      ]
     },
     {
       step: 3,
       description: "Problem 3: A request to /api/orders takes 8 seconds. Each individual service (frontend, API, database) responds in under 100ms when called directly. But the end-to-end request is 8 seconds. Where is the time going?",
-      command: "echo 'Analysis: This is the classic distributed latency mystery — TRACES. When each service appears fast but the total is slow, the latency is hidden in the connections between services: network hops, serialization, handoffs, retries. A trace shows the full call graph with timing for every span, revealing where the 8 seconds are actually spent.'"
+      command: "echo 'Analysis: This is the classic distributed latency mystery — TRACES. When each service appears fast but the total is slow, the latency is hidden in the connections between services: network hops, serialization, handoffs, retries. A trace shows the full call graph with timing for every span, revealing where the 8 seconds are actually spent.'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the analysis response." },
+        { token: "'Analysis: This is the classic...'", description: "Specifies the text to print, containing the diagnostic reasoning explaining when traces are the correct pillar to use." }
+      ]
     },
     {
       step: 4,
       description: "Summarize the decision pattern: when do you start with metrics vs logs vs traces?",
-      command: "echo 'Pattern: Metrics = always-on baseline, first alert, detect anomalies. Logs = triggered by metric anomaly, diagnose specific errors. Traces = triggered by latency mystery across services, pinpoint distributed bottlenecks. Cost order: metrics (cheapest) < logs < traces (most expensive).'"
+      command: "echo 'Pattern: Metrics = always-on baseline, first alert, detect anomalies. Logs = triggered by metric anomaly, diagnose specific errors. Traces = triggered by latency mystery across services, pinpoint distributed bottlenecks. Cost order: metrics (cheapest) < logs < traces (most expensive).'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the summary pattern." },
+        { token: "'Pattern: Metrics = always-on baseline...'", description: "Specifies the text to print, summarizing when to use each pillar and their relative cost from cheapest to most expensive." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your metric dashboard shows P95 latency jumped from 80ms to 600ms 12 minutes ago. You have metrics, logs, and traces available. In what order do you consult each pillar, and what specific question does each answer on the path to diagnosing this slowness?"
+    answer="Start with metrics because they are already alerting — the P95 histogram tells you which routes are affected and whether the slowdown started sharply or gradually. Once you know the anomaly started on /api/orders at 14:15, switch to logs: filter for that route in that time window to find specific error messages or slow-query warnings. If logs show no errors but latency is still high, use traces to see the full call graph — you may find a downstream service or database query consuming most of the 600ms even when all individual components look healthy in isolation."
+  />
+  <ScenarioQuestion
+    question="A teammate argues that you should skip metrics and go straight to logs whenever a problem is reported, since logs contain more detail. Using the three-pillar cost model, explain why metrics should always be the first stop in a diagnosis workflow."
+    answer="Metrics are the cheapest data type to both collect and query — they are just numbers in a time-series database, so scanning them is a simple math operation. At scale, a high-traffic app may generate millions of log lines per minute, making log searches slow and expensive. Starting with metrics lets you narrow the scope: once you know which route is failing and approximately when it started, you search logs for that specific route in that specific time window rather than scanning everything. Jumping straight to logs without metrics guidance wastes time and compute searching a much larger haystack."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

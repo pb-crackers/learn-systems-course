@@ -261,59 +261,134 @@ The `up` metric tells you Prometheus can reach the app. Your error rate metric t
   difficulty="Foundation"
   scenario="Your team deployed a Node.js API instrumented with prom-client. The Docker Compose monitoring stack exposes Prometheus at localhost:9090. Use the Prometheus UI to write PromQL queries that answer real questions about the application's health."
   objective="By the end of this exercise, you will be able to write and interpret the 8 essential PromQL patterns, distinguishing counter vs gauge queries and understanding what each returns."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Start the monitoring stack. The stack includes the instrumented app, Prometheus, Grafana, and Alertmanager.",
-      command: "cd docker/monitoring && docker compose up -d"
+      command: "cd docker/monitoring && docker compose up -d",
+      annotations: [
+        { token: "cd", description: "Changes the current working directory to the specified path." },
+        { token: "docker/monitoring", description: "Specifies the target directory containing the Docker Compose monitoring stack files." },
+        { token: "&&", description: "Runs the next command only if the previous command exited successfully, ensuring the directory change succeeded before launching containers." },
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage containers." },
+        { token: "compose", description: "Invokes the Docker Compose subcommand, which manages multi-container applications defined in a compose.yml file." },
+        { token: "up", description: "Creates and starts all containers defined in the Compose file, building images if they do not already exist." },
+        { token: "-d", description: "Runs all containers in detached mode, returning the terminal prompt immediately instead of following container output." }
+      ]
     },
     {
       step: 2,
       description: "Wait for the stack to start and open the Prometheus UI. It takes 5-10 seconds for all services to register as scrape targets.",
-      command: "sleep 10 && open http://localhost:9090"
+      command: "sleep 10 && open http://localhost:9090",
+      annotations: [
+        { token: "sleep", description: "Pauses execution for the specified number of seconds before running the next command." },
+        { token: "10", description: "Specifies a 10-second pause, giving Docker Compose time to bring all containers up before opening the UI." },
+        { token: "&&", description: "Runs the next command only after sleep exits successfully, ensuring the wait completes before opening the browser." },
+        { token: "open", description: "Opens the specified URL or file in the default application on macOS, launching it in the default browser." },
+        { token: "http://localhost:9090", description: "Specifies the Prometheus web UI address, running on port 9090 of the local machine." }
+      ]
     },
     {
       step: 3,
       description: "Check that Prometheus can reach the app. Navigate to Status > Targets in the Prometheus UI. The monitored-app job should show State: UP.",
-      command: "curl -s 'http://localhost:9090/api/v1/targets' | python3 -c \"import sys,json; targets=json.load(sys.stdin)['data']['activeTargets']; [print(t['labels']['job'], t['health']) for t in targets]\""
+      command: "curl -s 'http://localhost:9090/api/v1/targets' | python3 -c \"import sys,json; targets=json.load(sys.stdin)['data']['activeTargets']; [print(t['labels']['job'], t['health']) for t in targets]\"",
+      annotations: [
+        { token: "curl", description: "Makes an HTTP request to the specified URL and writes the response to standard output." },
+        { token: "-s", description: "Runs curl in silent mode, suppressing the progress meter and error messages so only the response body is printed." },
+        { token: "'http://localhost:9090/api/v1/targets'", description: "Specifies the Prometheus HTTP API endpoint that returns the list of all configured scrape targets and their current health status." },
+        { token: "|", description: "Pipes the output of curl as standard input to the next command, passing the JSON response to python3." },
+        { token: "python3", description: "Runs the Python 3 interpreter to process the JSON response from the Prometheus API." },
+        { token: "-c", description: "Tells python3 to execute the following quoted string as a Python program instead of reading from a file." },
+        { token: "\"import sys,json; targets=...\"", description: "Specifies the Python code to run: parses the JSON, extracts activeTargets, and prints each job name alongside its health status." }
+      ]
     },
     {
       step: 4,
       description: "Query 1: Is the app up? Run this in the Prometheus UI expression browser.",
-      command: "echo 'PromQL: up{job=\"monitored-app\"}  → Should return 1 (scrape succeeded)'"
+      command: "echo 'PromQL: up{job=\"monitored-app\"}  → Should return 1 (scrape succeeded)'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the PromQL query to enter in the browser." },
+        { token: "'PromQL: up{job=\"monitored-app\"} ...'", description: "Specifies the text to print, containing the PromQL expression that checks whether Prometheus successfully scraped the monitored-app target." }
+      ]
     },
     {
       step: 5,
       description: "Generate some traffic to the app so metrics have values to query.",
-      command: "for i in $(seq 1 50); do curl -s http://localhost:3000/ > /dev/null; curl -s http://localhost:3000/health > /dev/null; done"
+      command: "for i in $(seq 1 50); do curl -s http://localhost:3000/ > /dev/null; curl -s http://localhost:3000/health > /dev/null; done",
+      annotations: [
+        { token: "for", description: "Starts a shell loop that iterates over a list of values, executing the loop body for each value." },
+        { token: "i", description: "Names the loop variable that takes each value from the sequence on each iteration." },
+        { token: "$(seq 1 50)", description: "Runs the seq command as a subshell, generating the integers 1 through 50 as the list of values to iterate over." },
+        { token: "do", description: "Marks the beginning of the loop body — the commands between do and done run once for each iteration." },
+        { token: "curl", description: "Makes an HTTP request to the specified URL, sending a GET request to the app." },
+        { token: "-s", description: "Runs curl in silent mode, suppressing progress and error output so the loop runs cleanly without terminal noise." },
+        { token: "http://localhost:3000/", description: "Specifies the root route of the monitored app to generate HTTP request metrics on that route." },
+        { token: "> /dev/null", description: "Redirects the response body to the null device, discarding the output since only the metric increment matters." },
+        { token: "http://localhost:3000/health", description: "Specifies the health check route of the monitored app to generate metrics on a second route." },
+        { token: "done", description: "Marks the end of the loop body, completing all 50 iterations before the shell continues." }
+      ]
     },
     {
       step: 6,
       description: "Query 2: Total HTTP requests (counter — shows cumulative count since startup).",
-      command: "echo 'PromQL: http_requests_total{job=\"monitored-app\"}  → Shows cumulative requests per route/method/status'"
+      command: "echo 'PromQL: http_requests_total{job=\"monitored-app\"}  → Shows cumulative requests per route/method/status'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the PromQL query for the counter metric." },
+        { token: "'PromQL: http_requests_total...'", description: "Specifies the text to print, containing the PromQL expression that selects the cumulative HTTP request counter for the monitored-app job." }
+      ]
     },
     {
       step: 7,
       description: "Query 3: Request rate over 5 minutes (counter with rate() — per-second rate of requests).",
-      command: "echo 'PromQL: rate(http_requests_total[5m])  → Shows ~requests per second for each time series'"
+      command: "echo 'PromQL: rate(http_requests_total[5m])  → Shows ~requests per second for each time series'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the PromQL rate query." },
+        { token: "'PromQL: rate(http_requests_total[5m])...'", description: "Specifies the text to print, containing the PromQL expression that computes the per-second rate of the counter averaged over a 5-minute window." }
+      ]
     },
     {
       step: 8,
       description: "Query 4: P95 request latency (histogram_quantile — 95th percentile latency).",
-      command: "echo 'PromQL: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))  → Returns P95 latency in seconds'"
+      command: "echo 'PromQL: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))  → Returns P95 latency in seconds'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the PromQL histogram quantile query." },
+        { token: "'PromQL: histogram_quantile(0.95, ...)...'", description: "Specifies the text to print, containing the canonical P95 latency expression that combines histogram_quantile with rate and sum aggregation." }
+      ]
     },
     {
       step: 9,
       description: "Query 5: Current heap memory usage (gauge — read raw value directly).",
-      command: "echo 'PromQL: process_resident_memory_bytes{job=\"monitored-app\"}  → Memory in bytes (gauge, read raw)'"
+      command: "echo 'PromQL: process_resident_memory_bytes{job=\"monitored-app\"}  → Memory in bytes (gauge, read raw)'",
+      annotations: [
+        { token: "echo", description: "Prints the following quoted string to standard output, displaying the PromQL gauge query." },
+        { token: "'PromQL: process_resident_memory_bytes...'", description: "Specifies the text to print, containing the PromQL expression that reads the resident memory gauge directly without rate() since gauge values are meaningful raw." }
+      ]
     },
     {
       step: 10,
       description: "View the alert rules loaded into Prometheus. Navigate to Alerts in the Prometheus UI to see the AppDown, HighRequestLatency, and HighErrorRate rules.",
-      command: "curl -s 'http://localhost:9090/api/v1/rules' | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(r['name']) for g in d['data']['groups'] for r in g['rules']]\""
+      command: "curl -s 'http://localhost:9090/api/v1/rules' | python3 -c \"import sys,json; d=json.load(sys.stdin); [print(r['name']) for g in d['data']['groups'] for r in g['rules']]\"",
+      annotations: [
+        { token: "curl", description: "Makes an HTTP request to the specified URL and writes the response to standard output." },
+        { token: "-s", description: "Runs curl in silent mode, suppressing the progress meter and error messages so only the response body is printed." },
+        { token: "'http://localhost:9090/api/v1/rules'", description: "Specifies the Prometheus HTTP API endpoint that returns all loaded alerting and recording rules in JSON format." },
+        { token: "|", description: "Pipes the output of curl as standard input to python3, passing the JSON rules response for parsing." },
+        { token: "python3", description: "Runs the Python 3 interpreter to parse and display the rules data from the Prometheus API." },
+        { token: "-c", description: "Tells python3 to execute the following quoted string as a Python program instead of reading from a file." },
+        { token: "\"import sys,json; d=...\"", description: "Specifies the Python code to run: parses the JSON, iterates over rule groups and rules, and prints each rule name to show which alerts are loaded." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your team deploys a new version of the Node.js API and immediately the Prometheus Targets page shows the monitored-app job switching to State: DOWN. You check docker compose ps and all containers show as running. What does the Prometheus up metric actually test, and where should you investigate next?"
+    answer="The up metric tests whether Prometheus can successfully make an HTTP GET to the /metrics endpoint and receive a valid response. A container showing running in docker compose ps only means the process started — it does not mean the application inside is ready to serve requests. Investigate by checking the app logs with docker compose logs app to see if the application crashed or failed to bind to its port. Also verify the prometheus.yml target configuration has the correct host and port, since Prometheus resolves app:3000 by Docker service name and a misconfigured target would cause DOWN even if the container is healthy."
+  />
+  <ScenarioQuestion
+    question="You run rate(http_requests_total[5m]) immediately after starting the stack and get 0 for all time series. You then run http_requests_total and see cumulative counts of 0 as well. A teammate says rate() is broken and you should graph the raw counter instead. Are they right? What do these results actually tell you, and what should you do next?"
+    answer="Your teammate is wrong about rate() being broken, but they are identifying the right symptom for the wrong reason. A raw counter of 0 means no HTTP requests have reached the app yet since startup — rate() of zero-value counters will also be zero, which is mathematically correct. The fix is to generate traffic first, then query. After running the curl traffic loop from step 5, wait one full Prometheus scrape interval (15 seconds) for the new metric values to be ingested, then re-run rate(). Graphing raw counter values instead of rate() would be incorrect — the counter only increases and would give you total requests since startup, not requests per second, making it useless for understanding current load."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
