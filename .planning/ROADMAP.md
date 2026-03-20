@@ -75,7 +75,7 @@ Plans:
   2. Every Intermediate exercise in Linux Fundamentals shows step descriptions without commands, and every Challenge exercise shows goal-only with a reference sheet
   3. Every exercise in Linux Fundamentals has at least one ScenarioQuestion that connects the command to the opening scenario's context
   4. `next build` completes with zero errors and zero TypeScript type errors after the Linux Fundamentals migration
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
 - [ ] 10-01-PLAN.md — Annotate Foundation lessons 01-02 (hardware + OS) with command annotations and ScenarioQuestions
@@ -107,7 +107,7 @@ Plans:
 | 7. Monitoring & Advanced Capstone | v1.0 | 3/3 | Complete | 2026-03-19 |
 | 8. Design Lock | 2/2 | Complete   | 2026-03-20 | - |
 | 9. Component Implementation | 2/3 | In Progress|  | - |
-| 10. Linux Fundamentals Prototype | 1/3 | In Progress|  | - |
+| 10. Linux Fundamentals Prototype | 2/3 | In Progress|  | - |
 | 11. Full Content Migration | v1.1 | 0/TBD | Not started | - |
 
 ---
