@@ -7,13 +7,15 @@ interface CodeBlockProps {
   children: React.ReactNode
   'data-language'?: string    // injected by rehype-pretty-code
   'data-filename'?: string    // from MDX meta string: ```bash filename="deploy.sh"
+  language?: string           // when used directly as <CodeBlock language="yaml">
+  title?: string              // when used directly as <CodeBlock title="filename">
   className?: string
 }
 
-export function CodeBlock({ children, className, ...props }: CodeBlockProps) {
+export function CodeBlock({ children, className, language: langProp, title, ...props }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
-  const language = props['data-language']
-  const filename = props['data-filename']
+  const language = props['data-language'] ?? langProp
+  const filename = props['data-filename'] ?? title
 
   const handleCopy = async () => {
     // Extract text content from the pre element

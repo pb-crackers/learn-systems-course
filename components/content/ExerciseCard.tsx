@@ -30,7 +30,7 @@ export function ExerciseCard({
   scenario,
   difficulty,
   objective,
-  steps,
+  steps = [],
   children,
 }: ExerciseCardProps) {
   const [open, setOpen] = useState(false)

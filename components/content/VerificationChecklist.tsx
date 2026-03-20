@@ -14,7 +14,7 @@ interface VerificationChecklistProps {
   title?: string
 }
 
-export function VerificationChecklist({ items, title = 'Verification' }: VerificationChecklistProps) {
+export function VerificationChecklist({ items = [], title = 'Verification' }: VerificationChecklistProps) {
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [expandedHints, setExpandedHints] = useState<Record<string, boolean>>({})
 

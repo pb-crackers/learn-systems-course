@@ -60,6 +60,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     TerminalBlock,
     VerificationChecklist,
     QuickReference,
+    CodeBlock,
     ...components,
   }
 }

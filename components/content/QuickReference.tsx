@@ -12,11 +12,29 @@ interface ReferenceSection {
 }
 
 interface QuickReferenceProps {
-  sections: ReferenceSection[]
+  sections?: ReferenceSection[]
+  title?: string
+  children?: React.ReactNode
   className?: string
 }
 
-export function QuickReference({ sections, className }: QuickReferenceProps) {
+export function QuickReference({ sections, title, children, className }: QuickReferenceProps) {
+  // When used with markdown table children instead of structured sections prop
+  if (!sections || sections.length === 0) {
+    return (
+      <div className={cn('space-y-4 my-8', className)}>
+        {title && (
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </h3>
+        )}
+        <div className="rounded-lg border border-border overflow-hidden p-4 prose prose-invert prose-sm max-w-none">
+          {children}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={cn('space-y-6 my-8', className)}>
       {sections.map((section) => (
