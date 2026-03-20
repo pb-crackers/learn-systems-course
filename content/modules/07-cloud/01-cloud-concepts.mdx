@@ -107,29 +107,50 @@ This course is provider-agnostic. Cloud concepts are identical across providers 
   difficulty="Foundation"
   scenario="You have been running a web application on a single Docker host: an nginx frontend, a Node.js API, and a PostgreSQL database. Your manager asks you to prepare a migration plan to the cloud. Before touching any cloud console, you need to map each component to its cloud equivalent and explain the service model."
   objective="By the end of this exercise, you will be able to identify the IaaS/PaaS/SaaS model appropriate for each component, explain the difference between regions and AZs, and map a Docker Compose stack to cloud services."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Identify the service model for each component. For each service in the Docker Compose stack (nginx, Node.js API, PostgreSQL), determine whether the cloud equivalent would be IaaS, PaaS, or SaaS — and explain why.",
-      command: "# Think through: who manages the OS? Who manages the runtime? Who manages the data?"
+      command: "# Think through: who manages the OS? Who manages the runtime? Who manages the data?",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 2,
       description: "Map the Compose stack to cloud services. nginx → ?, Node.js API → ?, PostgreSQL → ?. Use the AWS column from the service mapping table in the lesson.",
-      command: "# nginx (load balancer role) → ALB | Node.js API → ECS/Fargate | PostgreSQL → RDS (managed DB)"
+      command: "# nginx (load balancer role) → ALB | Node.js API → ECS/Fargate | PostgreSQL → RDS (managed DB)",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 3,
       description: "Explain the single-AZ risk. What happens to each component if the single AZ hosting your app experiences a hardware failure?",
-      command: "# All three fail — one AZ, no redundancy"
+      command: "# All three fail — one AZ, no redundancy",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 4,
       description: "Explain the multi-AZ improvement. If the API runs in two AZs behind a load balancer, what happens when one AZ fails?",
-      command: "# Load balancer routes to healthy AZ — users see no downtime (within seconds of failover)"
+      command: "# Load balancer routes to healthy AZ — users see no downtime (within seconds of failover)",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your manager says the current single Docker host setup is fine because the application has been stable for months. What specific risk does single-AZ deployment introduce, and what would happen to each component — nginx, the Node.js API, and PostgreSQL — if the host machine's physical hardware failed at 2 AM?"
+    answer="A single Docker host is a single point of failure regardless of uptime history. If the physical machine fails, all three containers stop simultaneously: nginx stops accepting requests, the Node.js API stops processing them, and PostgreSQL stops accepting writes. Any in-flight transactions are lost. If the PostgreSQL volume is on the host machine's ephemeral disk, data written after the last backup is also lost. The stability history is irrelevant — hardware failure is a matter of when, not if. Multi-AZ deployment means nginx routes traffic to app instances in a second availability zone while the failed zone is repaired. Users experience no downtime beyond the few seconds for health checks to mark the failed instance as unhealthy."
+  />
+  <ScenarioQuestion
+    question="You are mapping the Node.js API to a cloud equivalent. Your colleague suggests using a raw EC2 instance (IaaS) because it is familiar. Under what conditions would managed containers (PaaS) be the better choice, and what operational work does that tradeoff eliminate?"
+    answer="Managed containers are the better choice when the application already has a working Dockerfile and the team does not need to customize the operating system or install kernel modules. Choosing ECS/Fargate or Cloud Run over a raw EC2 instance eliminates the need to manually install Docker on the VM, write and maintain a systemd unit to restart the container on crash, apply OS security patches, resize the instance when traffic grows, and configure health checks that replace failed containers. The application team keeps all control over the container image — the runtime environment, dependencies, and startup command — while the platform handles the machine management underneath. The tradeoff is that if the team later needs a custom kernel module or a non-standard OS configuration, migrating from PaaS to IaaS requires re-architecting the deployment."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

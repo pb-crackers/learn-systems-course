@@ -144,29 +144,50 @@ The cloud provider manages:
   difficulty="Foundation"
   scenario="Your team is migrating a three-component application to the cloud. The app consists of: (1) a Node.js REST API that serves 200 requests/minute around the clock, (2) an image resizer that runs when a user uploads a photo (spiky, infrequent), and (3) a nightly report generator that runs for 10 minutes at midnight. You need to choose the right compute tier for each component and justify the decision."
   objective="By the end of this exercise, you will be able to apply the compute decision framework to real workload characteristics and explain the tradeoffs of each tier."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Evaluate the Node.js API. It runs 24/7 with steady traffic and already has a Dockerfile. Which compute tier? Why is serverless a poor choice even though it is 'simpler'?",
-      command: "# Managed containers (ECS/Cloud Run) — steady traffic means serverless is expensive and adds cold-start latency"
+      command: "# Managed containers (ECS/Cloud Run) — steady traffic means serverless is expensive and adds cold-start latency",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 2,
       description: "Evaluate the image resizer. It triggers on user upload (event-driven), is infrequent (maybe 50 uploads/day), and each resize takes 2 seconds. Which compute tier? What does 'scale to zero' mean for this workload?",
-      command: "# Serverless (Lambda/Cloud Functions) — event-driven, infrequent, short duration. Scale to zero = no cost when idle."
+      command: "# Serverless (Lambda/Cloud Functions) — event-driven, infrequent, short duration. Scale to zero = no cost when idle.",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 3,
       description: "Evaluate the nightly report. It runs for 10 minutes at midnight. Could this be serverless? What is the Lambda max execution time limit that affects this decision?",
-      command: "# Lambda max is 15 minutes — a 10-minute report fits, but check your cloud's limit. Cloud Functions allows 60 minutes."
+      command: "# Lambda max is 15 minutes — a 10-minute report fits, but check your cloud's limit. Cloud Functions allows 60 minutes.",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     },
     {
       step: 4,
       description: "Name the specific service for each component on AWS. API → ?, Image resizer → ?, Report generator → ?",
-      command: "# API: ECS with Fargate | Image resizer: Lambda | Report: Lambda (or ECS scheduled task for longer jobs)"
+      command: "# API: ECS with Fargate | Image resizer: Lambda | Report: Lambda (or ECS scheduled task for longer jobs)",
+      annotations: [
+        { token: "#", description: "Begins a shell comment — the shell ignores everything after this character on the same line." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your team is debating whether to use Lambda for the Node.js REST API because it would eliminate server management entirely. The API currently handles 200 requests per minute consistently throughout the business day. What specific problems would you encounter using serverless for this workload that you would not face with managed containers?"
+    answer="A Node.js API receiving 200 requests per minute throughout the business day has no meaningful idle period — there is no 'zero' state to scale from. Lambda functions that receive constant traffic never go cold, so the cold-start benefit disappears, but the per-invocation billing remains. At 200 requests per minute for 8 business hours, the total invocation count exceeds what managed container billing would cost for the same period. Lambda also has a maximum execution time and does not support long-running connections, which rules it out if the API handles WebSocket connections or streaming responses. Managed containers like ECS with Fargate run your existing Docker image unchanged, handle constant traffic efficiently, and cost predictably based on container uptime rather than per-invocation billing that adds up at steady load."
+  />
+  <ScenarioQuestion
+    question="The image resizer needs to process uploads as they arrive, with no predictable schedule — sometimes five uploads in a minute, sometimes none for an hour. You are choosing between a dedicated EC2 instance running the resizer continuously and a Lambda function that triggers on each upload. What does 'scale to zero' mean in practice, and how does it change the cost model for this specific workload?"
+    answer="Scale to zero means the compute resource does not exist (and does not cost anything) when no work is being done. For the image resizer, scale to zero means there is no running EC2 instance sitting idle during the periods with no uploads — Lambda provisions execution environments only when an upload event arrives and releases them when the resize function completes. For a workload that is idle most of the time, this is dramatically cheaper than a dedicated EC2 instance that bills by the hour regardless of utilization. A resizer that processes 50 uploads per day at 2 seconds each consumes about 100 seconds of compute time per day. An EC2 instance running 24 hours costs for 86,400 seconds of compute capacity to deliver 100 seconds of actual work. Lambda charges only for those 100 seconds plus a small per-request fee."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[
