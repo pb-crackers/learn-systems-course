@@ -5,7 +5,7 @@ milestone_name: Command Pedagogy
 status: planning
 stopped_at: Completed 11-07-PLAN.md
 last_updated: "2026-03-20T14:02:58.937Z"
-last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
+last_activity: "2026-03-20 - Completed quick task 260320-k09: Fix MDX escaped double quotes in 19 files"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -113,6 +113,14 @@ None yet.
 
 - Phase 8 must enumerate exact Foundation command field count (~200 estimate) and frontmatter/ExerciseCard difficulty mismatch list before Phase 9 begins — these gaps are flagged in research SUMMARY.md
 - MDX inline prop parse behavior with complex objects is unvalidated in the specific Next.js 16.2 + @next/mdx 3.1.1 config — Phase 10 prototype must validate import-from-.ts pattern before Phase 11 commits to it
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260320-9il | Fix lesson page readability: improve header/metadata area and heading styles | 2026-03-20 | c726a5b | [260320-9il](./quick/260320-9il-fix-lesson-page-readability-improve-head/) |
+| 260320-9oq | Fix build error (Callout type="info") and visible frontmatter (remark-frontmatter) | 2026-03-20 | da73b54 | [260320-9oq](./quick/260320-9oq-fix-build-error-and-visible-frontmatter-/) |
+| 260320-k09 | Fix MDX escaped double quotes in 19 files | 2026-03-20 | fc86a7e | [260320-k09](./quick/260320-k09-fix-mdx-escaped-double-quotes-in-19-file/) |
 
 ## Session Continuity
 
