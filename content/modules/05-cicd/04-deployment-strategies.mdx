@@ -213,6 +213,14 @@ Blue/green's instant rollback is its defining advantage. The old environment is 
     }
   ]}
 >
+  <ScenarioQuestion
+    question="In Step 4, you concluded that rolling deployment is the worst fit for a payments service because rollback is slow. Your colleague argues that rolling is fine because you can just deploy v1 again. What is wrong with this reasoning, and how does it compare to the blue/green rollback?"
+    answer="The argument misunderstands what 'slow rollback' means in practice. A rolling re-deploy of v1 takes the same time as the original rolling deploy — every instance must be cycled through one at a time. If you have 10 instances and each takes two minutes to replace and health-check, a full rollback takes 20 minutes. During all of that time, some instances are running the broken v2 and actively processing payment transactions. For a payments service where every failed transaction is direct revenue loss and potential regulatory liability, 20 minutes of mixed broken/working instances is unacceptable. Blue/green rollback is a single load balancer configuration change — the old Blue environment is already running, already warm, and already health-checked. The switch takes milliseconds and zero users see the broken version after the rollback fires."
+  />
+  <ScenarioQuestion
+    question="Your team decides to use canary deployment for the payment service with the existing Prometheus/Grafana stack. You route 5% of traffic to the new version and start monitoring. What specific metrics should you watch, and at what point should the canary be automatically rolled back versus manually reviewed?"
+    answer="For a payment service, the critical metrics to monitor during a canary are: error rate (HTTP 5xx and payment-specific error codes like declined transactions or timeout errors), P99 and P95 latency on the payment endpoint, and business-level metrics like successful transaction rate and transaction volume. The canary should be automatically rolled back immediately if error rate exceeds a threshold above the baseline (for payments, even a 0.5% error rate increase on the canary should trigger rollback — the cost of a false positive rollback is far lower than the cost of 5% of payment transactions failing). Manual review is appropriate for latency increases that are within acceptable bounds but above baseline, because these may reflect expected behavior from new database queries or feature complexity. The Prometheus alertmanager can fire a webhook that routes traffic back to v1 automatically when error rate exceeds the threshold, making the canary self-healing without requiring an engineer to be watching the dashboard in real time."
+  />
   <VerificationChecklist
     title="Verify Your Understanding"
     items={[

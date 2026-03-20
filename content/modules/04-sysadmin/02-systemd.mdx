@@ -155,59 +155,141 @@ Priority levels (from lowest to highest): `debug`, `info`, `notice`, `warning`, 
   difficulty="Foundation"
   scenario="Your team deployed a long-running script that needs to run continuously on a server. After the last system reboot, it didn't start automatically, and when it crashed due to a transient error, nobody noticed for hours. You need to create a proper systemd service that starts on boot and automatically restarts on failure."
   objective="By the end of this exercise, you will be able to write a unit file, register it with systemd, control it with systemctl, and use journalctl to read its output."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Start the systemd-enabled lab container. The --privileged and --tmpfs flags are required for systemd to function correctly inside a container.",
-      command: "docker run -d --name sysadmin-lab --privileged --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro jrei/systemd-ubuntu:22.04"
+      command: "docker run -d --name sysadmin-lab --privileged --tmpfs /tmp --tmpfs /run --tmpfs /run/lock -v /sys/fs/cgroup:/sys/fs/cgroup:ro jrei/systemd-ubuntu:22.04",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "-d", description: "Runs the container in detached mode so it keeps running in the background after the command returns." },
+        { token: "--name", description: "Assigns a human-readable name to the container so you can reference it by name instead of a random ID." },
+        { token: "sysadmin-lab", description: "The container name to assign — used in later commands like docker exec to identify this specific container." },
+        { token: "--privileged", description: "Grants the container extended permissions including full access to host devices and kernel features required by systemd." },
+        { token: "--tmpfs", description: "Mounts a temporary in-memory filesystem at the specified path, required for systemd to write runtime state." },
+        { token: "/tmp", description: "Path for the first tmpfs mount — systemd uses this directory for temporary files during service startup." },
+        { token: "--tmpfs", description: "Mounts a second temporary in-memory filesystem, required for systemd PID files and socket files." },
+        { token: "/run", description: "Path for the second tmpfs mount — systemd stores runtime state, sockets, and PID files here." },
+        { token: "--tmpfs", description: "Mounts a third temporary in-memory filesystem for systemd lock files." },
+        { token: "/run/lock", description: "Path for the third tmpfs mount — systemd uses this directory for lock files to serialize access to resources." },
+        { token: "-v", description: "Binds a host directory into the container, making the host path accessible at the container path." },
+        { token: "/sys/fs/cgroup:/sys/fs/cgroup:ro", description: "Mounts the host cgroup filesystem into the container as read-only so systemd can manage process resource limits." },
+        { token: "jrei/systemd-ubuntu:22.04", description: "Specifies the image to use — a systemd-enabled Ubuntu 22.04 image that includes all required init system components." }
+      ]
     },
     {
       step: 2,
       description: "Wait a moment for systemd to finish initializing, then open a shell in the running container.",
-      command: "docker exec -it sysadmin-lab bash"
+      command: "docker exec -it sysadmin-lab bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI to communicate with the Docker daemon." },
+        { token: "exec", description: "Runs a command inside an already-running container without creating a new container." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the shell session." },
+        { token: "sysadmin-lab", description: "The name of the running container to execute the command inside." },
+        { token: "bash", description: "The command to run inside the container — opens an interactive Bash shell." }
+      ]
     },
     {
       step: 3,
       description: "Create the script that the service will run. The -e flag on echo prevents literal backslash-n interpretation issues. This script loops forever, printing a message every 5 seconds.",
-      command: "cat > /usr/local/bin/hello.sh << 'EOF'\n#!/bin/bash\nwhile true; do\n  echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Hello from systemd service\"\n  sleep 5\ndone\nEOF\nchmod +x /usr/local/bin/hello.sh"
+      command: "cat > /usr/local/bin/hello.sh << 'EOF'\n#!/bin/bash\nwhile true; do\n  echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Hello from systemd service\"\n  sleep 5\ndone\nEOF\nchmod +x /usr/local/bin/hello.sh",
+      annotations: [
+        { token: "cat", description: "Reads from standard input and writes to standard output — used here to write a heredoc to a file via redirection." },
+        { token: ">", description: "Redirects stdout to the specified file path, creating the file if it does not exist or overwriting it if it does." },
+        { token: "/usr/local/bin/hello.sh", description: "The destination path for the script file — /usr/local/bin is in the default PATH so the script can be called by name." },
+        { token: "chmod", description: "Changes the file permission bits to control who can read, write, or execute the file." },
+        { token: "+x", description: "Adds the execute permission bit for owner, group, and others so the script can be run as a program." },
+        { token: "/usr/local/bin/hello.sh", description: "The script file to make executable — required before systemd can call it as the ExecStart command." }
+      ]
     },
     {
       step: 4,
       description: "Write the systemd unit file. Type=simple means the process stays in the foreground. Restart=on-failure means it restarts only if it exits with a non-zero status.",
-      command: "cat > /etc/systemd/system/hello.service << 'EOF'\n[Unit]\nDescription=Hello World Service\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/local/bin/hello.sh\nRestart=on-failure\nRestartSec=5s\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\nEOF"
+      command: "cat > /etc/systemd/system/hello.service << 'EOF'\n[Unit]\nDescription=Hello World Service\nAfter=network.target\n\n[Service]\nType=simple\nExecStart=/usr/local/bin/hello.sh\nRestart=on-failure\nRestartSec=5s\nStandardOutput=journal\nStandardError=journal\n\n[Install]\nWantedBy=multi-user.target\nEOF",
+      annotations: [
+        { token: "cat", description: "Reads from standard input and writes to standard output — used here to write a heredoc into the unit file via redirection." },
+        { token: ">", description: "Redirects stdout to the specified file path, creating or overwriting the unit file." },
+        { token: "/etc/systemd/system/hello.service", description: "The unit file path in the local override directory — systemd reads unit files from here during daemon-reload." }
+      ]
     },
     {
       step: 5,
       description: "Tell systemd to reload its unit file configuration. This must be done every time you create or modify a unit file — otherwise systemd still has the old (or absent) version in memory.",
-      command: "systemctl daemon-reload"
+      command: "systemctl daemon-reload",
+      annotations: [
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "daemon-reload", description: "Instructs systemd to re-read all unit files from disk, picking up any new or modified service definitions." }
+      ]
     },
     {
       step: 6,
       description: "Start the service and check its status immediately. Active: active (running) confirms it started successfully.",
-      command: "systemctl start hello.service && systemctl status hello.service"
+      command: "systemctl start hello.service && systemctl status hello.service",
+      annotations: [
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "start", description: "Activates the specified unit immediately, launching the process defined in ExecStart." },
+        { token: "hello.service", description: "The name of the unit to start — systemd looks up this name in its loaded unit file table." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, so status is checked only after a successful start." },
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "status", description: "Displays the current state of the unit including active/inactive status, PID, recent journal output, and last exit code." },
+        { token: "hello.service", description: "The unit to inspect — shows whether it reached active (running) state after the start command." }
+      ]
     },
     {
       step: 7,
       description: "Enable the service so it starts automatically on the next boot. This creates a symlink in /etc/systemd/system/multi-user.target.wants/.",
-      command: "systemctl enable hello.service"
+      command: "systemctl enable hello.service",
+      annotations: [
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "enable", description: "Installs the unit for automatic startup by creating a symlink in the WantedBy target directory." },
+        { token: "hello.service", description: "The unit to enable — systemd will start this service automatically when the system reaches multi-user.target." }
+      ]
     },
     {
       step: 8,
       description: "Read the service's log output using journalctl. The -f flag follows new entries as they arrive (like tail -f). Press Ctrl+C to stop following.",
-      command: "journalctl -u hello.service -f"
+      command: "journalctl -u hello.service -f",
+      annotations: [
+        { token: "journalctl", description: "Queries and displays entries from the systemd journal, the structured binary log store." },
+        { token: "-u", description: "Filters journal output to show only entries from the specified systemd unit." },
+        { token: "hello.service", description: "The unit name to filter by — shows only log entries produced by this service." },
+        { token: "-f", description: "Follows the journal in real time, printing new entries as they arrive (similar to tail -f on a log file)." }
+      ]
     },
     {
       step: 9,
       description: "Stop the service and verify it stopped. Active: inactive (dead) is the expected state.",
-      command: "systemctl stop hello.service && systemctl status hello.service"
+      command: "systemctl stop hello.service && systemctl status hello.service",
+      annotations: [
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "stop", description: "Deactivates the specified unit, sending SIGTERM to the process and waiting for it to exit." },
+        { token: "hello.service", description: "The unit to stop — systemd sends the stop signal to the running process for this service." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, so status is checked only after a successful stop." },
+        { token: "systemctl", description: "The primary command-line tool for managing systemd units, services, and system state." },
+        { token: "status", description: "Displays the current state of the unit — should show inactive (dead) after a successful stop." },
+        { token: "hello.service", description: "The unit to inspect — confirms the service has transitioned to the inactive state." }
+      ]
     },
     {
       step: 10,
       description: "Clean up the container when done.",
-      command: "exit"
+      command: "exit",
+      annotations: [
+        { token: "exit", description: "Ends the current shell session, returning control to the host terminal and closing the container exec connection." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your hello.service crashed and systemd restarted it, but 10 minutes later it crashed again. You need to find out what error it logged just before it crashed. What journalctl command would show you only the error-level messages from hello.service across all restarts?"
+    answer="Run journalctl -u hello.service -p err to filter the service journal to error priority and above. This shows only the err, crit, alert, and emerg messages from every run of the service, across all restarts, without the noise of normal info output. If you want to narrow it to the last restart only, combine it with --since to specify a time window. The -p flag maps directly to syslog priority levels, so -p err means priority 3 and below (lower number = more severe)."
+  />
+  <ScenarioQuestion
+    question="You modified the ExecStart path in hello.service but after running systemctl restart hello.service the service is still launching the old script path. You confirmed the unit file on disk has the new path. What did you forget, and what is the correct sequence of commands to apply the change?"
+    answer="You forgot to run systemctl daemon-reload before restarting. systemd loads unit files into memory when it first reads them — modifying the file on disk does not update the in-memory configuration. systemctl restart uses the cached in-memory version. The correct sequence is: systemctl daemon-reload (re-reads unit files from disk), then systemctl restart hello.service (stops and starts using the updated configuration). Skipping daemon-reload is a common mistake that causes confusing behavior where your edits appear to have no effect."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

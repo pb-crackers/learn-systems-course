@@ -184,54 +184,144 @@ This architecture is the foundation for Phase 7's monitoring and observability m
   difficulty="Foundation"
   scenario="Your web server's /var/log/myapp/ directory is growing without bound — unbounded log files are approaching disk capacity. You need to set up log rotation for the application logs. You also need to practice journalctl filtering to efficiently find specific error patterns in the system journal."
   objective="By the end of this exercise, you will be able to write logrotate configurations, force rotation, and use journalctl to filter logs by unit, time range, and severity."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Launch the lab container. For this exercise, a standard Ubuntu container is sufficient.",
-      command: "docker run --rm -it ubuntu:22.04 bash"
+      command: "docker run --rm -it ubuntu:22.04 bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "--rm", description: "Automatically removes the container when it exits, keeping the system clean after the session." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the container shell." },
+        { token: "ubuntu:22.04", description: "Specifies the image to use — Ubuntu 22.04 LTS with standard package management tools available." },
+        { token: "bash", description: "Overrides the default container command and starts an interactive Bash shell inside the container." }
+      ]
     },
     {
       step: 2,
       description: "Install logrotate and verify it is available.",
-      command: "apt-get update -qq && apt-get install -y logrotate && logrotate --version"
+      command: "apt-get update -qq && apt-get install -y logrotate && logrotate --version",
+      annotations: [
+        { token: "apt-get", description: "The Debian/Ubuntu package management tool for installing, updating, and removing software packages." },
+        { token: "update", description: "Downloads the current package list from all configured repositories so apt knows what versions are available." },
+        { token: "-qq", description: "Runs in double-quiet mode, suppressing all output except errors to keep the terminal clean during the update." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, ensuring install only runs after a successful update." },
+        { token: "apt-get", description: "The Debian/Ubuntu package management tool used here to install the logrotate package." },
+        { token: "install", description: "Downloads and installs the specified package and its dependencies onto the system." },
+        { token: "-y", description: "Automatically answers yes to all confirmation prompts, enabling non-interactive installation." },
+        { token: "logrotate", description: "The package name to install — the log rotation utility that manages log file retention and compression." },
+        { token: "&&", description: "Runs the next command only if install succeeded, so version is only checked after a successful installation." },
+        { token: "logrotate", description: "Runs the logrotate binary to confirm the installation succeeded and show the installed version." },
+        { token: "--version", description: "Prints the logrotate version string and exits, confirming the binary is installed and executable." }
+      ]
     },
     {
       step: 3,
       description: "Create the application log directory and generate some initial log data to rotate.",
-      command: "mkdir -p /var/log/myapp && for i in $(seq 1 50); do echo \"[$(date)] INFO Request processed successfully\" >> /var/log/myapp/access.log; done && wc -l /var/log/myapp/access.log"
+      command: "mkdir -p /var/log/myapp && for i in $(seq 1 50); do echo \"[$(date)] INFO Request processed successfully\" >> /var/log/myapp/access.log; done && wc -l /var/log/myapp/access.log",
+      annotations: [
+        { token: "mkdir", description: "Creates a directory at the specified path." },
+        { token: "-p", description: "Creates all parent directories in the path if they do not exist, and does not error if the directory already exists." },
+        { token: "/var/log/myapp", description: "The directory path to create — the standard location for this application log files." },
+        { token: "&&", description: "Runs the next command only if mkdir succeeded, chaining the directory creation and log generation steps." },
+        { token: "wc", description: "Counts words, lines, or characters in the specified file or standard input." },
+        { token: "-l", description: "Counts only lines in the input, printing the total line count to confirm 50 entries were written." },
+        { token: "/var/log/myapp/access.log", description: "The log file to count — confirms the for loop wrote all 50 lines before proceeding." }
+      ]
     },
     {
       step: 4,
       description: "Write a logrotate configuration for the application logs. Keep 7 rotations (one week), compress old files, and do not fail if the log is missing.",
-      command: "cat > /etc/logrotate.d/myapp << 'EOF'\n/var/log/myapp/*.log {\n    daily\n    rotate 7\n    compress\n    delaycompress\n    missingok\n    notifempty\n    create 0640 root adm\n}\nEOF"
+      command: "cat > /etc/logrotate.d/myapp << 'EOF'\n/var/log/myapp/*.log {\n    daily\n    rotate 7\n    compress\n    delaycompress\n    missingok\n    notifempty\n    create 0640 root adm\n}\nEOF",
+      annotations: [
+        { token: "cat", description: "Reads from standard input and writes to standard output — used here to write a heredoc to a file via redirection." },
+        { token: ">", description: "Redirects stdout to the specified file path, creating the configuration file." },
+        { token: "/etc/logrotate.d/myapp", description: "The drop-in configuration file path — logrotate automatically reads all files in /etc/logrotate.d/ on each run." }
+      ]
     },
     {
       step: 5,
       description: "Verify the logrotate configuration parses without errors. --debug mode shows what logrotate would do without actually doing it.",
-      command: "logrotate --debug /etc/logrotate.d/myapp"
+      command: "logrotate --debug /etc/logrotate.d/myapp",
+      annotations: [
+        { token: "logrotate", description: "The log rotation utility that manages retention and compression of log files according to configuration files." },
+        { token: "--debug", description: "Runs in dry-run mode, printing what logrotate would do without actually rotating any files." },
+        { token: "/etc/logrotate.d/myapp", description: "The configuration file to parse and simulate — shows the rotation plan for the myapp log files." }
+      ]
     },
     {
       step: 6,
       description: "Force rotation immediately. Without --force, logrotate skips files that were recently rotated. Check that the rotated file appears.",
-      command: "logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/"
+      command: "logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/",
+      annotations: [
+        { token: "logrotate", description: "The log rotation utility — runs the rotation defined in the specified configuration file." },
+        { token: "--force", description: "Forces rotation to occur immediately even if the rotation criteria have not been met since the last run." },
+        { token: "/etc/logrotate.d/myapp", description: "The configuration file to execute — defines which logs to rotate and how." },
+        { token: "&&", description: "Runs the next command only if logrotate succeeded, so ls only runs after a successful rotation." },
+        { token: "ls", description: "Lists the contents of a directory." },
+        { token: "-la", description: "Lists all files in long format showing permissions, owner, size, and modification date, including hidden files." },
+        { token: "/var/log/myapp/", description: "The directory to list — shows the current and rotated log files after rotation." }
+      ]
     },
     {
       step: 7,
       description: "Write a few more log entries and force a second rotation to see the compressed previous rotation.",
-      command: "for i in $(seq 1 20); do echo \"[$(date)] WARN Slow response detected\" >> /var/log/myapp/access.log; done && logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/"
+      command: "for i in $(seq 1 20); do echo \"[$(date)] WARN Slow response detected\" >> /var/log/myapp/access.log; done && logrotate --force /etc/logrotate.d/myapp && ls -la /var/log/myapp/",
+      annotations: [
+        { token: "logrotate", description: "The log rotation utility — runs the rotation again to demonstrate compression of the previous rotation." },
+        { token: "--force", description: "Forces a second rotation so the first rotated file (access.log.1) gets compressed to access.log.1.gz." },
+        { token: "/etc/logrotate.d/myapp", description: "The configuration file to execute for the second rotation." },
+        { token: "&&", description: "Runs the next command only if logrotate succeeded, so ls only runs after the rotation completes." },
+        { token: "ls", description: "Lists the contents of the directory." },
+        { token: "-la", description: "Lists all files in long format showing sizes and dates, revealing both the new rotation and the compressed older rotation." },
+        { token: "/var/log/myapp/", description: "The directory to list — should now show access.log, access.log.1, and access.log.2.gz after two rotations." }
+      ]
     },
     {
       step: 8,
       description: "Now practice journalctl. On this minimal container journald may not be running, but you can still explore the syntax. Check if journald is available.",
-      command: "which journalctl && journalctl --no-pager -n 5 2>/dev/null || echo 'journald not running in this container — see systemd lesson for journalctl practice'"
+      command: "which journalctl && journalctl --no-pager -n 5 2>/dev/null || echo 'journald not running in this container — see systemd lesson for journalctl practice'",
+      annotations: [
+        { token: "which", description: "Searches the PATH for an executable with the given name and prints its full path if found." },
+        { token: "journalctl", description: "The binary to locate — confirms whether the journalctl command is available in this container." },
+        { token: "&&", description: "Runs the next command only if which found the binary, so journalctl only runs if it exists." },
+        { token: "journalctl", description: "Queries and displays entries from the systemd journal log store." },
+        { token: "--no-pager", description: "Disables the default pager so output is printed directly to the terminal without requiring keyboard navigation." },
+        { token: "-n", description: "Limits output to the most recent N journal entries." },
+        { token: "5", description: "Shows only the last 5 entries, giving a quick sample of recent journal output." },
+        { token: "2>/dev/null", description: "Redirects stderr to /dev/null, suppressing error messages if journald is not running in this container." },
+        { token: "||", description: "Runs the next command only if the previous command failed, so the echo only appears if journald is unavailable." },
+        { token: "echo", description: "Prints the fallback message to stdout explaining why journalctl output is not available in this container." }
+      ]
     },
     {
       step: 9,
       description: "Review the logrotate status file to see when each log was last rotated.",
-      command: "cat /var/lib/logrotate/status 2>/dev/null || cat /var/lib/logrotate.status 2>/dev/null || echo 'Status file location may differ by distribution'"
+      command: "cat /var/lib/logrotate/status 2>/dev/null || cat /var/lib/logrotate.status 2>/dev/null || echo 'Status file location may differ by distribution'",
+      annotations: [
+        { token: "cat", description: "Reads the specified file and writes its contents to standard output." },
+        { token: "/var/lib/logrotate/status", description: "The logrotate status file path on modern systems — records the last rotation timestamp for each configured log file." },
+        { token: "2>/dev/null", description: "Redirects stderr to /dev/null, suppressing the error message if this path does not exist on this system." },
+        { token: "||", description: "Runs the next command only if the previous command failed, trying the alternate status file location." },
+        { token: "cat", description: "Reads the alternate status file path used by older logrotate versions." },
+        { token: "/var/lib/logrotate.status", description: "The legacy logrotate status file path found on some older distributions." },
+        { token: "2>/dev/null", description: "Redirects stderr to /dev/null so no error appears if this path also does not exist." },
+        { token: "||", description: "Runs the next command only if both previous cat attempts failed." },
+        { token: "echo", description: "Prints an informational message if neither status file path was found on this system." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After the second forced rotation you see access.log, access.log.1, and access.log.2.gz in /var/log/myapp/. Why is access.log.1 uncompressed while access.log.2.gz is compressed? When will access.log.1 get compressed?"
+    answer="The delaycompress directive in the logrotate config prevents compressing the most recently rotated file. access.log.1 is the most recent rotation, so it is left uncompressed for now. The reason is practical: some applications keep the previous log file open for a brief period after rotation — compressing it immediately could corrupt the data being written. On the next rotation, access.log.1 becomes access.log.2 and gets compressed to access.log.2.gz, while the new access.log.1 (the just-rotated file) is again left uncompressed. This one-rotation delay ensures no application is still writing to a file when it is compressed."
+  />
+  <ScenarioQuestion
+    question="Your nginx server is getting 400 errors. You want to see all error-level journal entries from nginx.service in the last two hours. What single journalctl command shows only those entries, and what does each flag contribute?"
+    answer="Run: journalctl -u nginx.service --since '2 hours ago' -p err. The -u nginx.service flag filters to only journal entries tagged with that systemd unit name, excluding all other system messages. The --since '2 hours ago' flag limits output to entries timestamped within the last two hours, removing historical noise. The -p err flag further filters to error priority and above (err, crit, alert, emerg), dropping the info and warning entries that fill the log during normal operation. Combining all three flags gives you a targeted view of exactly the events relevant to diagnosing the 400 error."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

@@ -145,59 +145,136 @@ For automation and scripts, use `useradd` with explicit flags. For interactive a
   difficulty="Foundation"
   scenario="Your team is onboarding a new backend developer. You need to create their account, set a temporary password, create a shared project group, add them to it, and grant sudo access through a drop-in file — following the principle of least privilege."
   objective="By the end of this exercise, you will be able to create users and groups, manage group membership, and configure granular sudo access using sudoers.d drop-in files."
+  annotated={true}
   steps={[
     {
       step: 1,
       description: "Launch the lab container. The sysadmin lab image has sudo, passwd, and all user management tools pre-installed.",
-      command: "docker run --rm -it ubuntu:22.04 bash"
+      command: "docker run --rm -it ubuntu:22.04 bash",
+      annotations: [
+        { token: "docker", description: "Runs the Docker CLI, which communicates with the Docker daemon to manage images and containers." },
+        { token: "run", description: "Creates and starts a new container from the specified image." },
+        { token: "--rm", description: "Automatically removes the container when it exits, keeping the system clean after the session." },
+        { token: "-it", description: "Allocates a pseudo-TTY and keeps stdin open so you can interact with the container shell." },
+        { token: "ubuntu:22.04", description: "Specifies the image to use — Ubuntu 22.04 LTS, which includes all standard user management tools." },
+        { token: "bash", description: "Overrides the default container command and starts an interactive Bash shell inside the container." }
+      ]
     },
     {
       step: 2,
       description: "Create the new user account with a home directory and bash shell. The -m flag creates /home/devuser. Without -m, no home directory is created.",
-      command: "useradd -m -s /bin/bash -c 'Backend Developer' devuser"
+      command: "useradd -m -s /bin/bash -c 'Backend Developer' devuser",
+      annotations: [
+        { token: "useradd", description: "Creates a new user account by adding entries to /etc/passwd, /etc/shadow, and /etc/group." },
+        { token: "-m", description: "Creates the user home directory at /home/username if it does not already exist." },
+        { token: "-s", description: "Sets the user login shell — the program launched when the user opens a terminal session." },
+        { token: "/bin/bash", description: "Specifies bash as the login shell, giving the new user an interactive shell with command history and completion." },
+        { token: "-c", description: "Sets the GECOS comment field in /etc/passwd, typically the user full name or description." },
+        { token: "'Backend Developer'", description: "The comment text stored in the GECOS field — used by finger and some UI tools to display the user description." },
+        { token: "devuser", description: "The username to create — becomes the account name used for login and displayed in shell prompts." }
+      ]
     },
     {
       step: 3,
       description: "Verify the user was created. You should see devuser's entry in /etc/passwd with UID >= 1000 and the bash shell.",
-      command: "grep devuser /etc/passwd"
+      command: "grep devuser /etc/passwd",
+      annotations: [
+        { token: "grep", description: "Searches file contents line by line and prints lines matching the given pattern." },
+        { token: "devuser", description: "The pattern to search for — matches any line containing the username, confirming the account entry exists." },
+        { token: "/etc/passwd", description: "The primary user account database — each line has seven colon-separated fields describing one account." }
+      ]
     },
     {
       step: 4,
       description: "Set a temporary password. In production, use a strong random password and require the user to change it on first login (passwd -e devuser).",
-      command: "echo 'devuser:TempPass123!' | chpasswd"
+      command: "echo 'devuser:TempPass123!' | chpasswd",
+      annotations: [
+        { token: "echo", description: "Writes its argument text to standard output, which is piped to chpasswd as input." },
+        { token: "'devuser:TempPass123!'", description: "The username and password in colon-separated format that chpasswd expects for non-interactive password setting." },
+        { token: "chpasswd", description: "Reads username:password pairs from stdin and updates the hashed password in /etc/shadow for each account." }
+      ]
     },
     {
       step: 5,
       description: "Create the shared project group. GID will be assigned automatically.",
-      command: "groupadd backend-team"
+      command: "groupadd backend-team",
+      annotations: [
+        { token: "groupadd", description: "Creates a new group by adding an entry to /etc/group and /etc/gshadow with an auto-assigned GID." },
+        { token: "backend-team", description: "The group name to create — used to identify the group in commands like usermod and in /etc/group entries." }
+      ]
     },
     {
       step: 6,
       description: "Add devuser to the backend-team group. The -a flag appends (preserves existing groups). The -G flag specifies the supplementary group. Without -a, existing supplementary groups are replaced.",
-      command: "usermod -aG backend-team devuser"
+      command: "usermod -aG backend-team devuser",
+      annotations: [
+        { token: "usermod", description: "Modifies an existing user account's attributes in /etc/passwd, /etc/shadow, and /etc/group." },
+        { token: "-a", description: "Appends the user to the supplementary group instead of replacing their current group list." },
+        { token: "-G", description: "Specifies a supplementary group to add the user to, used together with -a to avoid removing existing group memberships." },
+        { token: "backend-team", description: "The supplementary group name to add devuser to, granting shared access to resources owned by this group." },
+        { token: "devuser", description: "The username to modify — the account whose group membership is being updated." }
+      ]
     },
     {
       step: 7,
       description: "Verify group membership. The id command shows both primary and supplementary groups.",
-      command: "id devuser"
+      command: "id devuser",
+      annotations: [
+        { token: "id", description: "Prints the UID, primary GID, and all supplementary group IDs and names for the specified user." },
+        { token: "devuser", description: "The username to look up — shows the effective identity and all group memberships for this account." }
+      ]
     },
     {
       step: 8,
       description: "Create a sudoers drop-in file to grant devuser the ability to restart the application service without a password. The 440 permission is required — sudo refuses world-readable sudoers files.",
-      command: "echo 'devuser ALL=(root) NOPASSWD: /bin/systemctl restart myapp' > /etc/sudoers.d/devuser && chmod 440 /etc/sudoers.d/devuser"
+      command: "echo 'devuser ALL=(root) NOPASSWD: /bin/systemctl restart myapp' > /etc/sudoers.d/devuser && chmod 440 /etc/sudoers.d/devuser",
+      annotations: [
+        { token: "echo", description: "Writes the sudoers rule text to standard output so it can be redirected into the drop-in file." },
+        { token: "'devuser ALL=(root) NOPASSWD: /bin/systemctl restart myapp'", description: "The sudoers rule granting devuser passwordless permission to run only the myapp restart command as root." },
+        { token: ">", description: "Redirects stdout to a file, creating the file if it does not exist or overwriting it if it does." },
+        { token: "/etc/sudoers.d/devuser", description: "The drop-in file path — sudo automatically includes all files in /etc/sudoers.d/ when evaluating permissions." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, ensuring chmod only runs after the file is created." },
+        { token: "chmod", description: "Changes the file permission bits of the specified file." },
+        { token: "440", description: "Sets the file to read-only for owner and group, with no permissions for others — required by sudo to prevent privilege escalation." },
+        { token: "/etc/sudoers.d/devuser", description: "The drop-in sudoers file to apply the 440 permission to." }
+      ]
     },
     {
       step: 9,
       description: "Verify the sudoers drop-in file syntax. visudo -c checks all sudoers files including the /etc/sudoers.d/ directory.",
-      command: "visudo -c"
+      command: "visudo -c",
+      annotations: [
+        { token: "visudo", description: "The safe editor for sudoers files — validates syntax before saving to prevent lockout scenarios." },
+        { token: "-c", description: "Runs in check-only mode, parsing all sudoers files and reporting syntax errors without opening an editor." }
+      ]
     },
     {
       step: 10,
       description: "Examine what was created in /etc/passwd and /etc/shadow for devuser.",
-      command: "grep devuser /etc/passwd && grep devuser /etc/shadow | cut -d: -f1-3"
+      command: "grep devuser /etc/passwd && grep devuser /etc/shadow | cut -d: -f1-3",
+      annotations: [
+        { token: "grep", description: "Searches file contents and prints lines matching the given pattern." },
+        { token: "devuser", description: "The pattern to search for — matches the account entry for the newly created user." },
+        { token: "/etc/passwd", description: "The primary user account database containing seven fields: username, password placeholder, UID, GID, GECOS, home, shell." },
+        { token: "&&", description: "Runs the next command only if the previous command exited with success, chaining both lookups together." },
+        { token: "grep", description: "Searches file contents and prints lines matching the given pattern." },
+        { token: "devuser", description: "The pattern to search for in /etc/shadow — matches the hashed password entry for devuser." },
+        { token: "/etc/shadow", description: "The shadow password file — stores hashed passwords and aging policy, readable only by root." },
+        { token: "cut", description: "Extracts specific fields from each input line by splitting on a delimiter character." },
+        { token: "-d:", description: "Sets the field delimiter to colon, matching the colon-separated format of /etc/shadow entries." },
+        { token: "-f1-3", description: "Selects fields 1 through 3 — username, hashed password, and last-changed date — omitting sensitive aging fields." }
+      ]
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You ran useradd without the -m flag by mistake. devuser was created but has no home directory. Another engineer says just run mkdir /home/devuser and chown devuser:devuser /home/devuser. Is that sufficient, or does something else need to happen?"
+    answer="mkdir and chown are necessary but not sufficient. The home directory also needs the correct skeleton files — bash configuration files (.bashrc, .bash_profile, .profile) that a new shell session expects. Without them, devuser will get a bare shell with no history settings, aliases, or PATH configuration. The correct fix is to copy the skeleton from /etc/skel into the new home directory: cp -r /etc/skel/. /home/devuser/ and then chown -R devuser:devuser /home/devuser/. This ensures the user gets the same default dotfiles that useradd -m would have created."
+  />
+  <ScenarioQuestion
+    question="A colleague used usermod -G backend-team devuser instead of usermod -aG backend-team devuser. devuser was already in the sudo group. What happened to their sudo access, and how would you fix it without re-adding them manually to each lost group?"
+    answer="Without the -a flag, usermod -G replaces the user supplementary group list entirely. devuser lost their sudo group membership and any other supplementary groups they were in — only backend-team remains. To restore their access, you would need to re-add them to each lost group. To prevent this in future, always use -aG together. To audit what groups a user currently belongs to, run id devuser or groups devuser — then usermod -aG sudo devuser to restore the missing membership."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

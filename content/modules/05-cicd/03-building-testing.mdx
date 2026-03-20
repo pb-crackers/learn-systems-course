@@ -264,6 +264,14 @@ For libraries and tools that need to support multiple runtime versions, the matr
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your team's pipeline passes lint and test on a pull request, but the build-push job is skipped. You confirm the workflow has 'needs: test' on build-push. What is the most likely reason build-push is being skipped on a PR, and how is that behavior intentional?"
+    answer="The build-push job has an 'if: github.ref == refs/heads/main' condition. On a pull request, the ref is refs/pull/123/merge, not refs/heads/main, so the condition evaluates to false and the job is skipped — this is deliberate, not a bug. The design intent is that pull requests trigger code quality checks (lint, test) but should never push a Docker image to ghcr.io, because PR code has not yet been reviewed and merged. Only commits that reach the main branch produce images in the registry. This keeps the image registry clean: every image in ghcr.io corresponds to reviewed, merged code, and you can trace any deployed image back to a specific merged commit."
+  />
+  <ScenarioQuestion
+    question="The build-push job fails with 'denied: installation not allowed to Create organization package'. You have confirmed the YAML syntax is valid, login-action authenticated successfully, and the image tag is correct. What is the missing piece and where in the workflow YAML do you add it?"
+    answer="The missing piece is the 'packages: write' permission on the build-push job. GITHUB_TOKEN has read-only access to packages by default. Without an explicit 'packages: write' grant, the push step authenticates successfully but fails authorization when attempting to create or update a package in ghcr.io. The fix is to add a permissions block directly to the build-push job: 'permissions: contents: read, packages: write'. The contents: read grant allows actions/checkout to clone the repository, and packages: write grants GITHUB_TOKEN the right to push images to ghcr.io for this repository. This is a least-privilege pattern: you grant only what the job specifically needs, not broad access."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
