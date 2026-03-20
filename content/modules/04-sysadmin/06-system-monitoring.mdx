@@ -268,6 +268,14 @@ In Phase 7 (Monitoring and Observability), you will learn **Prometheus** for col
     }
   ]}
 >
+  <ScenarioQuestion
+    question="vmstat shows load average of 6.0 on a 4-core server. r=5, b=0, %wa=1%. A colleague says this is definitely a disk I/O problem because the load is so high. Are they correct? What does this pattern actually tell you, and what is the correct next step?"
+    answer="Your colleague is wrong. The pattern r=5, b=0, %wa=1% is a classic CPU bottleneck signature, not an I/O bottleneck. r=5 means 5 processes are in the run queue competing for CPU time. b=0 means zero processes are blocked on I/O — no process is waiting for a disk read or write. %wa=1% confirms CPU is almost never idle waiting for I/O. A disk bottleneck would show high b and high %wa. With this pattern, the correct next step is top or htop to find which process is consuming the CPU — sort by CPU column and look for a process consistently above 90%. That process is your bottleneck."
+  />
+  <ScenarioQuestion
+    question="Your production server shows: uptime load average 0.8 on 4 cores (healthy), vmstat %wa = 2% (healthy), but users still report slow responses. The bottleneck identification pattern does not show any resource saturation. What categories of problems could cause slow responses without showing up in load average or vmstat?"
+    answer="Low load with slow responses points to non-resource bottlenecks: the server itself is not saturated, but something is causing delays. The most common causes are network latency or bandwidth (the server is waiting for an external service — a database, API, or DNS lookup — that is slow), application-level concurrency issues (thread pool exhaustion, lock contention, or connection pool limits hit), or GC pauses in a runtime like JVM or Go that cause request stalls without burning CPU. The command-line tools in this lesson only measure local resource consumption. Diagnosing these issues requires application metrics, distributed tracing, or checking connection counts with ss -s and network latency with ping or traceroute to dependencies."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

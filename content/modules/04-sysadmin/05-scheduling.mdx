@@ -273,6 +273,14 @@ renice 10 -u nobody        # change all processes owned by user 'nobody'
     }
   ]}
 >
+  <ScenarioQuestion
+    question="Your cron backup job runs at 2:30 AM and has been silently failing for two weeks. The crontab entry looks correct. Where does cron send error output when there is no redirection in the cron entry, and what is the consequence of not having >> /var/log/backup.log 2>&1 on the cron line?"
+    answer="Without output redirection, cron attempts to email the output to the system user's local mail account — typically stored in /var/spool/mail/username. If no mail daemon is configured (common on production servers), the email is silently discarded and no one ever sees the error output. This is why the job can fail silently for weeks. The 2>&1 in the cron entry redirects stderr to stdout, and >> appends both to the log file. Without this pattern, even a job that crashes with a clear error message leaves no trace. The systemd timer approach avoids this by always routing output to journald, making journalctl -u backup.service the reliable audit trail."
+  />
+  <ScenarioQuestion
+    question="Your backup job takes 45 minutes to run and is scheduled at 2:30 AM. The server goes offline for maintenance from 1:00 AM to 4:00 AM. With cron, what happens to the 2:30 AM backup? With a systemd timer using Persistent=true, what happens?"
+    answer="With cron, the 2:30 AM job is simply missed — cron checks the current time against its schedule. If the system is off at 2:30 AM, cron never sees that time slot and the job does not run. There is no catch-up mechanism. The backup for that day is lost. With a systemd timer using Persistent=true, the timer records when it was last triggered. On the next boot at 4:00 AM, systemd checks whether the timer has elapsed since the last run — it has, by 90 minutes. systemd runs the backup immediately at startup to catch up. Persistent=true is the key difference that makes systemd timers more reliable than cron for jobs where missed executions matter."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

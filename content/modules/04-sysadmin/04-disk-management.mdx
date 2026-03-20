@@ -254,6 +254,14 @@ Full LVM administration (vgcreate, lvcreate, lvextend, pvmove) is a topic for ad
     }
   ]}
 >
+  <ScenarioQuestion
+    question="After mounting /mnt/appdata, you write files there. Then the system reboots and /mnt/appdata is empty — the mount point directory exists but the filesystem is not mounted. You open /etc/fstab and confirm the entry looks correct. What is the most likely cause, and how would you diagnose it?"
+    answer="The most likely cause is a missing nofail option combined with a device that is temporarily unavailable at boot — but with nofail in place, the symptom would be different. A more common cause is using a device name like /dev/loop0 that does not persist across reboots (loopback devices are not re-created automatically after reboot). In production, fstab entries should use the UUID obtained from blkid, not the device path — UUIDs are stable even if the device enumeration order changes. To diagnose, check journalctl -b for mount errors, verify the device exists with lsblk, and confirm the fstab UUID matches blkid output."
+  />
+  <ScenarioQuestion
+    question="Your server's root filesystem is at 92% capacity. df -h shows / at 92%, but du -sh /* shows the top-level directories only consume 40GB of the 50GB total. How do you explain the gap, and what tool would reveal what is actually consuming the remaining space?"
+    answer="The gap usually means deleted files that are still held open by running processes. When a process opens a file, the filesystem does not release the blocks even after the file is deleted — the space is only freed when the process closes its file handle. This is common with application logs that were deleted but the application is still writing to the file descriptor. To find these, run lsof | grep deleted — it will show all files that have been deleted but still have open handles. To reclaim the space without restarting the process, you can truncate the file to zero bytes: truncate -s 0 /proc/PID/fd/FD where FD is the file descriptor number from lsof output."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
