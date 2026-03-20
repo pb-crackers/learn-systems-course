@@ -33,11 +33,11 @@
 
 ### Content Migration
 
-- [ ] **MIGR-01**: All Foundation lessons (~22) have annotated command blocks for every exercise
+- [x] **MIGR-01**: All Foundation lessons (~22) have annotated command blocks for every exercise
 - [ ] **MIGR-02**: All Intermediate lessons (~20) have step descriptions rewritten to be actionable without commands
 - [ ] **MIGR-03**: Challenge/capstone exercises have goal-only format with reference sheets
-- [ ] **MIGR-04**: All exercises include scenario-contextualized questions tying commands back to the opening scenario
-- [ ] **MIGR-05**: Each module passes `next build` after migration
+- [x] **MIGR-04**: All exercises include scenario-contextualized questions tying commands back to the opening scenario
+- [x] **MIGR-05**: Each module passes `next build` after migration
 - [x] **MIGR-06**: Linux Fundamentals migrated first as prototype to validate the pattern
 
 ## Future Requirements
@@ -78,11 +78,11 @@
 | SCEN-01 | Phase 9 | Complete |
 | SCEN-02 | Phase 9 | Complete |
 | SCEN-03 | Phase 9 | Complete |
-| MIGR-01 | Phase 11 | Pending |
+| MIGR-01 | Phase 11 | Complete |
 | MIGR-02 | Phase 11 | Pending |
 | MIGR-03 | Phase 11 | Pending |
-| MIGR-04 | Phase 11 | Pending |
-| MIGR-05 | Phase 11 | Pending |
+| MIGR-04 | Phase 11 | Complete |
+| MIGR-05 | Phase 11 | Complete |
 | MIGR-06 | Phase 10 | Complete |
 
 **Coverage:**

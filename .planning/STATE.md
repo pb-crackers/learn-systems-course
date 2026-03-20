@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Command Pedagogy
 status: planning
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-03-20T13:25:41.102Z"
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-20T13:39:41.891Z"
 last_activity: 2026-03-20 — v1.1 roadmap created; ready to plan Phase 8
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 15
+  completed_plans: 9
   percent: 0
 ---
 
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 10-linux-fundamentals-prototype P01 | 5min | 2 tasks | 2 files |
 | Phase 10-linux-fundamentals-prototype P02 | 6min | 2 tasks | 2 files |
 | Phase 10-linux-fundamentals-prototype P03 | 3min | 2 tasks | 5 files |
+| Phase 11-full-content-migration P11-01 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Recent decisions affecting v1.1 work:
 - [Phase 10-linux-fundamentals-prototype]: Annotation token granularity: && operators annotated separately in multi-command steps as distinct shell operators with their own meaning
 - [Phase 10-linux-fundamentals-prototype]: ScenarioQuestion answers written at paragraph length for complete diagnostic reasoning rather than one-word answers
 - [Phase 10-linux-fundamentals-prototype]: 2 ScenarioQuestions per lesson chosen for pedagogical depth; Intermediate lessons confirmed no annotated={true}
+- [Phase 11-full-content-migration]: Comment-command annotation: all 4 command fields in 07-cloud/01-02 are shell comment lines; annotated with single # token describing the shell comment operator
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:19:47.933Z
-Stopped at: Completed 10-03-PLAN.md
+Last session: 2026-03-20T13:39:41.888Z
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
