@@ -275,6 +275,14 @@ Fewer layers means faster pulls and pushes. Fewer layers also means fewer cached
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You built app:basic from Dockerfile.basic (1.12GB) and app:optimized from Dockerfile.optimized (142MB). You then run docker run --rm app:optimized id and see uid=100(appuser). Your colleague says the non-root user is only a cosmetic change. Why are they wrong, and what specific attack scenario does the non-root user actually mitigate?"
+    answer="The non-root user is a meaningful security control, not cosmetic. Containers share the host's Linux kernel, and container breakout vulnerabilities — exploits that escape the container's namespace isolation — do occur. If the container runs as root (uid=0) and an attacker exploits a vulnerability in your application to execute arbitrary code, they arrive in the host kernel context as root. A non-root user (uid=100) limits the blast radius: the attacker's access on the host is constrained to what that unprivileged UID can do, which is typically nothing useful. Additionally, if your app is exploited but stays inside the container, running as non-root prevents the process from writing to system paths, installing backdoors in system directories, or reading sensitive files owned by root. Many container security scanners and Kubernetes admission controllers reject images that run as root, so it is also a practical deployment requirement."
+  />
+  <ScenarioQuestion
+    question="You are rebuilding app:optimized after changing a comment in app.js. The second build took 38 seconds — same as the first. You expected it to use the cached npm ci layer and rebuild in under 2 seconds. What went wrong in the Dockerfile instruction order?"
+    answer="The COPY instruction that copies app source files into the image appears before the RUN npm ci instruction. When Docker evaluates the build cache, it hashes the files being copied. Changing app.js changes the hash of the COPY . . instruction, which invalidates that layer and every subsequent layer — including the RUN npm ci layer below it. To fix this, the package files must be copied before the application source: COPY package*.json ./ should come first, then RUN npm ci --omit=dev, and only then COPY . . to copy the application code. With this order, changing app.js only invalidates the final COPY layer — the npm ci layer was cached by the package*.json hash, which did not change, so Docker reuses it. The rebuild should take 1-2 seconds instead of 38."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

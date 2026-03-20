@@ -203,6 +203,14 @@ Named volumes and bind mounts **bypass this mechanism entirely**. Their data goe
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You removed the counter container with docker rm -f and confirmed the count.txt file is gone. Now you restart the container with the same named volume. The counter picks up from 2, not from 0. What is actually happening at the filesystem level that makes the named volume survive docker rm while the container's writable layer does not?"
+    answer="When you run docker rm, Docker destroys the container's writable layer — the upperdir in the overlay filesystem. That layer is the container's private scratchpad, and anything written there (files created or modified during the container's lifetime that are not in a volume) disappears. The named volume is a separate Docker object stored at /var/lib/docker/volumes/appstate/_data on the host. It is mounted into the container at /app/data using a bind at the filesystem level — the data goes directly to that host path, bypassing the overlay driver's writable layer entirely. Because the volume is a separate object with its own lifecycle, docker rm does not touch it. Only docker volume rm or docker compose down -v explicitly removes named volumes."
+  />
+  <ScenarioQuestion
+    question="You are developing a Node.js app using a bind mount: docker run -v $(pwd)/docker/app:/app. You edit app.js on your host, but the running container is serving the old response. Your colleague says to use a named volume instead for development. Are they right, and what is actually causing the stale response?"
+    answer="Your colleague is wrong about the solution but right that something is off. A bind mount does make the file change immediately visible inside the container — the host path and the container path point to the same underlying inode. The stale response is not a volume problem; it is a Node.js problem. Node.js caches required modules in memory when the process starts. Editing app.js on the host updates the file on disk, but the Node.js process inside the container has already loaded the old version into memory. You need to restart the Node process (or use a file watcher like nodemon) to pick up the change. Switching to a named volume would actually make development harder — you would lose direct host access to edit files."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

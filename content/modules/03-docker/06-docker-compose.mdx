@@ -265,6 +265,14 @@ docker compose --profile debug up -d
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You ran docker compose up -d and the nginx service started before the API passed its healthcheck. You have depends_on: api in the nginx service, so why did nginx start anyway? What is missing from your compose.yml?"
+    answer="depends_on with just a service name (not a condition) only waits for the api container to start — meaning the Docker daemon has created and launched the container process. It does not wait for the service inside the container to be ready. The nginx container sees 'api container is running' and immediately starts, even though the Node.js process inside might still be initializing or the /health endpoint might not be responding yet. To make nginx wait for actual readiness, you need two things: a healthcheck on the api service (a test command that returns exit 0 when the API is ready, with interval, timeout, and retries), and a condition in depends_on: depends_on: { api: { condition: service_healthy } }. Without both, depends_on is only a start-ordering hint, not a readiness gate."
+  />
+  <ScenarioQuestion
+    question="You wrote a .env file in the same directory as compose.yml containing DATABASE_URL=postgres://localhost/mydb, and your compose.yml service has environment: [DATABASE_URL]. You run docker compose up and exec into the container — DATABASE_URL is not set. What is the difference between the .env file and the env_file key, and what do you need to fix?"
+    answer="The .env file in the compose.yml directory is used by Docker Compose for variable substitution in the compose.yml file itself — it expands references like ${DATABASE_URL} in the YAML. It is NOT automatically injected as environment variables into containers. Your compose.yml has environment: [DATABASE_URL] which means 'set the environment variable DATABASE_URL inside the container to the value of the host shell variable DATABASE_URL' — but the .env file does not export to the shell. The fix: change the environment block to environment: [DATABASE_URL=${DATABASE_URL}] so Compose substitutes the .env value into the container's environment, or use the env_file key (env_file: [.env]) which directly loads key=value pairs from a file as container environment variables without going through the compose.yml substitution step."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[

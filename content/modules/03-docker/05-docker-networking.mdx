@@ -229,6 +229,14 @@ A container can be connected to **multiple networks simultaneously**. In the dia
     }
   ]}
 >
+  <ScenarioQuestion
+    question="You ran docker exec web curl -s http://api:3000/ and got a valid JSON response. Then you ran the same curl from plain2, which is on the default bridge, and got 'ping: bad address'. Both containers are on the same Docker host. Why can plain2 not reach the api container even though they share the same physical host?"
+    answer="Network reachability in Docker is determined by which Docker network a container is attached to, not which physical host it is on. The api container is on 'appnet' — a custom bridge with its own private subnet and Docker's embedded DNS at 127.0.0.11. That DNS resolver only knows about containers connected to the same network. plain2 is on the default bridge (docker0), which uses a different subnet and has no embedded DNS at all. When plain2 tries to resolve 'api', there is no DNS server to answer, so the lookup fails immediately. Even if you tried to reach api by its IP address, the two bridge networks are separate L2 segments — packets from plain2 are not routed to the appnet subnet. They are isolated by design."
+  />
+  <ScenarioQuestion
+    question="You inspect the appnet network and see both 'api' and 'web' containers listed with IPs 172.18.0.2 and 172.18.0.3. Tomorrow you do docker rm -f api and docker run --name api --network appnet ... to recreate it. The web container immediately starts failing its curl to http://api:3000/. But when you exec into web and run nslookup api, it resolves correctly. What is happening and how do you confirm the issue?"
+    answer="The DNS resolution itself is working — Docker's embedded DNS at 127.0.0.11 has updated and correctly maps 'api' to the new container's IP. The problem is almost certainly in the application layer: the web container or its proxy has cached the old IP address from the previous api container at the TCP connection or application level, and is still attempting to connect to 172.18.0.2 (or whatever the old IP was) rather than re-resolving. Confirm by running docker exec web curl -s http://api:3000/ directly — if that works but the application-level proxy does not, the cache is in the proxy or application, not in Docker's DNS. The fix depends on the proxy: for nginx, run nginx -s reload inside the web container to clear upstream connection state."
+  />
   <VerificationChecklist
     title="Verify Your Work"
     items={[
