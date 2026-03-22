@@ -1,4 +1,4 @@
-import { moduleCompletionPercent, courseCompletionPercent, isModuleComplete } from '../progress'
+import { moduleCompletionPercent, courseCompletionPercent, isModuleComplete, isLessonComplete } from '../progress'
 import type { Module } from '@/types/content'
 import type { ProgressState } from '@/types/progress'
 
@@ -63,5 +63,27 @@ describe('isModuleComplete', () => {
 
   it('returns false when only some lessons complete', () => {
     expect(isModuleComplete(makeModule(['a', 'b']), makeProgress(['a']))).toBe(false)
+  })
+})
+
+describe('isLessonComplete', () => {
+  it('returns false for undefined (no progress record)', () => {
+    expect(isLessonComplete(undefined)).toBe(false)
+  })
+
+  it('returns false when completed is false', () => {
+    expect(isLessonComplete({ completed: false, exercisesCompleted: [] })).toBe(false)
+  })
+
+  it('returns true when completed is true with no quizPassed field (grandfather rule — pre-v1.2 record)', () => {
+    expect(isLessonComplete({ completed: true, exercisesCompleted: [] })).toBe(true)
+  })
+
+  it('returns true when completed is true and quizPassed is true', () => {
+    expect(isLessonComplete({ completed: true, quizPassed: true, exercisesCompleted: [] })).toBe(true)
+  })
+
+  it('returns false when completed is true but quizPassed is false', () => {
+    expect(isLessonComplete({ completed: true, quizPassed: false, exercisesCompleted: [] })).toBe(false)
   })
 })
