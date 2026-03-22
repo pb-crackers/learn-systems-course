@@ -133,7 +133,7 @@ Plans:
 | 12. Schema and Progress Foundation | 1/1 | Complete    | 2026-03-22 | - |
 | 13. Quiz Component Build | 1/1 | Complete    | 2026-03-22 | - |
 | 14. Layout Integration and Gating | 1/1 | Complete    | 2026-03-22 | - |
-| 15. Content Authoring | 3/8 | In Progress|  | - |
+| 15. Content Authoring | 5/8 | In Progress|  | - |
 
 ---
 *Roadmap created: 2026-03-18*

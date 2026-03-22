@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
-stopped_at: Completed 15-07-PLAN.md
-last_updated: "2026-03-22T21:23:45.943Z"
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-22T21:24:41.819Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 11
-  completed_plans: 6
+  completed_plans: 8
   percent: 0
 ---
 
@@ -68,6 +68,8 @@ Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 | Phase 15-content-authoring P06 | 4min | 2 tasks | 5 files |
 | Phase 15-content-authoring P05 | 4min | 2 tasks | 5 files |
 | Phase 15-content-authoring P07 | 5min | 2 tasks | 6 files |
+| Phase 15-content-authoring P08 | 5min | 2 tasks | 7 files |
+| Phase 15-content-authoring P02 | 6min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -93,6 +95,8 @@ Recent decisions affecting v1.2 work:
 - [Phase 15-content-authoring]: Foundation/Intermediate question style distinction maintained: lessons 01, 02, 05 test recall; lessons 03, 04 test application
 - [Phase 15-content-authoring]: Questions scoped strictly to lesson content in Module 06 IaC: no cross-lesson knowledge required to answer correctly
 - [Phase 15-content-authoring]: Foundation lessons (01, 02, 06) test recall; Intermediate lessons (03, 04, 05) test application — 50 questions total across Module 07
+- [Phase 15-content-authoring]: Foundation lessons (01, 02, 06) use recall questions; Intermediate lessons (03, 04, 05) use application questions with Docker/network scenarios; Challenge lesson (07) uses synthesis questions connecting metrics to source-code root causes
+- [Phase 15-02]: Foundation lessons (01-04, 08) use recall questions; Intermediate lessons (05-07) use application/scenario questions matching lesson difficulty tags
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:23:45.940Z
-Stopped at: Completed 15-07-PLAN.md
+Last session: 2026-03-22T21:24:41.817Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
