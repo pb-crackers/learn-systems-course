@@ -58,26 +58,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| QUIZ-01 | — | Pending |
-| QUIZ-02 | — | Pending |
-| QUIZ-03 | — | Pending |
-| QUIZ-04 | — | Pending |
-| QUIZ-05 | — | Pending |
-| QUIZ-06 | — | Pending |
-| GATE-01 | — | Pending |
-| GATE-02 | — | Pending |
-| GATE-03 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| LAYOUT-01 | — | Pending |
-| LAYOUT-02 | — | Pending |
+| QUIZ-01 | Phase 13 | Pending |
+| QUIZ-02 | Phase 13 | Pending |
+| QUIZ-03 | Phase 13 | Pending |
+| QUIZ-04 | Phase 13 | Pending |
+| QUIZ-05 | Phase 13 | Pending |
+| QUIZ-06 | Phase 13 | Pending |
+| GATE-01 | Phase 14 | Pending |
+| GATE-02 | Phase 12 | Pending |
+| GATE-03 | Phase 12 | Pending |
+| DATA-01 | Phase 12 | Pending |
+| DATA-02 | Phase 12 | Pending |
+| DATA-03 | Phase 15 | Pending |
+| LAYOUT-01 | Phase 14 | Pending |
+| LAYOUT-02 | Phase 14 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after initial definition*
+*Last updated: 2026-03-22 after roadmap creation (phases 12-15)*

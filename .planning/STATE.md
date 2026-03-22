@@ -4,10 +4,10 @@ milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
 stopped_at: ""
-last_updated: "2026-03-20"
-last_activity: "2026-03-20 - Milestone v1.2 started"
+last_updated: "2026-03-22"
+last_activity: "2026-03-22 - v1.2 roadmap created (phases 12-15)"
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -18,38 +18,31 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-20)
+See: .planning/PROJECT.md (updated 2026-03-22)
 
 **Core value:** Every lesson must be hands-on and interactive with thorough explanations — the learner practices real skills and understands how machines actually work. Delivered as a modern, production-ready Next.js web application.
-**Current focus:** Milestone v1.2 — Enhanced Questions
+**Current focus:** Phase 12 — Schema and Progress Foundation (v1.2)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-20 — Milestone v1.2 started
+Phase: 12 of 15 (Schema and Progress Foundation)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 
-Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
+Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 
 ## Performance Metrics
 
-**Velocity (v1.0 baseline):**
-- Total plans completed: 27 (v1.0)
-- Average duration: ~7min
-- Total execution time: ~3.2 hours
+**Velocity (v1.1 baseline):**
+- Total plans completed: 15 (v1.1)
+- Average duration: ~6min
+- Total execution time: ~1.5 hours
 
 **v1.1 Plans:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| — | — | — | — |
-
-**Recent Trend:**
-- v1.0 final plans: 5min, 12min, 5min
-- Trend: Stable baseline
-
-*Updated after each plan completion*
 | Phase 08-design-lock P01 | 4 | 2 tasks | 3 files |
 | Phase 08-design-lock P08-02 | 8min | 2 tasks | 3 files |
 | Phase 09-component-implementation P02 | 2min | 2 tasks | 2 files |
@@ -64,46 +57,24 @@ Progress: [░░░░░░░░░░] 0% (v1.1 milestone)
 | Phase 11-full-content-migration P11-04 | 7min | 2 tasks | 4 files |
 | Phase 11-full-content-migration P07 | 9min | 2 tasks | 7 files |
 
+**Recent Trend:**
+- v1.1 final plans: 6min, 20min, 7min, 9min
+- Trend: Stable
+
+*Updated after each plan completion*
+
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting v1.1 work:
+Recent decisions affecting v1.2 work:
 
-- [v1.1 Roadmap]: Design lock phase (Phase 8) is mandatory before any code — 8 critical pitfalls from research are all Phase 1 preventions; annotation co-location, MDX prop pattern, challenge verification policy, and localStorage key must be locked in writing first
-- [v1.1 Roadmap]: Bottom-up component build order is non-negotiable (context/types → leaf components → ExerciseCard → LessonLayout) — ExerciseCard is consumed in 52/56 lessons, all new props must be optional
-- [v1.1 Roadmap]: Linux Fundamentals migrated first as prototype (Phase 10) before bulk migration (Phase 11) — validates annotation schema and MDX serialization against the actual Next.js 16.2 + @next/mdx 3.1.1 config
-- [v1.1 Roadmap]: SCEN requirements introduce ScenarioQuestion as a new component pattern — "I am running this command to answer THIS question" with expandable reveal; distinct from AnnotatedCommand and ChallengeReferenceSheet
-- [v1.1 Roadmap]: `next build` runs per module after migration, never in batch — MDX prop serialization errors caught early
-- [Phase 08-design-lock]: Annotation co-location: annotations array lives in ExerciseStep (not parallel top-level array) to prevent silent misalignment on step reordering
-- [Phase 08-design-lock]: Foundation safety net is a hard override in ExerciseCard — applies regardless of learner preferredMode or explicit mode prop
-- [Phase 08-design-lock]: Preferences stored under 'learn-systems-preferences' (separate from 'learn-systems-progress') — progress reset cannot wipe mode preference
-- [Phase 08-design-lock]: annotated={true} is a migration gate on ExerciseCard — prevents partial annotation coverage from showing empty UI; removed after full coverage
-- [Phase 08-design-lock]: Challenge exercises author the full steps array for guided fallback but challengePrompt-only displays in compose mode
-- [Phase 08-design-lock]: Foundation safety-net is a hard code override — difficulty===Foundation returns guided immediately, skipping all prop and preference checks
-- [Phase 08-design-lock]: Foundation command field count is 160 (not ~200 estimate) — 22 lessons with ExerciseCard content across 8 modules; research over-estimated 20%
-- [Phase 08-design-lock]: Only 1 difficulty mismatch found (05-cicd/05-cheat-sheet.mdx); must be resolved before Phase 11 migrates 05-cicd module
-- [Phase 09-component-implementation]: ScenarioQuestion uses violet-500 left border accent to distinguish from Callout types (green/amber/blue)
-- [Phase 09-component-implementation]: ChallengeReferenceSheet does not enforce 15-item cap at runtime — policy enforcement is a content authoring concern, not a component concern
-- [Phase 09-component-implementation]: ChallengeReferenceSheet passes className='my-0' to QuickReference to suppress default my-8 margin inside the wrapper container
-- [Phase 09-01]: AnnotatedCommand implemented as server component (no use client) — zero interactive state required; works inside use client ExerciseCard via Next.js composition model
-- [Phase 09-component-implementation]: DifficultyToggle Challenge button calls setPreferredMode(null) not 'compose' — avoids Intermediate compose regression when navigating between lesson difficulties
-- [Phase 09-component-implementation]: ExerciseCard compose branch falls back to guided steps when challengePrompt absent — backward compat for all 52 existing exercises
-- [Phase 10-linux-fundamentals-prototype]: ScenarioQuestions placed before VerificationChecklist in ExerciseCard children — keeps conceptual questions visible before the mechanical checklist
-- [Phase 10-linux-fundamentals-prototype]: Annotation token granularity: && operators annotated separately in multi-command steps as distinct shell operators with their own meaning
-- [Phase 10-linux-fundamentals-prototype]: ScenarioQuestion answers written at paragraph length for complete diagnostic reasoning rather than one-word answers
-- [Phase 10-linux-fundamentals-prototype]: 2 ScenarioQuestions per lesson chosen for pedagogical depth; Intermediate lessons confirmed no annotated={true}
-- [Phase 11-full-content-migration]: Comment-command annotation: all 4 command fields in 07-cloud/01-02 are shell comment lines; annotated with single # token describing the shell comment operator
-- [Phase 11-03]: 07-advanced-capstone ChallengeReferenceSheet includes 15 items across 4 sections with tofu init/apply as potential distractors for learners who do not attempt the optional IaC step
-- [Phase 11-03]: 01-observability-concepts annotations use abbreviated quoted-string tokens for echo commands since the full string is too long for a single token field
-- [Phase 11-06]: Repeated tokens in compound commands annotated independently in left-to-right token order — array mirrors exact command string position
-- [Phase 11-06]: Sysadmin ScenarioQuestion answers emphasize multi-step diagnostic reasoning — consistent with Phase 10 paragraph-length answer decision
-- [Phase 11-full-content-migration]: Docker command annotation granularity: docker run -d --name mybox ubuntu:22.04 sleep infinity annotated as 8 separate tokens including positional arguments
-- [Phase 11-full-content-migration]: ChallengeReferenceSheet for Docker capstone uses 3 sections (Image Operations, Container Management, Compose Operations) with 15 items and distractors
-- [Phase 11-04]: Terraform CLI annotation pattern: tofu is the base command token, subcommands (init, plan, apply, destroy) are annotated separately as distinct subcommand tokens
-- [Phase 11-full-content-migration]: TypeScript test file errors (missing @types/jest) confirmed as pre-existing — not introduced by 02-networking migration; deferred to tech debt
-- [Phase 11-full-content-migration]: 02-networking docker compose flags annotated as distinct tokens; dig query modifiers (+short, +trace, -x, @server) each annotated separately per style guide
+- [v1.2 Roadmap]: Wrong-answer UX shows "Incorrect" only — no correct answer reveal (KRF-only; deliberate departure from Duolingo/Codecademy defaults)
+- [v1.2 Roadmap]: Grandfather rule — `completed && (quizPassed !== false)` — pre-v1.2 progress records must not silently reset to 0%
+- [v1.2 Roadmap]: Quiz data as MDX named exports (`export const quiz = [...]`), not separate files or frontmatter
+- [v1.2 Roadmap]: `MarkCompleteButton` kept for `quiz === null` lessons — removed only for lessons with quiz data (Phase 14)
+- [v1.2 Roadmap]: One-lesson end-to-end validation in Phase 14 before bulk authoring in Phase 15
 
 ### Pending Todos
 
@@ -111,8 +82,8 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 8 must enumerate exact Foundation command field count (~200 estimate) and frontmatter/ExerciseCard difficulty mismatch list before Phase 9 begins — these gaps are flagged in research SUMMARY.md
-- MDX inline prop parse behavior with complex objects is unvalidated in the specific Next.js 16.2 + @next/mdx 3.1.1 config — Phase 10 prototype must validate import-from-.ts pattern before Phase 11 commits to it
+- [Phase 15]: 392-560 questions across 56 lessons — module-by-module review cadence is mandatory to prevent quality drift; authoring guide must be produced as Phase 12 planning artifact before any authoring starts
+- [Phase 15 prereq]: `exercisesCompleted` field consistency across all 56 lessons must be audited before exercise-lock feature (deferred to v1.2.x, not blocking v1.2)
 
 ### Quick Tasks Completed
 
@@ -124,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T13:44:51.714Z
-Stopped at: Completed 11-07-PLAN.md
+Last session: 2026-03-22
+Stopped at: v1.2 roadmap created (phases 12-15). Ready to plan Phase 12.
 Resume file: None
