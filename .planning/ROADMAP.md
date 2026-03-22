@@ -44,7 +44,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 - [x] **Phase 12: Schema and Progress Foundation** - Lock quiz types, extend LessonProgress, implement grandfather rule (completed 2026-03-22)
 - [x] **Phase 13: Quiz Component Build** - Build LessonQuiz state machine and leaf components with full test coverage (completed 2026-03-22)
 - [x] **Phase 14: Layout Integration and Gating** - Wire quiz into LessonLayout, retire MarkCompleteButton, validate end-to-end on one lesson (completed 2026-03-22)
-- [ ] **Phase 15: Content Authoring** - Author 7-10 quiz questions for all 56 lessons
+- [ ] **Phase 15: Content Authoring** - Author 7-10 quiz questions for all 57 lessons
 
 ## Phase Details
 
@@ -97,14 +97,21 @@ Plans:
 **Depends on**: Phase 14
 **Requirements**: DATA-03
 **Success Criteria** (what must be TRUE):
-  1. All 56 lesson MDX files export a `quiz` array with 7-10 questions and every question has a prompt, four options, correct index, and explanation
+  1. All 57 lesson MDX files export a `quiz` array with 7-10 questions and every question has a prompt, four options, correct index, and explanation
   2. Every quiz question passes TypeScript type-checking — `tsc --noEmit` has zero errors after full authoring
   3. A learner can navigate to any lesson in any module and take a complete quiz — no lesson is missing quiz data
   4. Each module's quiz questions are reviewed for quality (plausible distractors, mechanism-explaining explanations, accurate correct answers) before moving to the next module
-**Plans**: TBD
+**Plans**: 8 plans
 
 Plans:
-- [ ] 15-01: TBD
+- [ ] 15-01-PLAN.md — Author quizzes for Module 01: Linux Fundamentals (10 lessons)
+- [ ] 15-02-PLAN.md — Author quizzes for Module 02: Networking Foundations (8 lessons)
+- [ ] 15-03-PLAN.md — Author quizzes for Module 03: Docker and Containerization (9 lessons)
+- [ ] 15-04-PLAN.md — Author quizzes for Module 04: System Administration (7 lessons)
+- [ ] 15-05-PLAN.md — Author quizzes for Module 05: CI/CD Pipelines (5 lessons)
+- [ ] 15-06-PLAN.md — Author quizzes for Module 06: Infrastructure as Code (5 lessons)
+- [ ] 15-07-PLAN.md — Author quizzes for Module 07: Cloud Fundamentals (6 lessons)
+- [ ] 15-08-PLAN.md — Author quizzes for Module 08: Monitoring and Observability (7 lessons)
 
 ## Progress
 
@@ -125,8 +132,8 @@ Plans:
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
 | 12. Schema and Progress Foundation | 1/1 | Complete    | 2026-03-22 | - |
 | 13. Quiz Component Build | 1/1 | Complete    | 2026-03-22 | - |
-| 14. Layout Integration and Gating | 1/1 | Complete   | 2026-03-22 | - |
-| 15. Content Authoring | v1.2 | 0/? | Not started | - |
+| 14. Layout Integration and Gating | 1/1 | Complete    | 2026-03-22 | - |
+| 15. Content Authoring | v1.2 | 0/8 | Not started | - |
 
 ---
 *Roadmap created: 2026-03-18*
