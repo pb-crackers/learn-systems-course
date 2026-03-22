@@ -256,3 +256,27 @@ Modern CPUs are incredibly fast. Most server applications spend the majority of 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'hw-q1',
+    question: 'Which part of the CPU performs arithmetic operations?',
+    options: ['Control Unit', 'Instruction Register', 'Arithmetic/Logic Unit', 'Program Counter'],
+    correctIndex: 2,
+    explanation: 'The ALU (Arithmetic/Logic Unit) performs arithmetic and logical operations as directed by the control unit.',
+  },
+  {
+    id: 'hw-q2',
+    question: 'What is the first step in the fetch-decode-execute cycle?',
+    options: ['Decode the instruction', 'Execute the operation', 'Write results to memory', 'Fetch the next instruction from memory'],
+    correctIndex: 3,
+    explanation: 'The CPU first fetches the next instruction from memory (or cache) into its instruction register.',
+  },
+  {
+    id: 'hw-q3',
+    question: 'Why is L1 cache faster than RAM?',
+    options: ['It uses flash storage', 'It is physically on the CPU die', 'It has larger capacity', 'It uses a different file system'],
+    correctIndex: 1,
+    explanation: 'L1 cache is physically located on the CPU die, eliminating the external bus latency that RAM access requires.',
+  },
+]
