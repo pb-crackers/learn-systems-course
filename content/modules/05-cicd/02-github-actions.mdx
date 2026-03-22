@@ -444,3 +444,114 @@ The workflow file must be pushed to a GitHub repository — GitHub Actions does 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "gha-q1",
+    question: "Where must GitHub Actions workflow files be stored for GitHub to detect them?",
+    options: [
+      "In a workflows/ directory at the repository root",
+      "In .github/workflows/ at the repository root",
+      "In .actions/workflows/ at the repository root",
+      "In any directory, as long as the file has a .yml extension"
+    ],
+    correctIndex: 1,
+    explanation: "GitHub Actions workflows must be YAML files in .github/workflows/ at the repository root. GitHub scans this exact directory automatically — any .yml or .yaml file found there is treated as a workflow definition.",
+  },
+  {
+    id: "gha-q2",
+    question: "In the GitHub Actions YAML hierarchy, what is a job?",
+    options: [
+      "A single shell command that runs inside a step",
+      "A reusable action called from the GitHub Marketplace",
+      "A named unit of work that runs on a single machine and contains an ordered list of steps",
+      "A configuration block that defines when the workflow runs"
+    ],
+    correctIndex: 2,
+    explanation: "A job is a named unit of work that runs on a single machine (the runner) and contains an ordered list of steps. Jobs run in parallel by default; the needs keyword creates dependencies between them.",
+  },
+  {
+    id: "gha-q3",
+    question: "What does the `needs` keyword do in a GitHub Actions workflow?",
+    options: [
+      "It installs required dependencies before the job starts",
+      "It specifies which runner type the job requires",
+      "It declares that this job must wait for the named job to succeed before starting",
+      "It marks a step as required so the job fails if the step is skipped"
+    ],
+    correctIndex: 2,
+    explanation: "The needs keyword creates a job dependency — the job will not start until the named job completes successfully. This creates the pipeline chain: for example, needs: lint means the test job only runs if the lint job passes.",
+  },
+  {
+    id: "gha-q4",
+    question: "What is the difference between a step that uses `uses:` and one that uses `run:`?",
+    options: [
+      "uses: runs before the job starts; run: runs after the job completes",
+      "uses: calls a reusable action from a repository; run: executes a shell command directly on the runner",
+      "uses: requires manual trigger; run: executes automatically on every push",
+      "uses: runs in a Docker container; run: runs on the bare runner machine"
+    ],
+    correctIndex: 1,
+    explanation: "uses: calls a reusable action from the GitHub Marketplace or a local path — for example, actions/checkout@v6 clones the repository with all the boilerplate handled. run: executes a shell command directly on the runner, like npm test or docker build.",
+  },
+  {
+    id: "gha-q5",
+    question: "What is GITHUB_TOKEN and how is it provided to workflows?",
+    options: [
+      "A personal access token that developers must create and store in repository secrets",
+      "An environment variable set by the CI/CD team in the organization settings",
+      "An automatic authentication token created by GitHub before each job starts and revoked when the job ends",
+      "A secret shared across all repositories in an organization for cross-repository access"
+    ],
+    correctIndex: 2,
+    explanation: "GITHUB_TOKEN is an automatic authentication token that GitHub creates before each job starts and revokes when the job ends. No manual configuration is required — it is always available as secrets.GITHUB_TOKEN and has repository-scoped permissions.",
+  },
+  {
+    id: "gha-q6",
+    question: "What does the `workflow_dispatch` trigger do?",
+    options: [
+      "Runs the workflow automatically whenever any file in the repository changes",
+      "Runs the workflow on a cron schedule defined in the on: block",
+      "Adds a manual Run workflow button in the GitHub Actions UI with optional user inputs",
+      "Runs the workflow when another workflow in the same repository completes"
+    ],
+    correctIndex: 2,
+    explanation: "workflow_dispatch adds a Run workflow button in the GitHub Actions UI. It can accept user inputs — such as choosing a deployment environment — before the trigger fires. This is used for manual deployments where human confirmation is required before pushing to production.",
+  },
+  {
+    id: "gha-q7",
+    question: "In a matrix strategy with `node-version: [18, 20, 22]`, how many jobs does GitHub Actions create?",
+    options: [
+      "One job that runs sequentially with each Node.js version",
+      "Three parallel jobs, one per Node.js version",
+      "One job that tests the first version; only runs others if the first fails",
+      "One job that installs all three versions and tests against each in sequence"
+    ],
+    correctIndex: 1,
+    explanation: "The matrix strategy creates one job per combination of matrix values, all running in parallel. With three Node.js versions, three parallel test jobs are created — each identical except for the node-version variable injected via matrix.node-version.",
+  },
+  {
+    id: "gha-q8",
+    question: "Why do jobs in GitHub Actions run on fresh runner machines rather than persistent machines?",
+    options: [
+      "Fresh machines are faster because they have no running processes consuming CPU",
+      "Fresh machines guarantee a clean environment — the build runs with exactly the dependencies specified, not whatever is left over from a previous run",
+      "GitHub does not have enough servers to keep machines running between jobs",
+      "Persistent machines would accumulate log files that would eventually fill the disk"
+    ],
+    correctIndex: 1,
+    explanation: "Each job runs on a fresh runner — a virtual machine spun up by GitHub and discarded after the job completes. This guarantees a clean environment every time: the build runs with exactly the dependencies specified in the repository, solving the works-on-my-machine problem.",
+  },
+  {
+    id: "gha-q9",
+    question: "What does `actions/upload-artifact` and `actions/download-artifact` solve in a multi-job workflow?",
+    options: [
+      "They allow secrets to be passed securely between jobs",
+      "They share the runner environment between jobs so dependencies only install once",
+      "They allow files created in one job to be available in a different job, which runs on a separate machine",
+      "They compress build outputs to reduce the size of the Docker image"
+    ],
+    correctIndex: 2,
+    explanation: "Jobs run on separate machines, so a file created in the build job is not automatically available in the deploy job. upload-artifact stores files in GitHub's artifact storage; download-artifact retrieves them in a subsequent job. This bridges the gap between isolated runner machines.",
+  },
+]

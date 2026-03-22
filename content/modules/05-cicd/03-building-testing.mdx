@@ -352,3 +352,114 @@ The docker/app/ directory contains app.js, package.json, package-lock.json, and 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "build-q1",
+    question: "A pull request is opened against main. The workflow has lint, test, and build-push jobs with `if: github.ref == 'refs/heads/main'` on build-push. Which jobs run?",
+    options: [
+      "Only lint runs, because pull requests do not trigger any jobs",
+      "All three jobs run — the if condition is ignored on pull requests",
+      "Lint and test run; build-push is skipped because the ref is refs/pull/123/merge, not refs/heads/main",
+      "Build-push runs first to check if the image can be built, then lint and test run"
+    ],
+    correctIndex: 2,
+    explanation: "On a pull request, github.ref is refs/pull/123/merge — not refs/heads/main — so the if condition evaluates to false and build-push is skipped. The design intent is that PRs validate code quality (lint, test) but never push images to the registry until the code is reviewed and merged.",
+  },
+  {
+    id: "build-q2",
+    question: "Why does the build-push job require `permissions: packages: write` when GITHUB_TOKEN is available automatically?",
+    options: [
+      "GITHUB_TOKEN only works for Docker Hub; ghcr.io requires a separate permissions block",
+      "GITHUB_TOKEN has read-only package access by default; packages: write must be explicitly granted so the token can push images to ghcr.io",
+      "Without the permissions block, actions/checkout cannot clone the repository",
+      "GitHub requires all jobs that run docker commands to declare their permissions explicitly"
+    ],
+    correctIndex: 1,
+    explanation: "By default, GITHUB_TOKEN has broad read permissions but does not have write access to packages. Without packages: write, the login step succeeds but the push fails with: denied: installation not allowed to Create organization package. Explicitly declaring permissions follows the principle of least privilege.",
+  },
+  {
+    id: "build-q3",
+    question: "What does `npm ci` do differently from `npm install` in a CI pipeline?",
+    options: [
+      "npm ci runs faster because it skips optional dependencies",
+      "npm ci installs exactly the versions in package-lock.json and fails if the lock file is missing or out of sync",
+      "npm ci only installs production dependencies, skipping devDependencies",
+      "npm ci clears the npm cache before installing to ensure a completely fresh environment"
+    ],
+    correctIndex: 1,
+    explanation: "npm ci installs exactly the versions specified in package-lock.json and fails if the lock file is missing or out of sync with package.json. This guarantees reproducible installs — the CI machine installs identical packages to what the developer committed, eliminating works-on-my-machine dependency issues.",
+  },
+  {
+    id: "build-q4",
+    question: "In the production pipeline from this lesson, why does the lint job run before the test job rather than in parallel?",
+    options: [
+      "GitHub Actions does not support running lint and test jobs in parallel",
+      "Linting is slower than testing and would delay the pipeline if run in parallel",
+      "Lint is faster than tests; running it first provides faster feedback on style errors before spending time on test execution",
+      "The npm cache is shared between lint and test; they must run sequentially to avoid conflicts"
+    ],
+    correctIndex: 2,
+    explanation: "Linting is faster than running the full test suite. By running lint first with needs: lint on the test job, developers get feedback on style and syntax errors in seconds — before the pipeline spends time executing tests that would fail for unrelated reasons.",
+  },
+  {
+    id: "build-q5",
+    question: "What does `cache-from: type=gha` and `cache-to: type=gha,mode=max` accomplish in the build-push job?",
+    options: [
+      "It caches the npm node_modules directory so subsequent lint and test jobs skip npm ci",
+      "It stores BuildKit layer data in GitHub Actions cache so unchanged Docker layers are reused on subsequent runs",
+      "It caches the Docker base image (node:20-alpine) to avoid downloading it on every run",
+      "It stores the final Docker image in GitHub Actions cache instead of pushing it to ghcr.io"
+    ],
+    correctIndex: 1,
+    explanation: "BuildKit uses GitHub Actions cache as a layer storage backend. On subsequent runs, if the COPY package*.json and RUN npm ci Dockerfile layers have not changed, they are served from cache and the build completes in seconds instead of re-installing all dependencies.",
+  },
+  {
+    id: "build-q6",
+    question: "Why does the lesson use ghcr.io rather than Docker Hub as the container registry?",
+    options: [
+      "Docker Hub does not support GitHub Actions authentication",
+      "ghcr.io stores images permanently with no expiry; Docker Hub deletes images after 90 days",
+      "ghcr.io uses GITHUB_TOKEN with no separate secret required, is free for public repos, and links images to the repository in the Packages tab",
+      "ghcr.io images are faster to pull because they are stored on GitHub infrastructure"
+    ],
+    correctIndex: 2,
+    explanation: "ghcr.io uses the automatically-provided GITHUB_TOKEN — no separate secret to create or rotate. It is free for public repositories with no rate limiting, and images appear in the repository's Packages tab linked to the code that produced them.",
+  },
+  {
+    id: "build-q7",
+    question: "In a matrix strategy with `fail-fast: false` and node-version: [18, 20, 22], the Node.js 18 test job fails. What happens to the 20 and 22 jobs?",
+    options: [
+      "They are cancelled immediately because a sibling job failed",
+      "They continue running to completion so you see the full compatibility picture in one run",
+      "They are retried once before being marked as failed",
+      "They skip the failing test cases and complete with a partial pass"
+    ],
+    correctIndex: 1,
+    explanation: "fail-fast: false prevents GitHub Actions from cancelling remaining matrix jobs when one fails. All three version jobs run to completion, showing whether the failure is version-specific (only node 18 fails) or universal (all three fail) — giving the full compatibility picture in a single run.",
+  },
+  {
+    id: "build-q8",
+    question: "The pipeline tags the Docker image as `ghcr.io/${{ github.repository }}:${{ github.sha }}`. What problem does this solve compared to always tagging with `:latest`?",
+    options: [
+      "SHA tags are required by ghcr.io; latest tags are only supported by Docker Hub",
+      "SHA tags prevent two builds from overwriting each other when running in parallel",
+      "SHA tags make it possible to trace any running container back to the exact code commit and roll back to a specific version",
+      "SHA tags are smaller strings and reduce the Docker image pull time"
+    ],
+    correctIndex: 2,
+    explanation: "Using the commit SHA as the image tag creates a traceable link between any running container and the exact code revision that produced it. The :latest tag is overwritten on every build, making rollback and incident investigation impossible. A SHA tag is immutable — it always refers to the same code.",
+  },
+  {
+    id: "build-q9",
+    question: "The multi-stage Dockerfile from Phase 4 has a builder stage and a final stage. What does `mode=max` in `cache-to: type=gha,mode=max` add compared to the default?",
+    options: [
+      "It increases the cache size limit so larger images can be stored",
+      "It writes all layers including intermediate build stages to cache, not just the final stage",
+      "It forces the cache to be rebuilt from scratch on every run",
+      "It enables caching for Docker images pulled from external registries like Docker Hub"
+    ],
+    correctIndex: 1,
+    explanation: "By default, BuildKit only caches layers from the final stage of a multi-stage build. mode=max writes all layers including intermediate stages (like the builder stage with full dev dependencies) to cache. This means subsequent runs can reuse the npm install layer from the builder stage even when only application code changes.",
+  },
+]

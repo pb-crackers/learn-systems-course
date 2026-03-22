@@ -279,3 +279,114 @@ Blue/green's instant rollback is its defining advantage. The old environment is 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "deploy-q1",
+    question: "The naive deployment approach (stop old container, pull new image, start new container) causes downtime. What is the specific mechanism that creates the gap?",
+    options: [
+      "The load balancer takes several minutes to update its routing table after the container restarts",
+      "Pulling the image and waiting for the new process to start, connect, and pass health checks takes time during which no container is ready",
+      "Docker requires a 30-second cooling period between stopping one container and starting another",
+      "The container registry rate-limits image pulls, causing the pull step to queue behind other requests"
+    ],
+    correctIndex: 1,
+    explanation: "Pulling an image from a registry takes seconds to minutes, and even a locally cached image takes time to start: the application process must start, connect to the database, load caches, and pass health checks before serving traffic. The gap between stopping the old process and the new process being ready is real downtime.",
+  },
+  {
+    id: "deploy-q2",
+    question: "In a blue/green deployment, what is the single action that causes users to switch from the old version to the new version?",
+    options: [
+      "Stopping all instances of the old version simultaneously",
+      "Updating the DNS record to point to the new environment",
+      "Switching the load balancer to route traffic to the new (green) environment",
+      "Restarting the load balancer to pick up the new container addresses"
+    ],
+    correctIndex: 2,
+    explanation: "The load balancer switch is the only moment that matters in a blue/green deployment — it is a single configuration change that takes milliseconds. Users experience zero downtime because there is no gap: one moment they hit the blue environment, the next they hit green.",
+  },
+  {
+    id: "deploy-q3",
+    question: "Why is rollback instant in a blue/green deployment but slow in a rolling deployment?",
+    options: [
+      "Blue/green environments keep a hot database replica; rolling deployments must restore from backup",
+      "In blue/green, the old environment is still running and unchanged — rollback is a load balancer switch. Rolling rollback requires re-deploying the old version through the same one-at-a-time replacement process.",
+      "Blue/green uses container snapshots that restore faster than full container restarts",
+      "Rolling deployments must drain connections on each instance before rolling back, which adds latency"
+    ],
+    correctIndex: 1,
+    explanation: "In blue/green, the old Blue environment is never torn down until the new Green version is fully verified. Rolling back is a single load balancer configuration change — milliseconds. A rolling rollback must re-deploy the old version through the same incremental process: one instance at a time, each taking time to replace and health-check.",
+  },
+  {
+    id: "deploy-q4",
+    question: "During a rolling deployment with 5 instances, what is true about traffic routing while the rollout is in progress?",
+    options: [
+      "All traffic is held until the rollout completes, then released to the new version",
+      "Traffic is split 50/50 between old and new regardless of how many instances have been replaced",
+      "The load balancer routes traffic to all running instances — both old and new versions simultaneously",
+      "Only the new instances serve traffic; old instances are put in standby mode during the rollout"
+    ],
+    correctIndex: 2,
+    explanation: "During a rolling deployment, the load balancer routes traffic to all running instances — both old and new versions. This is why zero downtime is maintained: there are always healthy instances available. It also means the application must tolerate both v1 and v2 handling requests simultaneously during the transition.",
+  },
+  {
+    id: "deploy-q5",
+    question: "A canary deployment routes 5% of traffic to the new version. What distinguishes a canary from a rolling deployment at that same 5% stage?",
+    options: [
+      "A canary uses a separate load balancer; rolling uses the existing production load balancer",
+      "A canary pauses at each traffic percentage to monitor metrics before expanding; rolling replaces instances on a fixed schedule without a monitoring gate",
+      "A canary only works with Docker containers; rolling works with any process type",
+      "A canary replaces instances permanently; rolling keeps old instances running as a fallback"
+    ],
+    correctIndex: 1,
+    explanation: "The defining characteristic of canary deployment is the monitoring gate at each phase: you observe error rates, latency, and business metrics before expanding to the next percentage. Rolling deployment replaces instances progressively but does not include this observation-and-decision step at each stage.",
+  },
+  {
+    id: "deploy-q6",
+    question: "Why are database migrations more complex during rolling and canary deployments compared to blue/green?",
+    options: [
+      "Rolling and canary deployments run migrations on each instance separately, causing duplicate executions",
+      "Blue/green allows running migrations before the switch; rolling and canary mean v1 and v2 run simultaneously for a longer window, requiring the schema to support both application versions at once",
+      "Database migrations are not allowed during rolling or canary deployments — they must be run before the deployment starts",
+      "Rolling and canary use separate database connections per version, requiring two separate migration scripts"
+    ],
+    correctIndex: 1,
+    explanation: "In a rolling deployment, v1 and v2 may coexist for 20-30 minutes. Any schema change must be backward-compatible with both versions for that entire window. In blue/green the overlap is brief (the time between deploying to green and switching the load balancer), but rolling and canary extend the coexistence window significantly.",
+  },
+  {
+    id: "deploy-q7",
+    question: "The lesson says canary deployment requires traffic-splitting infrastructure. Which of the following is an example of that infrastructure?",
+    options: [
+      "A database with read replicas to handle the increased query load during canary testing",
+      "A container registry that supports image version labels",
+      "A load balancer with weighted routing rules or a service mesh like Istio",
+      "A CI/CD pipeline with a manual approval gate between jobs"
+    ],
+    correctIndex: 2,
+    explanation: "Canary deployment requires the ability to split traffic by percentage — routing 5% to v2 and 95% to v1. This requires a load balancer that supports weighted upstream routing (like AWS ALB or nginx with upstream weights) or a service mesh like Istio. Standard round-robin load balancers cannot express these weighted routing rules.",
+  },
+  {
+    id: "deploy-q8",
+    question: "Given a payments service where any bug directly causes financial harm, which deployment strategy is described as the weakest fit and why?",
+    options: [
+      "Blue/green, because maintaining two full environments doubles the cost",
+      "Canary, because routing 5% of payment traffic to an untested version is too risky",
+      "Rolling, because by the time a bug is detected all instances may already be running the broken version and rollback is slow",
+      "All three strategies are equally unsuitable for financial services"
+    ],
+    correctIndex: 2,
+    explanation: "For a payments service, rolling deployment is the weakest fit because rollback is slow: all 5 instances might be running the broken version before the bug is detected, and rolling back requires re-deploying the old version through the same one-at-a-time process. Canary limits the blast radius to 5% and blue/green provides instant rollback — both are better fits for high-stakes financial transactions.",
+  },
+  {
+    id: "deploy-q9",
+    question: "Which statement correctly describes the infrastructure cost difference between blue/green and rolling deployments?",
+    options: [
+      "Blue/green requires the same infrastructure as rolling but with higher network bandwidth",
+      "Rolling requires double the servers during deployment; blue/green always maintains the same count",
+      "Blue/green doubles server costs because two full environments run simultaneously; rolling requires no extra capacity",
+      "Both strategies require double infrastructure — blue/green during the switch, rolling during the replacement cycle"
+    ],
+    correctIndex: 2,
+    explanation: "Blue/green always maintains two complete, identical environments — one live, one idle — which doubles infrastructure cost. Rolling deployment replaces instances in place: at any point in the rollout, you have the same total number of instances as in production (some running v1, some running v2), requiring no extra capacity.",
+  },
+]

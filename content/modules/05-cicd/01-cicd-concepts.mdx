@@ -224,3 +224,102 @@ Pipeline speed is an engineering investment. Caching dependencies, running tests
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "cicd-q1",
+    question: "What does Continuous Integration (CI) do when a developer pushes code?",
+    options: [
+      "Automatically deploys the code to production",
+      "Triggers an automated build and test run in a clean environment",
+      "Creates a deployment artifact and waits for manual approval",
+      "Merges the code into a staging branch for review"
+    ],
+    correctIndex: 1,
+    explanation: "Continuous Integration triggers an automated build and test run on every push, running in a clean environment rather than a developer laptop. This catches integration bugs immediately, while the change is still fresh in the developer's mind.",
+  },
+  {
+    id: "cicd-q2",
+    question: "What is the key difference between Continuous Delivery and Continuous Deployment?",
+    options: [
+      "Continuous Delivery runs tests automatically; Continuous Deployment does not",
+      "Continuous Delivery deploys to staging only; Continuous Deployment deploys to production",
+      "Continuous Delivery requires a manual decision to deploy to production; Continuous Deployment deploys automatically",
+      "Continuous Delivery produces Docker images; Continuous Deployment produces compiled binaries"
+    ],
+    correctIndex: 2,
+    explanation: "In Continuous Delivery, every passing build produces a deployment-ready artifact but deploying to production is still a manual decision. Continuous Deployment removes that human step — if the build and tests pass, the artifact is automatically deployed to production.",
+  },
+  {
+    id: "cicd-q3",
+    question: "In a CI/CD pipeline, what happens when a stage fails?",
+    options: [
+      "The pipeline retries the failed stage up to three times before stopping",
+      "The pipeline skips the failed stage and continues to the next one",
+      "The pipeline stops and notifies — no broken code advances to later stages",
+      "The pipeline marks the failure as a warning and completes all remaining stages"
+    ],
+    correctIndex: 2,
+    explanation: "Each pipeline stage gates the next — if a stage fails, the pipeline stops immediately and reports the failure. This prevents broken code from advancing to later stages such as staging or production deployment.",
+  },
+  {
+    id: "cicd-q4",
+    question: "What is a pipeline artifact?",
+    options: [
+      "A log file generated when a pipeline stage fails",
+      "The output of the Build stage — a Docker image, binary, or package — that travels through all pipeline stages",
+      "A test report that documents which tests passed and failed",
+      "A YAML configuration file that defines the pipeline structure"
+    ],
+    correctIndex: 1,
+    explanation: "An artifact is the concrete output of the Build stage — a Docker image, compiled binary, or release package. Artifacts travel through pipeline stages rather than being rebuilt at each step, which guarantees that exactly what was tested is exactly what gets deployed.",
+  },
+  {
+    id: "cicd-q5",
+    question: "Why does the lesson say a Docker image tag should include the commit SHA?",
+    options: [
+      "Because Docker Hub requires SHA tags for all images",
+      "Because the SHA makes the tag shorter and easier to type",
+      "Because it allows you to trace any running container back to the exact commit that produced it",
+      "Because the SHA prevents the image from being overwritten by a newer build"
+    ],
+    correctIndex: 2,
+    explanation: "Tagging a Docker image with the commit SHA (for example, ghcr.io/myorg/myapp:a1b2c3d) creates a traceable link between a running container and the exact code revision that was built into it. This is critical for incident investigation and rollback.",
+  },
+  {
+    id: "cicd-q6",
+    question: "Which problem does CI/CD directly solve by making integrations small and frequent?",
+    options: [
+      "Works-on-my-machine issues caused by different software versions",
+      "Integration hell caused by developers merging large, long-lived branches all at once",
+      "Missing environment variables that differ between laptop and server",
+      "Infrequent deployments that create large, high-risk release events"
+    ],
+    correctIndex: 1,
+    explanation: "Integration hell occurs when developers work in isolation for days or weeks and then merge large code changes simultaneously, producing cascading conflicts and bugs. CI requires integrating changes multiple times per day against a known-good baseline, keeping each merge small and the scope of any conflict tiny.",
+  },
+  {
+    id: "cicd-q7",
+    question: "Why does pipeline speed directly affect developer behavior?",
+    options: [
+      "Faster pipelines are cheaper to run on CI infrastructure",
+      "Slow pipelines block the deployment system and prevent merges",
+      "Fast feedback (3-5 minutes) means developers fix bugs while the change is still in working memory",
+      "Pipeline speed determines how many builds can run in parallel"
+    ],
+    correctIndex: 2,
+    explanation: "When a pipeline reports results in 3-5 minutes, developers are still mentally focused on the change and can fix bugs immediately. A 45-minute pipeline means the developer has moved on to other work; they must context-switch back to code they wrote nearly an hour ago, making debugging slower and more expensive.",
+  },
+  {
+    id: "cicd-q8",
+    question: "In the pipeline stage sequence described in this lesson, what does the Staging Deploy stage do?",
+    options: [
+      "Runs the automated test suite against the source code",
+      "Compiles the code and installs dependencies to create the artifact",
+      "Deploys the artifact to a production-like environment and runs smoke tests against the live service",
+      "Sends a notification to the developer that the build passed"
+    ],
+    correctIndex: 2,
+    explanation: "The Staging Deploy stage deploys the artifact to a staging environment — a copy of production that is not customer-facing — and runs smoke tests against the live staging service. This validates the artifact in a real environment before it reaches production.",
+  },
+]

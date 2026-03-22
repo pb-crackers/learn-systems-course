@@ -223,3 +223,126 @@ You do not need to set up any secrets for ghcr.io — the GITHUB_TOKEN is provid
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "cicd-ref-q1",
+    question: "This cheat sheet lists five distinct pipeline stages in sequence. Given `lint → test → build → push → deploy`, which stage would catch a missing npm dependency that causes a runtime crash?",
+    options: [
+      "The lint stage, because ESLint validates all import paths",
+      "The test stage, because unit tests would throw an error when trying to import the missing module",
+      "The build stage, because npm ci would fail when the package is not in package-lock.json",
+      "The deploy stage, because the container would crash on startup"
+    ],
+    correctIndex: 2,
+    explanation: "npm ci (run in the build stage) installs exactly the packages listed in package-lock.json and fails if any are missing or mismatched with package.json. A missing dependency causes npm ci to exit non-zero, which fails the build stage and stops the pipeline before tests or deployment.",
+  },
+  {
+    id: "cicd-ref-q2",
+    question: "According to this reference, `${{ github.repository }}` produces output in what format?",
+    options: [
+      "Just the repository name (e.g., myapp)",
+      "The full HTTPS URL (e.g., https://github.com/myorg/myapp)",
+      "The owner/repo format (e.g., myorg/myapp)",
+      "The registry path format (e.g., ghcr.io/myorg/myapp)"
+    ],
+    correctIndex: 2,
+    explanation: "github.repository provides the repository identifier in owner/repo format — for example, myorg/myapp. This is used directly in Docker image tags: ghcr.io/${{ github.repository }}:${{ github.sha }} produces a fully qualified image name like ghcr.io/myorg/myapp:abc1234.",
+  },
+  {
+    id: "cicd-ref-q3",
+    question: "The cheat sheet distinguishes Continuous Delivery from Continuous Deployment. In a Continuous Delivery setup, when does code reach production?",
+    options: [
+      "Immediately after every successful CI run, with no human step",
+      "Only after a manual decision by the team — the artifact is always ready but deployment requires human approval",
+      "After the artifact has been deployed to staging and approved by an automated smoke test",
+      "On a fixed release schedule regardless of whether CI is passing"
+    ],
+    correctIndex: 1,
+    explanation: "Continuous Delivery means every passing build produces a deployment-ready artifact, but deploying to production is a manual decision. The artifact is always in a deployable state, and the team can ship at any time with confidence — but a human must initiate the production deployment.",
+  },
+  {
+    id: "cicd-ref-q4",
+    question: "The reference shows `needs: [lint, test]` as an example. What does this mean for the job that declares it?",
+    options: [
+      "The job runs in parallel with lint and test but shares their cache",
+      "The job only starts after both lint and test succeed — if either fails, this job is skipped",
+      "The job runs lint and test as sub-steps before executing its own steps",
+      "The job waits for lint to finish, then waits for test to finish, regardless of whether they passed"
+    ],
+    correctIndex: 1,
+    explanation: "needs: [lint, test] declares that this job depends on both the lint and test jobs. GitHub Actions will not start this job until both succeed. If either fails, this job is skipped entirely — it never runs.",
+  },
+  {
+    id: "cicd-ref-q5",
+    question: "The cheat sheet describes blue/green deployment as having an instant switch. Which component performs that switch?",
+    options: [
+      "The CI/CD pipeline re-deploys the old version image with the new container name",
+      "The container orchestrator gradually drains connections from old containers to new ones",
+      "The load balancer is reconfigured to point to the new (green) environment",
+      "DNS records are updated to route traffic to the new environment IP address"
+    ],
+    correctIndex: 2,
+    explanation: "In blue/green deployment, the load balancer is the switching mechanism. Changing the load balancer target from the blue environment to the green environment is a single configuration change that takes milliseconds — producing zero downtime because there is no gap between old and new versions serving traffic.",
+  },
+  {
+    id: "cicd-ref-q6",
+    question: "The reference includes `fail-fast: false` under Building and Testing. In which scenario is this setting most useful?",
+    options: [
+      "When you want the pipeline to retry a failing job instead of stopping immediately",
+      "When running a matrix job across multiple Node.js versions and you want all version results even if one fails",
+      "When you want to prevent a failing lint job from blocking the test job",
+      "When deploying to production and you want other deployments to continue even if one region fails"
+    ],
+    correctIndex: 1,
+    explanation: "fail-fast: false is specifically for matrix strategies. Without it, a failure in one matrix entry (e.g., Node.js 18) would cancel all remaining entries (20, 22). With fail-fast: false, all entries run to completion, showing the full compatibility picture: is the failure version-specific or universal?",
+  },
+  {
+    id: "cicd-ref-q7",
+    question: "The cheat sheet describes the canary strategy as safest for catching production bugs. What must be in place for canary to be actionable?",
+    options: [
+      "A second full environment identical to production, kept warm as a fallback",
+      "Traffic-splitting infrastructure and working monitoring metrics to detect anomalies during the rollout",
+      "Automated rollback scripts that restore the previous Docker image from the registry",
+      "A staging environment that mirrors 100% of production traffic for pre-rollout testing"
+    ],
+    correctIndex: 1,
+    explanation: "Canary deployment is useless without both traffic-splitting capability (a load balancer with weighted routing or a service mesh) and working monitoring that can detect anomalies during the rollout. Without metrics, you cannot know whether the 5% canary is performing correctly — the strategy provides no safety without observation.",
+  },
+  {
+    id: "cicd-ref-q8",
+    question: "According to the reference, what is the GITHUB_TOKEN scoped to?",
+    options: [
+      "The entire GitHub organization, allowing cross-repository reads and writes",
+      "The current repository only — read access to code and (with packages: write) push access to ghcr.io for that repository",
+      "Only the workflow file that references it, with no access to other repository resources",
+      "All public repositories on GitHub that use the same workflow file name"
+    ],
+    correctIndex: 1,
+    explanation: "GITHUB_TOKEN is repository-scoped — it only grants access to the current repository. With default permissions it has read access to repository contents; adding packages: write grants push access to ghcr.io for packages owned by that repository. It cannot access other repositories or organizations.",
+  },
+  {
+    id: "cicd-ref-q9",
+    question: "The cheat sheet includes `on: workflow_dispatch:` as a trigger type. Which scenario is it specifically suited for?",
+    options: [
+      "Running nightly builds on a cron schedule without any human involvement",
+      "Automatically validating every pull request opened against the main branch",
+      "Deployment jobs that need human initiation from the GitHub Actions UI before running",
+      "Running the pipeline whenever any file in the repository is modified"
+    ],
+    correctIndex: 2,
+    explanation: "workflow_dispatch is designed for jobs that require human initiation — it adds a Run workflow button in the GitHub Actions UI. It can accept inputs (such as choosing staging vs production) before the trigger fires. This is used for manual deployments where human confirmation is required before executing.",
+  },
+  {
+    id: "cicd-ref-q10",
+    question: "Given the complete pipeline in this cheat sheet, a developer opens a pull request. The test job fails. Which subsequent jobs run?",
+    options: [
+      "build-push still runs because it only depends on the lint job, not the test job",
+      "No subsequent jobs run — test failing stops the pipeline and build-push is skipped",
+      "build-push runs but skips the push step because the tests did not pass",
+      "All three jobs run in parallel regardless of individual failures"
+    ],
+    correctIndex: 1,
+    explanation: "The build-push job declares needs: test, which means it only starts if the test job succeeds. A failed test job stops the pipeline — build-push never runs. Even if it could run, the if: github.ref == refs/heads/main condition would also prevent it from executing on a pull request.",
+  },
+]
