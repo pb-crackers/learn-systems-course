@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
-stopped_at: Completed 14-01-PLAN.md
-last_updated: "2026-03-22T13:50:51.303Z"
+stopped_at: Completed 15-05-PLAN.md
+last_updated: "2026-03-22T21:23:25.696Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 11
+  completed_plans: 6
   percent: 0
 ---
 
@@ -65,6 +65,8 @@ Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 | Phase 12-schema-and-progress-foundation P01 | 2min | 2 tasks | 5 files |
 | Phase 13-quiz-component-build P01 | 3min | 2 tasks | 2 files |
 | Phase 14-layout-integration-and-gating P01 | 10min | 3 tasks | 5 files |
+| Phase 15-content-authoring P06 | 4min | 2 tasks | 5 files |
+| Phase 15-content-authoring P05 | 4min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -87,6 +89,8 @@ Recent decisions affecting v1.2 work:
 - [Phase 14-layout-integration-and-gating]: QuizSection 'use client' wrapper bridges RSC serialization boundary — LessonLayout stays as Server Component
 - [Phase 14-layout-integration-and-gating]: Array.isArray(mod.quiz) guard safely extracts optional MDX named export from getLessonContent
 - [Phase 14-layout-integration-and-gating]: MarkCompleteButton renders only when quiz is null — empty quiz array does not show the button
+- [Phase 15-content-authoring]: Foundation/Intermediate question style distinction maintained: lessons 01, 02, 05 test recall; lessons 03, 04 test application
+- [Phase 15-content-authoring]: Questions scoped strictly to lesson content in Module 06 IaC: no cross-lesson knowledge required to answer correctly
 
 ### Pending Todos
 
@@ -107,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T13:50:51.301Z
-Stopped at: Completed 14-01-PLAN.md
+Last session: 2026-03-22T21:23:25.693Z
+Stopped at: Completed 15-05-PLAN.md
 Resume file: None

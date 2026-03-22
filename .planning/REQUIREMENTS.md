@@ -26,7 +26,7 @@ Requirements for Enhanced Questions milestone. Each maps to roadmap phases.
 
 - [x] **DATA-01**: Quiz questions defined as typed MDX named exports with validated TypeScript schema
 - [x] **DATA-02**: Quiz type schema locked (question text, options array, correct index, explanation) before content authoring begins
-- [ ] **DATA-03**: All 56 lessons have quiz data with 7-10 questions covering key concepts and commands
+- [x] **DATA-03**: All 56 lessons have quiz data with 7-10 questions covering key concepts and commands
 
 ### Layout Integration
 
@@ -69,7 +69,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GATE-03 | Phase 12 | Complete |
 | DATA-01 | Phase 12 | Complete |
 | DATA-02 | Phase 12 | Complete |
-| DATA-03 | Phase 15 | Pending |
+| DATA-03 | Phase 15 | Complete |
 | LAYOUT-01 | Phase 14 | Complete |
 | LAYOUT-02 | Phase 14 | Complete |
 
