@@ -1,5 +1,5 @@
 import type { Module } from '@/types/content'
-import type { ProgressState } from '@/types/progress'
+import type { LessonProgress, ProgressState } from '@/types/progress'
 
 /**
  * Returns completion percentage (0-100) for a module based on lesson completion.
@@ -42,4 +42,15 @@ export function isModuleComplete(
   return module.lessons.every(
     (lesson) => progress.lessons[lesson.id]?.completed === true
   )
+}
+
+/**
+ * Returns true if a lesson is considered complete, applying the grandfather rule:
+ * - Pre-v1.2 records have completed:true but no quizPassed field — they remain complete.
+ * - v1.2+ records with completed:true require quizPassed !== false.
+ * - Lessons without quiz data (quizPassed is undefined) are treated as complete when completed:true.
+ */
+export function isLessonComplete(lesson: LessonProgress | undefined): boolean {
+  if (!lesson) return false
+  return lesson.completed === true && lesson.quizPassed !== false
 }
