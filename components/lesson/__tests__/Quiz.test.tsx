@@ -124,3 +124,96 @@ describe('quizReducer', () => {
 })
 
 export { FIXTURE_QUESTIONS }
+
+// ---------------------------------------------------------------------------
+// Integration tests
+// ---------------------------------------------------------------------------
+
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Quiz } from '../Quiz'
+
+vi.mock('@/hooks/useProgress', () => ({
+  useProgress: () => ({
+    markQuizPassed: vi.fn(),
+    isQuizPassed: () => false,
+    isHydrated: true,
+    progress: { lessons: {}, version: 2 },
+  }),
+}))
+
+describe('Quiz component', () => {
+  it('renders Start Quiz button in idle state', () => {
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    expect(screen.getByRole('button', { name: /start quiz/i })).toBeInTheDocument()
+  })
+
+  it('renders first question after clicking Start Quiz', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    expect(screen.getByText(FIXTURE_QUESTIONS[0].question)).toBeInTheDocument()
+  })
+
+  it('shows Incorrect banner on wrong answer', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    // Click wrong option (index 1 = 'Remove files', correctIndex is 0)
+    await user.click(screen.getByRole('button', { name: /b\. remove files/i }))
+    expect(screen.getByText(/incorrect/i)).toBeInTheDocument()
+  })
+
+  it('shows explanation on correct answer', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    // Click correct option (index 0 = 'List files', correctIndex is 0)
+    await user.click(screen.getByRole('button', { name: /a\. list files/i }))
+    expect(screen.getByText(FIXTURE_QUESTIONS[0].explanation)).toBeInTheDocument()
+  })
+
+  it('shows Next Question button on correct answer', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    await user.click(screen.getByRole('button', { name: /a\. list files/i }))
+    expect(screen.getByRole('button', { name: /next question/i })).toBeInTheDocument()
+  })
+
+  it('shows pass screen after answering all correctly', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    // Q1: correctIndex=0 → 'List files'
+    await user.click(screen.getByRole('button', { name: /a\. list files/i }))
+    await user.click(screen.getByRole('button', { name: /next question/i }))
+    // Q2: correctIndex=1 → 'Change dir'
+    await user.click(screen.getByRole('button', { name: /b\. change dir/i }))
+    await user.click(screen.getByRole('button', { name: /next question/i }))
+    // Q3: correctIndex=2 → 'Print working directory'
+    await user.click(screen.getByRole('button', { name: /c\. print working directory/i }))
+    await user.click(screen.getByRole('button', { name: /finish quiz/i }))
+    expect(screen.getByText(/quiz complete/i)).toBeInTheDocument()
+  })
+
+  it('shows Continue to Next Lesson button on pass', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    await user.click(screen.getByRole('button', { name: /a\. list files/i }))
+    await user.click(screen.getByRole('button', { name: /next question/i }))
+    await user.click(screen.getByRole('button', { name: /b\. change dir/i }))
+    await user.click(screen.getByRole('button', { name: /next question/i }))
+    await user.click(screen.getByRole('button', { name: /c\. print working directory/i }))
+    await user.click(screen.getByRole('button', { name: /finish quiz/i }))
+    expect(screen.getByRole('button', { name: /continue to next lesson/i })).toBeInTheDocument()
+  })
+
+  it('displays attempt count', async () => {
+    const user = userEvent.setup()
+    render(<Quiz questions={FIXTURE_QUESTIONS} lessonId="test-lesson" />)
+    await user.click(screen.getByRole('button', { name: /start quiz/i }))
+    expect(screen.getByText(/attempt 1/i)).toBeInTheDocument()
+  })
+})
