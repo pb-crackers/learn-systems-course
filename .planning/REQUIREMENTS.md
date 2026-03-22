@@ -9,12 +9,12 @@ Requirements for Enhanced Questions milestone. Each maps to roadmap phases.
 
 ### Quiz Component
 
-- [ ] **QUIZ-01**: User sees 7-10 multiple choice questions at the bottom of each lesson page after the exercise
-- [ ] **QUIZ-02**: User selects one answer per question and sees "Incorrect" with no correct answer revealed on wrong selection
-- [ ] **QUIZ-03**: User sees an explanation reinforcing the reasoning when answering correctly
-- [ ] **QUIZ-04**: User must retake the entire quiz when any answer is wrong
-- [ ] **QUIZ-05**: User sees how many attempts they have made on the current quiz
-- [ ] **QUIZ-06**: User sees a "Continue to Next Lesson" button after passing the quiz with 100%
+- [x] **QUIZ-01**: User sees 7-10 multiple choice questions at the bottom of each lesson page after the exercise
+- [x] **QUIZ-02**: User selects one answer per question and sees "Incorrect" with no correct answer revealed on wrong selection
+- [x] **QUIZ-03**: User sees an explanation reinforcing the reasoning when answering correctly
+- [x] **QUIZ-04**: User must retake the entire quiz when any answer is wrong
+- [x] **QUIZ-05**: User sees how many attempts they have made on the current quiz
+- [x] **QUIZ-06**: User sees a "Continue to Next Lesson" button after passing the quiz with 100%
 
 ### Progress Gating
 
@@ -58,12 +58,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| QUIZ-01 | Phase 13 | Pending |
-| QUIZ-02 | Phase 13 | Pending |
-| QUIZ-03 | Phase 13 | Pending |
-| QUIZ-04 | Phase 13 | Pending |
-| QUIZ-05 | Phase 13 | Pending |
-| QUIZ-06 | Phase 13 | Pending |
+| QUIZ-01 | Phase 13 | Complete |
+| QUIZ-02 | Phase 13 | Complete |
+| QUIZ-03 | Phase 13 | Complete |
+| QUIZ-04 | Phase 13 | Complete |
+| QUIZ-05 | Phase 13 | Complete |
+| QUIZ-06 | Phase 13 | Complete |
 | GATE-01 | Phase 14 | Pending |
 | GATE-02 | Phase 12 | Complete |
 | GATE-03 | Phase 12 | Complete |

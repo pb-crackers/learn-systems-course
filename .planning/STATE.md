@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-22T12:45:40.778Z"
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-22T13:10:00.049Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 2
+  completed_plans: 2
   percent: 0
 ---
 
@@ -63,6 +63,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 
 *Updated after each plan completion*
 | Phase 12-schema-and-progress-foundation P01 | 2min | 2 tasks | 5 files |
+| Phase 13-quiz-component-build P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting v1.2 work:
 - [Phase 12-schema-and-progress-foundation]: isLessonComplete uses !== false for quizPassed so undefined (pre-v1.2 records) is treated as passing — grandfather rule preserves existing completed lessons
 - [Phase 12-schema-and-progress-foundation]: QuizQuestion.options typed as 4-tuple [string,string,string,string] — compile-time enforcement of exactly 4 options
 - [Phase 12-schema-and-progress-foundation]: markQuizPassed sets completed:true in one operation — quiz pass IS lesson completion for quiz-enabled lessons
+- [Phase 13-quiz-component-build]: quizReducer, QuizMachineState, QuizAction exported for testability
+- [Phase 13-quiz-component-build]: correctIndex never rendered in failed/incorrect path — fixed Incorrect banner text only (QUIZ-02)
+- [Phase 13-quiz-component-build]: markQuizPassed called via useEffect on passed phase — runs once per completion
 
 ### Pending Todos
 
@@ -99,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T12:45:40.776Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-22T13:10:00.047Z
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
