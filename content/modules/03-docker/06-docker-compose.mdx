@@ -353,3 +353,114 @@ docker compose --profile debug up -d
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "compose-q1",
+    question: "A service definition in compose.yml has image: nginx:alpine and ports: [\"80:80\"]. What docker run command does this translate to?",
+    options: [
+      "docker build -t nginx:alpine . && docker run -p 80:80 nginx:alpine",
+      "docker run -p 80:80 nginx:alpine",
+      "docker run --expose 80 nginx:alpine",
+      "docker run -d -p 80:80 --network default nginx:alpine"
+    ],
+    correctIndex: 1,
+    explanation: "Docker Compose translates compose.yml keys directly to docker run flags. The image key specifies the image, and ports maps to -p. Compose handles network creation, volume creation, and detached mode automatically — the equivalent manual command is docker run -p 80:80 nginx:alpine.",
+  },
+  {
+    id: "compose-q2",
+    question: "Your compose.yml has depends_on: db (without a condition). The api service starts and immediately crashes because PostgreSQL is not ready yet. What is wrong?",
+    options: [
+      "depends_on only works when both services use the same Docker network",
+      "depends_on: db without a condition only waits for the db container to start, not for PostgreSQL to be ready to accept connections",
+      "PostgreSQL requires a special depends_on syntax with type: database",
+      "The api service must define its own healthcheck before depends_on takes effect"
+    ],
+    correctIndex: 1,
+    explanation: "depends_on without a condition is only a container start-order hint. It waits until Docker has created and started the db container process, but PostgreSQL inside that container may still be initializing. To wait for actual readiness, add a healthcheck to the db service and use depends_on: { db: { condition: service_healthy } }.",
+  },
+  {
+    id: "compose-q3",
+    question: "You run docker compose down. What happens to named volumes declared in compose.yml?",
+    options: [
+      "Named volumes are removed along with containers and networks",
+      "Named volumes are archived to /var/lib/docker/backup/ automatically",
+      "Named volumes are preserved — only containers and networks are removed",
+      "Named volumes are stopped but not deleted until docker volume prune is run"
+    ],
+    correctIndex: 2,
+    explanation: "docker compose down removes containers and networks but explicitly preserves named volumes. This allows you to bring the stack back up and pick up where you left off with all persisted data intact. To also remove named volumes, you must use docker compose down -v.",
+  },
+  {
+    id: "compose-q4",
+    question: "What is the difference between the .env file in the compose.yml directory and the env_file key in a service definition?",
+    options: [
+      "The .env file sets host shell variables; env_file sets the same variables as container shell variables",
+      "The .env file in the project directory is used for compose.yml variable substitution (expanding ${VAR}); env_file loads key=value pairs directly as container environment variables",
+      "There is no functional difference — both inject the same variables into the container",
+      ".env files use YAML format; env_file references use the INI format"
+    ],
+    correctIndex: 1,
+    explanation: "Docker Compose automatically loads a .env file in the project directory for variable substitution inside compose.yml (expanding ${VAR} references in the YAML). The env_file service key directly injects KEY=VALUE pairs from a file into the container's environment. A .env variable is not automatically available inside the container unless also referenced in the environment: block.",
+  },
+  {
+    id: "compose-q5",
+    question: "A compose.yml declares a healthcheck on the api service with interval: 10s, timeout: 5s, retries: 5. How long could it take before the service is considered unhealthy?",
+    options: [
+      "Exactly 5 seconds — the timeout determines when it is unhealthy",
+      "Up to 50 seconds — 5 retries x 10 second intervals (if each check fails at the interval boundary)",
+      "Exactly 10 seconds — one failed interval marks the service unhealthy",
+      "Up to 25 seconds — 5 retries x 5 second timeouts"
+    ],
+    correctIndex: 1,
+    explanation: "A service is only marked unhealthy after retries consecutive failures. Each check runs at the interval cadence. In the worst case, the service fails 5 checks back-to-back at the 10-second interval boundary, taking approximately 50 seconds before being marked unhealthy. The timeout controls how long each individual check is allowed to run before being considered failed.",
+  },
+  {
+    id: "compose-q6",
+    question: "Which compose.yml construct would you use to run a debug shell container that is excluded from normal docker compose up but can be started on demand?",
+    options: [
+      "Adding restart: never to the service definition",
+      "Putting the service in a separate compose.override.yml file",
+      "Using the profiles key to assign the service to a named profile, then starting it with --profile debug",
+      "Setting scale: 0 on the service definition to start it with zero replicas"
+    ],
+    correctIndex: 2,
+    explanation: "Profiles let you define optional services that are excluded from default Compose operations. A service with profiles: [debug] is ignored by docker compose up unless you pass --profile debug. This is the correct pattern for debug utilities, test databases, or admin tools that should not run in normal operation.",
+  },
+  {
+    id: "compose-q7",
+    question: "You run docker compose stop (not docker compose down). What is the state of the containers and named volumes afterward?",
+    options: [
+      "Containers are removed and volumes are preserved, identical to docker compose down",
+      "Containers are stopped but not removed, networks are preserved, and named volumes are preserved",
+      "Containers are paused (not stopped), and all resources are preserved",
+      "All containers and volumes are removed as a safety measure"
+    ],
+    correctIndex: 1,
+    explanation: "docker compose stop sends SIGTERM to each service's container and waits for them to exit, but does not remove containers or networks. The containers remain in the stopped state and can be restarted with docker compose start. This differs from docker compose down, which removes containers and networks after stopping them.",
+  },
+  {
+    id: "compose-q8",
+    question: "A named volume in compose.yml requires two declarations. What are they?",
+    options: [
+      "A driver: declaration in the service and a mount: declaration at the top level",
+      "A volume reference in the service's volumes: key AND a declaration in the top-level volumes: block",
+      "A create: true flag on the service and a volume: tag at the compose root",
+      "Only one declaration is needed — in the service's volumes: key"
+    ],
+    correctIndex: 1,
+    explanation: "Named volumes in Compose require both: (1) mounting the volume in the service's volumes key (e.g., appdata:/app/data) and (2) registering it in the top-level volumes block (e.g., volumes: { appdata: }). The top-level declaration tells Compose to create and manage the volume object; without it, Compose treats the reference as a bind mount path.",
+  },
+  {
+    id: "compose-q9",
+    question: "What does the preferred filename compose.yml replace, and why is the new name preferred?",
+    options: [
+      "It replaces Dockerfile; compose.yml is preferred because it handles both build and orchestration",
+      "It replaces docker-compose.yml; compose.yml is the current Compose v2 standard with a cleaner name",
+      "It replaces .dockerignore; compose.yml consolidates all Docker configuration in one file",
+      "It replaces docker-compose.override.yml; the simplified name reduces filesystem clutter"
+    ],
+    correctIndex: 1,
+    explanation: "compose.yml is the current standard filename for Docker Compose v2, replacing the older docker-compose.yml (which includes the hyphen and docker- prefix from the Compose v1 era). Docker Compose v2 still recognizes docker-compose.yml for backward compatibility, but compose.yml is the preferred and documented choice for new projects.",
+  },
+]

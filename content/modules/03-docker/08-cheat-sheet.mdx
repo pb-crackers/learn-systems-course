@@ -206,3 +206,114 @@ shell script, and verify the entire stack with a comprehensive verification scri
 step-by-step guide — you figure out the how. After that, the System Administration module
 will show you how to manage the services these containers are running at the OS level.
 </Callout>
+
+export const quiz = [
+  {
+    id: "docker-ref-q1",
+    question: "Which command shows only the currently running containers?",
+    options: [
+      "docker container list --all",
+      "docker ps",
+      "docker ps -a",
+      "docker inspect --running"
+    ],
+    correctIndex: 1,
+    explanation: "docker ps (without flags) lists only containers in the running state. Adding -a shows all containers regardless of state, including stopped and exited containers. docker ps is the first command to run when checking whether your services are up.",
+  },
+  {
+    id: "docker-ref-q2",
+    question: "You want to remove an image named myapp:v1 but a stopped container is still referencing it. What flag do you add to docker rmi?",
+    options: [
+      "--all",
+      "--force or -f",
+      "--prune",
+      "--no-cache"
+    ],
+    correctIndex: 1,
+    explanation: "docker rmi refuses to remove an image referenced by a container (even a stopped one) by default. The -f flag forces removal by deleting the image tag even if containers reference it. The underlying image layers are not actually removed until no container references them.",
+  },
+  {
+    id: "docker-ref-q3",
+    question: "Which command follows container log output in real time, similar to tail -f?",
+    options: [
+      "docker logs --watch myapp",
+      "docker logs -f myapp",
+      "docker stream logs myapp",
+      "docker tail myapp"
+    ],
+    correctIndex: 1,
+    explanation: "docker logs -f (follow) continuously streams new log output to your terminal as the container produces it. Press Ctrl+C to stop following. Without -f, docker logs prints all log output captured since container start and exits.",
+  },
+  {
+    id: "docker-ref-q4",
+    question: "What is the correct way to open an interactive shell inside a running container named api?",
+    options: [
+      "docker run -it api /bin/sh",
+      "docker attach -it api",
+      "docker exec -it api /bin/sh",
+      "docker shell api"
+    ],
+    correctIndex: 2,
+    explanation: "docker exec -it starts a new process (the shell) inside the running container's namespaces. -i keeps stdin open, -t allocates a pseudo-TTY for proper terminal display. docker run would create a new container from an image. docker attach connects to PID 1, which risks stopping the container on Ctrl+C.",
+  },
+  {
+    id: "docker-ref-q5",
+    question: "A named volume persists across docker compose down. Which command removes named volumes along with containers and networks?",
+    options: [
+      "docker compose down --purge",
+      "docker volume prune only",
+      "docker compose down -v",
+      "docker compose rm --volumes"
+    ],
+    correctIndex: 2,
+    explanation: "docker compose down removes containers and networks but preserves named volumes by default. Adding -v tells Compose to also remove all named volumes declared in compose.yml. Use this only when you want a completely clean slate, as all persistent data in those volumes will be destroyed.",
+  },
+  {
+    id: "docker-ref-q6",
+    question: "What does docker network prune do?",
+    options: [
+      "Removes all Docker networks including bridge, host, and none",
+      "Removes unused custom networks that have no containers currently connected",
+      "Resets all container IP assignments and recreates the default bridge",
+      "Removes the Docker DNS cache for all networks"
+    ],
+    correctIndex: 1,
+    explanation: "docker network prune removes custom networks that currently have no connected containers. It does not remove the built-in networks (bridge, host, none) that Docker requires for operation. This is useful for cleaning up leftover networks from old docker compose projects after running docker compose down.",
+  },
+  {
+    id: "docker-ref-q7",
+    question: "Which Dockerfile instruction pair creates a non-root system user on an Alpine-based image?",
+    options: [
+      "RUN useradd appuser and USER appuser",
+      "RUN addgroup -S appgroup && adduser -S appuser -G appgroup and USER appuser",
+      "ENV USER=appuser and RUN chown appuser /app",
+      "ARG NONROOT=appuser and USER $NONROOT"
+    ],
+    correctIndex: 1,
+    explanation: "Alpine uses BusyBox utilities, so the correct commands are addgroup and adduser (not useradd/groupadd which are glibc-based). The -S flag creates system accounts with no login shell or home directory. After creating the user, the USER instruction switches all subsequent instructions (including CMD) to run as that user.",
+  },
+  {
+    id: "docker-ref-q8",
+    question: "What does the COPY --from=builder /app . instruction do in a multi-stage Dockerfile?",
+    options: [
+      "Copies the current build context into a directory named builder",
+      "Downloads and copies the builder base image layers into the current stage",
+      "Copies the /app directory from the stage named builder into the current stage's working directory",
+      "Copies all files matching the pattern 'builder' from the build context"
+    ],
+    correctIndex: 2,
+    explanation: "COPY --from=builder /app . copies the contents of /app from the previously defined stage named builder into the current directory of the current stage. This is how multi-stage builds transfer only the necessary output (compiled code, node_modules) from a build-heavy stage into the minimal final runtime image.",
+  },
+  {
+    id: "docker-ref-q9",
+    question: "When would you use docker build --no-cache?",
+    options: [
+      "Every time you build to ensure images are always up to date",
+      "When comparing image sizes or build times between two Dockerfile variations to get accurate measurements without cached layer reuse",
+      "When working on machines with limited disk space to avoid filling the cache",
+      "When the Docker daemon reports a cache corruption error"
+    ],
+    correctIndex: 1,
+    explanation: "--no-cache forces Docker to re-run every instruction from scratch, bypassing the layer cache. This is required when making before/after comparisons — otherwise Docker might reuse cached layers from a previous run and give misleading size or timing results. For normal day-to-day development, using the cache is desirable because it speeds up rebuilds.",
+  },
+]

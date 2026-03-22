@@ -278,3 +278,102 @@ Named volumes and bind mounts **bypass this mechanism entirely**. Their data goe
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "vol-q1",
+    question: "You write a file inside a running container, then remove the container with docker rm. What happens to the file?",
+    options: [
+      "The file is saved to the named volume associated with that container",
+      "The file is moved to the host filesystem at /var/lib/docker/containers/",
+      "The file is permanently lost because it was in the container's writable layer, which is deleted with docker rm",
+      "The file is preserved in the image layer for future containers from the same image"
+    ],
+    correctIndex: 2,
+    explanation: "Files written inside a running container go into the container's writable layer (the overlay FS upperdir). When the container is removed with docker rm, Docker discards this writable layer entirely. The read-only image layers are unaffected. This ephemerality is why volumes or bind mounts are required for persistent data.",
+  },
+  {
+    id: "vol-q2",
+    question: "What is the primary use case for a bind mount in Docker development workflows?",
+    options: [
+      "Persisting database files across container restarts in production",
+      "Storing container secrets that should never touch disk",
+      "Mounting source code from the host so changes are immediately visible inside the container without rebuilding",
+      "Sharing a volume between multiple containers running on different Docker hosts"
+    ],
+    correctIndex: 2,
+    explanation: "A bind mount directly links a host directory into the container, so both sides see the same underlying filesystem. Editing source code on the host with your editor immediately updates the files the container sees. This eliminates the need to rebuild the image on every code change during development.",
+  },
+  {
+    id: "vol-q3",
+    question: "How does a named volume differ from a bind mount in terms of storage location?",
+    options: [
+      "Named volumes use tmpfs (RAM) storage; bind mounts use disk storage",
+      "Named volumes are stored at a Docker-managed path (e.g., /var/lib/docker/volumes/); bind mounts use a host path you specify",
+      "Named volumes are stored inside the container image layers; bind mounts are outside the image",
+      "Named volumes are only available on Linux; bind mounts work on all platforms"
+    ],
+    correctIndex: 1,
+    explanation: "Named volumes are Docker objects with their own lifecycle, stored under Docker's managed directory (typically /var/lib/docker/volumes/name/_data on Linux). Bind mounts use an absolute host path you provide. The key practical difference is that named volume paths must exist on every Docker host, while bind mount paths must exist on the specific host where the container runs.",
+  },
+  {
+    id: "vol-q4",
+    question: "Given situation: you run docker rm on a container that had a named volume attached. What happens to the volume data?",
+    options: [
+      "The volume and its data are deleted along with the container",
+      "The volume data is moved to a backup location under /var/lib/docker/backup/",
+      "The volume persists independently — docker rm does not touch named volumes",
+      "The volume is detached but its data is automatically archived to a tar file"
+    ],
+    correctIndex: 2,
+    explanation: "Named volumes have an independent lifecycle from containers. docker rm removes the container (its writable overlay layer) but does not touch any attached named volumes. The volume and its data remain until explicitly removed with docker volume rm or docker volume prune.",
+  },
+  {
+    id: "vol-q5",
+    question: "A developer uses a bind mount to serve source code in a container: -v $(pwd)/src:/app/src. They edit src/app.js on the host but the container still serves the old response. What is the most likely cause?",
+    options: [
+      "The bind mount only syncs changes when the container is restarted",
+      "Bind mounts require the --sync flag to propagate host changes to the container",
+      "The application process inside the container has already cached the old module in memory and needs to restart to pick up file changes",
+      "The host and container filesystems use different inode numbers so the change is not visible"
+    ],
+    correctIndex: 2,
+    explanation: "The bind mount itself does make the file change immediately visible inside the container at the filesystem level. The stale response is an application problem: Node.js (and many other runtimes) cache required modules in memory when the process starts. Editing the file on disk does not reload the in-memory module. The fix is to restart the process or use a file watcher like nodemon.",
+  },
+  {
+    id: "vol-q6",
+    question: "Which storage type should you use for a secret token that must never be written to disk?",
+    options: [
+      "Named volume",
+      "Bind mount to a ramfs directory",
+      "tmpfs mount",
+      "Container writable layer"
+    ],
+    correctIndex: 2,
+    explanation: "A tmpfs mount stores data in the host's memory only and never writes it to disk. It disappears when the container stops. This makes it ideal for secrets, session tokens, or temporary credentials that must not persist on the filesystem or appear in docker inspect storage paths.",
+  },
+  {
+    id: "vol-q7",
+    question: "Named volumes bypass the overlay filesystem's copy-on-write mechanism. Why does this matter for data persistence?",
+    options: [
+      "It means named volumes are faster to read because they skip encryption at rest",
+      "It means data written to a named volume path goes directly to the host filesystem, not through the overlay writable layer, so it survives docker rm",
+      "It means named volume data is shared between all containers on the host automatically",
+      "It means named volumes can only be written to by the root user inside the container"
+    ],
+    correctIndex: 1,
+    explanation: "Named volumes and bind mounts are mounted directly into the container's namespace, bypassing the overlay FS entirely. Writes go to the actual storage location on the host (or Docker's managed path), not into the ephemeral upperdir. Because the data was never in the writable overlay layer, removing the container does not delete it.",
+  },
+  {
+    id: "vol-q8",
+    question: "On macOS using Docker Desktop, you run docker volume inspect mydata and see the Mountpoint as /var/lib/docker/volumes/mydata/_data. Can you access this path directly from your macOS terminal?",
+    options: [
+      "Yes, macOS mounts Docker volumes at that path automatically via NFS",
+      "No, that path is inside the Linux VM that Docker Desktop runs; it is not directly accessible from the macOS host terminal",
+      "Yes, if you run the command with sudo to gain root privileges",
+      "No, because Docker encrypts named volume data and the path is a virtual address"
+    ],
+    correctIndex: 1,
+    explanation: "Docker Desktop on macOS runs all Docker workloads inside a lightweight Linux VM. Named volume paths like /var/lib/docker/volumes/ exist inside that VM, not on the macOS host filesystem. You cannot access them with the macOS terminal directly. To inspect or copy volume data, use docker cp or docker compose exec.",
+  },
+]

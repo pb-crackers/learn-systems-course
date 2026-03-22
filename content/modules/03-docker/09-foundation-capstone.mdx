@@ -219,3 +219,102 @@ This capstone deliberately spans all three foundation modules:
 - Named volumes — data persistence across container restarts
 - Dockerfile best practices — layer caching, .dockerignore, HEALTHCHECK
 </Callout>
+
+export const quiz = [
+  {
+    id: "capstone-q1",
+    question: "Your deploy.sh runs docker compose up -d --build and immediately exits 0. Five minutes later a monitoring alert fires: the web service is returning 502 Bad Gateway. Which combination of symptoms would pinpoint the root cause?",
+    options: [
+      "docker ps shows all three services as 'running (healthy)' and docker compose logs web shows upstream connect errors to the api service",
+      "docker ps shows the web service as 'running (unhealthy)' and the api container is absent from docker ps output",
+      "docker compose ps shows api as 'running (unhealthy)' — its healthcheck is failing — and web is stuck in 'starting' waiting for api to be healthy, so web is not actually serving traffic",
+      "The named volume for the database is missing from docker volume ls and the database service exited with code 1"
+    ],
+    correctIndex: 2,
+    explanation: "A 502 Bad Gateway from nginx typically means the upstream (api) is unreachable. If api's healthcheck is failing, and web has depends_on: { api: { condition: service_healthy } }, then web never reaches a stable running state. Checking docker compose ps first reveals this dependency deadlock. The named volume and database being missing would cause a different failure mode (api crashes on DB connection, not web returning 502).",
+  },
+  {
+    id: "capstone-q2",
+    question: "You inspect the api container with docker compose exec api id and see uid=0(root). What single Dockerfile change is needed and why does it matter for this production deployment?",
+    options: [
+      "Add EXPOSE 3000 — containers only drop root privileges when a port is explicitly exposed",
+      "Add USER appuser after creating a system user with RUN addgroup -S appgroup and adduser -S appuser -G appgroup — to prevent a container breakout from granting host root access",
+      "Add CMD [\"su\", \"appuser\", \"-c\", \"node app.js\"] — to run the application as a non-root user at startup",
+      "Add ENV USER=nobody — Docker reads this variable and automatically switches to that user"
+    ],
+    correctIndex: 1,
+    explanation: "The correct fix is: RUN addgroup -S appgroup && adduser -S appuser -G appgroup followed by USER appuser. The USER instruction tells Docker to run all subsequent instructions, including CMD, as that user. Running as root means a successful application exploit could give an attacker host root access via container breakout. The non-root user limits blast radius to what that unprivileged UID can do on the host.",
+  },
+  {
+    id: "capstone-q3",
+    question: "The database service in a Compose stack is healthy, but the api service starts and immediately crashes with 'connection refused to db:5432'. depends_on: { db: { condition: service_healthy } } is already set. What is the most likely cause?",
+    options: [
+      "PostgreSQL uses a different port than 5432 by default — the api is connecting to the wrong port",
+      "The api and db services are on different networks, so the DNS name 'db' does not resolve to the database container",
+      "The depends_on condition is only supported in Compose v3 and not in compose.yml files",
+      "The db healthcheck passes the pg_isready test before PostgreSQL is ready to serve application queries, and the api connects before the database is fully initialized"
+    ],
+    correctIndex: 1,
+    explanation: "On a custom bridge network, containers resolve each other by service name. If api and db are on different networks (or if one is on the default bridge), the DNS name 'db' fails to resolve in the api container. The fix is to add both services to the same custom network in compose.yml. A healthy pg_isready check typically means PostgreSQL is ready for connections, so timing is less likely to be the issue if depends_on is properly configured.",
+  },
+  {
+    id: "capstone-q4",
+    question: "After a successful deployment, you run docker compose down (without -v) and then docker compose up -d again. Your API reports 0 items in the database. What went wrong?",
+    options: [
+      "docker compose down always removes named volumes regardless of whether -v is passed",
+      "The PostgreSQL data directory was stored in the container writable layer, not in a named volume, so docker compose down destroyed the data",
+      "The named volume was corrupted by the down/up cycle and needs to be manually re-initialized",
+      "docker compose up -d always creates new named volumes even if they already exist"
+    ],
+    correctIndex: 1,
+    explanation: "docker compose down preserves named volumes but destroys the container's writable layer. If the PostgreSQL data directory (/var/lib/postgresql/data) is not mounted to a named volume, its contents live in the container writable layer and are deleted with docker compose down. The fix is to declare the volume in compose.yml: volumes: [pgdata:/var/lib/postgresql/data] and add pgdata to the top-level volumes block.",
+  },
+  {
+    id: "capstone-q5",
+    question: "Your deploy.sh runs docker compose up -d --build and then checks service health. Which approach correctly makes the script exit non-zero if any service is unhealthy after startup?",
+    options: [
+      "Use set -e at the top of the script — it automatically detects Docker unhealthy states",
+      "Run docker compose ps and use grep or jq to check that all services show 'running' status, then exit 1 if any do not",
+      "Add --wait to docker compose up — it exits non-zero if any service fails to start",
+      "Run docker inspect on each container and check the .State.Health.Status field, exiting 1 on any 'unhealthy' value"
+    ],
+    correctIndex: 1,
+    explanation: "set -e makes the script exit on non-zero command exit codes but does not inspect Docker service health states. The reliable approach is to parse docker compose ps output after startup — check that all expected services appear with running status, and exit 1 if any are missing or unhealthy. docker compose up --wait is also valid in Compose v2.1+ and blocks until all healthchecks pass, making it another correct approach for this use case.",
+  },
+  {
+    id: "capstone-q6",
+    question: "The web service must be the only entry point reachable from the host. The api and db services must only communicate over the internal Docker network. How do you enforce this in compose.yml?",
+    options: [
+      "Set internal: true on all services except web",
+      "Publish ports only on the web service (ports: [\"8080:80\"]) and omit ports from the api and db services — only the web service is reachable from the host",
+      "Add a firewall: block directive to each service definition",
+      "Set network_mode: none on the api and db services so they cannot receive external connections"
+    ],
+    correctIndex: 1,
+    explanation: "In Docker Compose, a service is only reachable from the host if it has a ports: mapping. Without a ports: declaration, the service has no published ports and cannot be reached from outside the Compose network. The api and db services can still communicate with each other and with web over the shared internal bridge network, but nothing on the host can directly connect to them.",
+  },
+  {
+    id: "capstone-q7",
+    question: "Your web service uses a multi-stage Dockerfile with FROM nginx:alpine AS final. The image is currently 95MB. What would most likely increase the image size beyond 100MB?",
+    options: [
+      "Adding a HEALTHCHECK instruction to the Dockerfile",
+      "Adding a second FROM node:20 AS builder stage that compiles assets and copies only the dist/ output to the final stage",
+      "Adding a COPY --from=builder /app/dist /usr/share/nginx/html instruction if the dist/ directory is large",
+      "Adding an EXPOSE 80 instruction to document the port"
+    ],
+    correctIndex: 2,
+    explanation: "Multi-stage builds keep the final image minimal by copying only what is explicitly specified with COPY --from. If the dist/ directory produced by the builder stage is large (many MB of compiled assets), that content is copied into the final nginx image and increases its size. The HEALTHCHECK and EXPOSE instructions are metadata only and add negligible size. The builder stage itself does not appear in the final image.",
+  },
+  {
+    id: "capstone-q8",
+    question: "In the capstone architecture, the web nginx service proxies /api/* requests to the api service. What Docker networking feature makes the URL http://api:3000 resolve correctly inside the nginx container?",
+    options: [
+      "The default Docker bridge network automatically resolves all container names",
+      "nginx has a built-in Docker service discovery integration that queries the Docker daemon",
+      "Both services are on a custom bridge network, so Docker's embedded DNS at 127.0.0.11 resolves 'api' to the api container's current IP",
+      "The ports: mapping on the api service creates a host alias 'api' that nginx can use"
+    ],
+    correctIndex: 2,
+    explanation: "Custom bridge networks enable Docker's embedded DNS server at 127.0.0.11. When nginx inside the web container resolves http://api:3000, the lookup goes to 127.0.0.11, which resolves 'api' to the api container's current private IP on that network. This works because both web and api are connected to the same custom bridge network in compose.yml.",
+  },
+]

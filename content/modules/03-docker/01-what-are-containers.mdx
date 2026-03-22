@@ -345,3 +345,114 @@ The container process is a regular Linux process. It has a PID on the host. It i
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "container-q1",
+    question: "A container is best described as which of the following?",
+    options: [
+      "A lightweight virtual machine with its own guest operating system",
+      "An isolated Linux process using namespaces, cgroups, and overlay filesystems",
+      "A hypervisor-managed environment that emulates hardware",
+      "A separate kernel instance running alongside the host kernel"
+    ],
+    correctIndex: 1,
+    explanation: "A container is an isolated Linux process, not a VM. It uses namespaces for isolation, cgroups for resource limits, and overlay filesystems for image layers — all Linux kernel features. There is no guest OS, no hypervisor, and no hardware emulation.",
+  },
+  {
+    id: "container-q2",
+    question: "Which system call does Docker invoke to create a new container process with its own namespaces?",
+    options: [
+      "fork()",
+      "execve()",
+      "clone()",
+      "pivot_root()"
+    ],
+    correctIndex: 2,
+    explanation: "Docker calls clone() with namespace flags such as CLONE_NEWPID and CLONE_NEWNET to create a new process that starts in fresh, isolated namespaces. fork() creates a process in the same namespace, while execve() replaces the current process image.",
+  },
+  {
+    id: "container-q3",
+    question: "Inside a running container, the main process shows as PID 1. From the host, the same process has PID 12345. What causes this discrepancy?",
+    options: [
+      "Docker renames PIDs to improve readability inside the container",
+      "The container has its own PID namespace, so each namespace has its own PID numbering",
+      "The host kernel assigns PID 1 to all first processes regardless of namespace",
+      "The container runs in a separate kernel instance with independent PID counters"
+    ],
+    correctIndex: 1,
+    explanation: "The PID namespace (created with CLONE_NEWPID) gives the container its own isolated PID numbering. The first process in the container is assigned PID 1 within that namespace. The host kernel tracks the same process under a different PID in the host's PID namespace.",
+  },
+  {
+    id: "container-q4",
+    question: "Which Linux kernel feature does Docker use to enforce memory and CPU limits on a container?",
+    options: [
+      "Namespaces",
+      "Overlay filesystems",
+      "Control groups (cgroups)",
+      "iptables rules"
+    ],
+    correctIndex: 2,
+    explanation: "Control groups (cgroups) limit, account for, and isolate resource usage of process groups. Docker writes values such as 134217728 to memory.max and 50000 100000 to cpu.max in the container's cgroup directory under /sys/fs/cgroup/. Namespaces provide isolation of views, not resource limits.",
+  },
+  {
+    id: "container-q5",
+    question: "A container is started with --memory=128m. The container process grows to use 200MB. What happens next?",
+    options: [
+      "Docker pauses the container until memory is freed",
+      "The container is migrated to a host with more memory",
+      "The kernel OOM killer sends SIGKILL to the container process",
+      "The container transparently uses swap space up to 128m more"
+    ],
+    correctIndex: 2,
+    explanation: "When a container process exceeds the cgroup memory.max value, the Linux OOM killer fires and sends SIGKILL to the process, stopping the container with exit code 137. This happens without any application-level warning because it is a kernel-level enforcement mechanism.",
+  },
+  {
+    id: "container-q6",
+    question: "What does the overlay filesystem's 'upper' layer represent in a running container?",
+    options: [
+      "The base image layers shared by all containers",
+      "The kernel's bookkeeping directory for copy-on-write tracking",
+      "The container-specific writable layer that holds all changes made at runtime",
+      "A compressed archive of all image layers merged into one file"
+    ],
+    correctIndex: 2,
+    explanation: "The upper layer is the container's writable scratchpad. Any file created or modified inside the container lands in the upper layer. The lower layers are the read-only image layers. When the container is removed, only the upper layer is discarded; the image layers remain untouched.",
+  },
+  {
+    id: "container-q7",
+    question: "What does 'copy-on-write' mean in the context of the overlay filesystem?",
+    options: [
+      "Each container gets its own complete copy of the image on disk at startup",
+      "Image layers are duplicated to a new registry each time a container is created",
+      "When a container modifies a file from a lower layer, the file is copied to the upper layer first, then modified",
+      "Writes to the container are mirrored to the host filesystem in real time"
+    ],
+    correctIndex: 2,
+    explanation: "Copy-on-write means that modifying a file from the read-only lower layers does not alter the original. The overlay driver copies the file into the writable upper layer first, then modifies the copy there. This allows multiple containers to share the same image layers without interfering with each other.",
+  },
+  {
+    id: "container-q8",
+    question: "Which namespace isolates the container's network interfaces, routing tables, and iptables rules?",
+    options: [
+      "PID namespace (CLONE_NEWPID)",
+      "UTS namespace (CLONE_NEWUTS)",
+      "IPC namespace (CLONE_NEWIPC)",
+      "NET namespace (CLONE_NEWNET)"
+    ],
+    correctIndex: 3,
+    explanation: "The NET namespace (created with CLONE_NEWNET) gives each container its own virtual network interfaces, routing table, and iptables rules. Docker creates a veth pair connecting the container's eth0 to the docker0 bridge on the host, giving the container its own isolated network stack.",
+  },
+  {
+    id: "container-q9",
+    question: "What is the purpose of the USER namespace (CLONE_NEWUSER) in Docker?",
+    options: [
+      "It prevents multiple users from running Docker commands simultaneously",
+      "It maps root inside the container to an unprivileged user on the host",
+      "It assigns unique UIDs to each container for accounting purposes",
+      "It prevents the container from reading /etc/passwd on the host"
+    ],
+    correctIndex: 1,
+    explanation: "The USER namespace allows the container to run processes as UID 0 (root) inside the container while mapping that UID to an unprivileged user on the host. This limits the blast radius of a container breakout because the container's 'root' has no special privileges from the host kernel's perspective.",
+  },
+]

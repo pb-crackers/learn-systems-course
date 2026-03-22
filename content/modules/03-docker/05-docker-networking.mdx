@@ -308,3 +308,102 @@ A container can be connected to **multiple networks simultaneously**. In the dia
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "dnet-q1",
+    question: "What is the critical limitation of the default Docker bridge network compared to a custom bridge network?",
+    options: [
+      "The default bridge does not support port publishing with the -p flag",
+      "Containers on the default bridge cannot resolve each other by container name — they must use IP addresses",
+      "The default bridge allows only two containers to communicate simultaneously",
+      "The default bridge uses UDP instead of TCP for container-to-container traffic"
+    ],
+    correctIndex: 1,
+    explanation: "The default bridge network (docker0) does not include Docker's embedded DNS, so containers cannot resolve each other by name. Custom bridge networks activate the embedded DNS server at 127.0.0.11, which resolves container names to their current IPs. This is the primary reason custom bridges are required for multi-container applications.",
+  },
+  {
+    id: "dnet-q2",
+    question: "At what IP address does Docker's embedded DNS resolver listen inside a container on a custom bridge network?",
+    options: [
+      "172.17.0.1",
+      "10.0.0.1",
+      "127.0.0.11",
+      "192.168.1.1"
+    ],
+    correctIndex: 2,
+    explanation: "Docker's embedded DNS server is always at the fixed IP 127.0.0.11 inside containers on custom bridge networks. This is set in the container's /etc/resolv.conf as the nameserver. It is authoritative for container names on the same network and forwards external lookups upstream.",
+  },
+  {
+    id: "dnet-q3",
+    question: "Container IPs change every time a container is recreated. How does a web container reliably connect to an API container despite this?",
+    options: [
+      "The web container stores the API container's IP in an environment variable set at deploy time",
+      "Docker statically assigns the same IP to containers with the same name across restarts",
+      "On a custom bridge network, Docker's embedded DNS resolves the API service name to the current IP automatically",
+      "The web container uses ARP broadcast to discover the API container on the bridge"
+    ],
+    correctIndex: 2,
+    explanation: "Docker's embedded DNS resolver (127.0.0.11) is the solution to dynamic IP assignment. When the web container connects to http://api:3000, the DNS lookup goes to 127.0.0.11, which resolves 'api' to whatever IP the api container currently has. If the api container is recreated with a new IP, DNS reflects the change automatically.",
+  },
+  {
+    id: "dnet-q4",
+    question: "Two containers on different Docker bridge networks are running on the same host. Can they communicate with each other?",
+    options: [
+      "Yes, all containers on the same Docker host share a common L2 network by default",
+      "Yes, but only if both containers have published ports on the same host IP",
+      "No, containers on different networks are isolated from each other even on the same host",
+      "No, but you can enable cross-network communication by setting --privileged on one container"
+    ],
+    correctIndex: 2,
+    explanation: "Different Docker bridge networks are separate L2 segments with their own subnets. Containers on different networks cannot reach each other directly — there is no routing between them. This isolation is intentional and is how you implement network security boundaries (e.g., the database network should not be reachable by the web frontend).",
+  },
+  {
+    id: "dnet-q5",
+    question: "Which Docker network driver would you use if you want a container to share the host's network namespace with no port translation overhead?",
+    options: [
+      "bridge",
+      "none",
+      "overlay",
+      "host"
+    ],
+    correctIndex: 3,
+    explanation: "The host driver removes network isolation — the container shares the host's network namespace directly, using the host's IP address and network interfaces. There is no port publishing needed, and there is no NAT overhead. The trade-off is that network isolation is sacrificed, which reduces security.",
+  },
+  {
+    id: "dnet-q6",
+    question: "A Docker bridge network corresponds to which Linux networking construct on the host?",
+    options: [
+      "A loopback interface (lo) shared by all containers",
+      "A Linux bridge interface (virtual switch) that routes Ethernet frames between container veth pairs",
+      "A separate routing table entry in the host's main routing table",
+      "An IPsec tunnel that encrypts all inter-container traffic"
+    ],
+    correctIndex: 1,
+    explanation: "When Docker creates a bridge network, it creates a Linux bridge interface on the host (visible with ip link show as docker0 or br-xxxxxxxx). Each container gets a veth pair: one end inside the container as eth0, the other attached to the bridge. The bridge forwards frames between containers exactly like a physical switch.",
+  },
+  {
+    id: "dnet-q7",
+    question: "You need the API container to receive requests from the web container AND to query the database. How would you architect the networks?",
+    options: [
+      "Put all three containers on one network so they can all talk to each other",
+      "Create two networks: connect web and api to frontend-net, connect api and db to backend-net; the API bridges both networks",
+      "Use the host network driver so all containers share the same IP address",
+      "Create one network and use firewall rules to prevent web from reaching db"
+    ],
+    correctIndex: 1,
+    explanation: "A container can belong to multiple networks simultaneously. By putting web and api on frontend-net and api and db on backend-net, the web container can reach the api but cannot reach the db at all. The api can reach both. This multi-network pattern is the standard approach for implementing network security tiers in Docker.",
+  },
+  {
+    id: "dnet-q8",
+    question: "What does docker network inspect show about a running network?",
+    options: [
+      "The number of bytes transferred between containers on that network",
+      "The network driver, subnet, and a list of connected containers with their IP and MAC addresses",
+      "The DNS resolution history for all container name lookups on the network",
+      "The iptables rules Docker created to implement the network isolation"
+    ],
+    correctIndex: 1,
+    explanation: "docker network inspect returns detailed metadata about a Docker network: the driver (bridge, host, none), subnet and gateway configuration, and most importantly the Containers section listing all currently connected containers with their IP addresses and MAC addresses. This is the primary tool for diagnosing network connectivity problems.",
+  },
+]

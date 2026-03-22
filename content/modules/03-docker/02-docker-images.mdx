@@ -407,3 +407,114 @@ Examples:
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "img-q1",
+    question: "A Docker image is composed of which of the following?",
+    options: [
+      "A single compressed archive file containing the entire filesystem",
+      "A stack of read-only layers where each layer stores only the filesystem changes from the previous layer",
+      "A complete copy of the operating system duplicated for each container",
+      "A virtual disk image in VMDK format understood by the Docker daemon"
+    ],
+    correctIndex: 1,
+    explanation: "A Docker image is a stack of read-only layers, not a monolithic file. Each layer stores only the diff from the previous layer, identified by a SHA256 hash. This design enables layer sharing: two images that share a common base (like FROM node:20) share those layers on disk.",
+  },
+  {
+    id: "img-q2",
+    question: "Which Dockerfile instruction creates a new filesystem layer?",
+    options: [
+      "WORKDIR",
+      "ENV",
+      "EXPOSE",
+      "RUN"
+    ],
+    correctIndex: 3,
+    explanation: "RUN executes a shell command during the build and stores the resulting filesystem changes as a new layer. Instructions like WORKDIR, ENV, and EXPOSE set image metadata only — they do not modify the filesystem and therefore do not create new layers.",
+  },
+  {
+    id: "img-q3",
+    question: "What does the EXPOSE instruction in a Dockerfile actually do?",
+    options: [
+      "Opens the specified port on the host machine for incoming traffic",
+      "Creates a firewall rule that allows external access to the container port",
+      "Serves as documentation only — it does not publish or open any port",
+      "Automatically maps the container port to the same port number on the host"
+    ],
+    correctIndex: 2,
+    explanation: "EXPOSE is documentation only. It informs Docker and humans which port the application listens on inside the container, but it creates no network rules. Publishing a port requires the -p flag at runtime: docker run -p 3000:3000 myapp. Without -p, nothing outside the container can reach it.",
+  },
+  {
+    id: "img-q4",
+    question: "A developer changed one line in app.js and rebuilt the image. The build took 42 seconds, same as the first build. The Dockerfile starts with COPY . . then RUN npm install. What is wrong?",
+    options: [
+      "Docker does not cache any layers that include JavaScript files",
+      "Changing app.js invalidated the COPY layer, which then invalidated the RUN npm install layer below it",
+      "npm install always runs from scratch regardless of cache state",
+      "The image digest changed so all layers were automatically invalidated"
+    ],
+    correctIndex: 1,
+    explanation: "Layer cache invalidation is sequential. When COPY . . detects a file change (app.js), it marks that layer as a cache miss. Every subsequent instruction — including RUN npm install — is also invalidated and must re-run. To fix this, copy package.json first, run npm install, then copy the rest of the source code.",
+  },
+  {
+    id: "img-q5",
+    question: "What is the purpose of the .dockerignore file?",
+    options: [
+      "It lists files that Docker refuses to run as container entrypoints",
+      "It specifies which Dockerfile instructions to skip during a build",
+      "It excludes files from the build context sent to the Docker daemon, reducing build size and preventing secrets from being included",
+      "It marks files that should not be committed to Docker Hub registries"
+    ],
+    correctIndex: 2,
+    explanation: "Docker sends the entire build context directory to the daemon before processing any Dockerfile instruction. A .dockerignore file (using the same syntax as .gitignore) excludes specified paths from that transfer. This improves build speed and prevents sensitive files like .env or node_modules from accidentally being included in the image.",
+  },
+  {
+    id: "img-q6",
+    question: "You run docker run -p 3000:3000 myapp:v1. What does the -p 3000:3000 flag do?",
+    options: [
+      "It tells the container to listen on both port 3000 inside and outside the container",
+      "It creates a port mapping: traffic arriving at host port 3000 is forwarded to container port 3000",
+      "It reserves host port 3000 so no other process can use it",
+      "It enables the EXPOSE 3000 instruction in the Dockerfile to take effect"
+    ],
+    correctIndex: 1,
+    explanation: "The -p flag creates a port mapping between the host and the container. Docker adds an iptables DNAT rule so that traffic arriving at host port 3000 is forwarded into the container's port 3000. The EXPOSE instruction has no effect on whether the port is accessible from outside.",
+  },
+  {
+    id: "img-q7",
+    question: "Which Dockerfile instruction format makes node the PID 1 process inside the container and ensures it receives signals like SIGTERM?",
+    options: [
+      "CMD node app.js",
+      "RUN node app.js",
+      "CMD [\"node\", \"app.js\"]",
+      "ENTRYPOINT node app.js"
+    ],
+    correctIndex: 2,
+    explanation: "The exec form CMD [\"node\", \"app.js\"] runs node directly as PID 1 without a shell wrapper, so it receives signals like SIGTERM directly from Docker. The shell form CMD node app.js spawns /bin/sh as PID 1 which may not forward signals to the node process, causing the 10-second SIGKILL timeout on docker stop.",
+  },
+  {
+    id: "img-q8",
+    question: "What happens when two images are both built FROM node:20? How are the shared layers stored on disk?",
+    options: [
+      "Each image gets its own complete copy of the node:20 layers, doubling the storage used",
+      "The shared node:20 layers are stored once and referenced by both images via their SHA256 hashes",
+      "The second image automatically compresses the shared layers to save space",
+      "Docker detects the duplicate and refuses to build the second image until the first is removed"
+    ],
+    correctIndex: 1,
+    explanation: "Docker layers are content-addressed by their SHA256 hash. When two images share a common base, the shared layers are stored only once on disk and referenced by both image layer stacks. Pulling a second node:20-based image only downloads the layers that differ from what is already cached locally.",
+  },
+  {
+    id: "img-q9",
+    question: "In a Docker image naming convention, what does the tag represent in node:20-alpine?",
+    options: [
+      "The registry hostname where the image is stored",
+      "The repository owner's username",
+      "A label identifying a specific version or variant of the image",
+      "The build date in YYYYMMDD format"
+    ],
+    correctIndex: 2,
+    explanation: "A Docker image tag is a mutable label pointing to a specific image version or variant. In node:20-alpine, '20-alpine' identifies the Node.js 20 variant built on Alpine Linux. Tags can be moved to point to new builds, which is why image digests (SHA256 hashes) are the truly immutable identifiers.",
+  },
+]

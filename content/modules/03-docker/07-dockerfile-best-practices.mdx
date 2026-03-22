@@ -357,3 +357,114 @@ Fewer layers means faster pulls and pushes. Fewer layers also means fewer cached
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "dfbp-q1",
+    question: "A multi-stage Dockerfile has a 'builder' stage that installs compilers and dev dependencies, then a final stage that copies only the compiled output. What is the primary benefit?",
+    options: [
+      "The build runs faster because both stages execute in parallel",
+      "The final image only contains what the builder stage explicitly copied, excluding build tools, dev dependencies, and source code",
+      "Layer caching improves because intermediate stages are cached separately",
+      "The builder stage can use a different Docker daemon than the final stage"
+    ],
+    correctIndex: 1,
+    explanation: "Multi-stage builds allow you to use a large, tool-rich image for building while producing a minimal final image. Only files explicitly copied with COPY --from=builder make it into the final image. Build tools (compilers, test runners), dev dependencies, and intermediate artifacts are never in the final image.",
+  },
+  {
+    id: "dfbp-q2",
+    question: "Which Dockerfile instruction order maximizes layer cache reuse when only app.js changes?",
+    options: [
+      "COPY . . then RUN npm ci then CMD",
+      "RUN npm ci then COPY package*.json then COPY . .",
+      "COPY package*.json ./ then RUN npm ci then COPY . .",
+      "COPY . . then COPY package*.json ./ then RUN npm ci"
+    ],
+    correctIndex: 2,
+    explanation: "Copy dependency manifests first, install, then copy source. COPY package*.json ./ creates a stable layer that only changes when packages change. RUN npm ci is then cached against that layer. When app.js changes, only the final COPY . . layer is invalidated, and npm ci is reused from cache, saving 10-30 seconds.",
+  },
+  {
+    id: "dfbp-q3",
+    question: "Given that a container runs as root by default, what specific security risk does running a production container as root (uid=0) create?",
+    options: [
+      "Root containers cannot bind to ports below 1024 on some systems",
+      "Root containers skip network namespace isolation, exposing the host network",
+      "If the container process is exploited and achieves a container breakout, the attacker arrives on the host with root privileges",
+      "Root containers automatically mount sensitive host directories like /etc into the container"
+    ],
+    correctIndex: 2,
+    explanation: "Container breakout vulnerabilities can escape namespace isolation. If the container runs as root (uid=0), escaping gives the attacker host-level root access, enabling full system compromise. Running as a non-privileged user limits blast radius: even if the container is escaped, the attacker's host access is constrained to what that unprivileged UID can do.",
+  },
+  {
+    id: "dfbp-q4",
+    question: "A HEALTHCHECK in a Dockerfile uses wget instead of curl on an Alpine-based image. Why?",
+    options: [
+      "wget is faster than curl for health check requests",
+      "curl has a known bug on Alpine that causes false unhealthy reports",
+      "wget is pre-installed on Alpine Linux; curl is not included in the Alpine base image",
+      "Docker only supports wget for HEALTHCHECK commands, not curl"
+    ],
+    correctIndex: 2,
+    explanation: "Alpine Linux is a minimal distribution that includes wget by default but does not include curl. Using curl in a HEALTHCHECK on an Alpine image would fail unless curl was explicitly installed with RUN apk add curl, which adds a layer and increases image size. wget -qO- achieves the same result with what is already available.",
+  },
+  {
+    id: "dfbp-q5",
+    question: "What does docker build --no-cache do, and when is it required?",
+    options: [
+      "It disables the build daemon cache to reduce memory usage during builds",
+      "It forces all layers to rebuild from scratch, bypassing cached layers — required for accurate size and timing comparisons",
+      "It prevents the build output from being cached in the terminal buffer",
+      "It stops Docker from caching the final image in the local image store after building"
+    ],
+    correctIndex: 1,
+    explanation: "--no-cache forces Docker to re-execute every instruction without consulting the layer cache. This is required when comparing image sizes or build times between two Dockerfile variations, because Docker might otherwise reuse layers from previous builds, making the comparison misleading.",
+  },
+  {
+    id: "dfbp-q6",
+    question: "Why should you use RUN npm ci instead of RUN npm install in a production Dockerfile?",
+    options: [
+      "npm ci runs faster because it skips the dependency resolution step entirely",
+      "npm ci installs from package-lock.json exactly as recorded, ensuring reproducible builds — npm install may update packages if semver ranges permit",
+      "npm ci automatically omits devDependencies without needing additional flags",
+      "npm install is not available inside Docker containers due to network restrictions"
+    ],
+    correctIndex: 1,
+    explanation: "npm ci performs a clean, reproducible install strictly from package-lock.json, failing if the lock file is out of sync with package.json. npm install can modify package-lock.json and update packages within semver ranges, producing non-deterministic builds. In CI/CD and Docker builds, you always want the exact versions recorded in the lock file.",
+  },
+  {
+    id: "dfbp-q7",
+    question: "Switching from FROM node:20 to FROM node:20-alpine in a Dockerfile reduces the image from 1.1GB to ~140MB. What is the trade-off to be aware of?",
+    options: [
+      "Alpine images do not support multi-stage builds",
+      "Alpine uses musl libc instead of glibc, which can cause compatibility issues with some native npm packages that link against glibc",
+      "Alpine cannot run as a non-root user because it lacks the adduser utility",
+      "Alpine images do not support HEALTHCHECK instructions"
+    ],
+    correctIndex: 1,
+    explanation: "Alpine uses musl libc, which differs from the GNU libc (glibc) used by Debian and Ubuntu. Most pure Node.js packages work fine on Alpine. However, native npm packages (those that compile C/C++ bindings at install time) sometimes expect glibc and may fail or behave incorrectly on Alpine. If Alpine causes issues, node:20-slim provides a middle ground at ~250MB.",
+  },
+  {
+    id: "dfbp-q8",
+    question: "What is the purpose of the COPY --from=builder instruction in a multi-stage Dockerfile?",
+    options: [
+      "It copies the Dockerfile from the builder stage into the final image for documentation",
+      "It copies the Docker daemon binary from the builder stage to enable Docker-in-Docker",
+      "It copies specific files or directories from a previous named build stage into the current stage, keeping only what is needed in the final image",
+      "It copies the build cache from the builder stage to speed up future builds"
+    ],
+    correctIndex: 2,
+    explanation: "COPY --from=builder copies files from a named earlier stage into the current stage. This is the mechanism that makes multi-stage builds work: you can run a heavy build process (compile, npm ci, etc.) in the builder stage and then copy only the final output into the minimal runtime stage. Intermediate build artifacts never appear in the final image.",
+  },
+  {
+    id: "dfbp-q9",
+    question: "Which command should you add to .dockerignore to prevent local node_modules from being copied into the image by a COPY . . instruction?",
+    options: [
+      "EXCLUDE node_modules",
+      "!node_modules",
+      "node_modules",
+      "/node_modules/*"
+    ],
+    correctIndex: 2,
+    explanation: "The .dockerignore syntax mirrors .gitignore. Adding node_modules as a line in .dockerignore prevents Docker from including the local node_modules directory in the build context. This ensures that RUN npm ci installs a clean, platform-correct set of dependencies inside the image rather than accidentally copying potentially incompatible local binaries.",
+  },
+]
