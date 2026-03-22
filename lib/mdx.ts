@@ -3,6 +3,7 @@ import path from 'path'
 import matter from 'gray-matter'
 import readingTime from 'reading-time'
 import type { LessonFrontmatter } from '@/types/content'
+import type { QuizQuestion } from '@/types/quiz'
 
 const REQUIRED_FRONTMATTER_FIELDS: (keyof LessonFrontmatter)[] = [
   'title', 'description', 'module', 'moduleSlug', 'lessonSlug', 'order',
@@ -47,10 +48,13 @@ export function getReadingTime(mdxContent: string): string {
 export async function getLessonContent(
   moduleSlug: string,
   lessonSlug: string
-): Promise<{ default: React.ComponentType; frontmatter: LessonFrontmatter } | null> {
+): Promise<{ default: React.ComponentType; frontmatter: LessonFrontmatter; quiz: QuizQuestion[] | null } | null> {
   try {
     // Dynamic import of compiled MDX module (provides the React component)
     const mod = await import(`@/content/modules/${moduleSlug}/${lessonSlug}.mdx`)
+
+    // Extract quiz named export if present
+    const quiz = Array.isArray(mod.quiz) ? (mod.quiz as QuizQuestion[]) : null
 
     // @next/mdx does not export frontmatter — read it from the raw file via gray-matter
     const filePath = path.join(
@@ -63,7 +67,7 @@ export async function getLessonContent(
     const raw = fs.readFileSync(filePath, 'utf-8')
     const frontmatter = extractFrontmatter(raw)
 
-    return { default: mod.default as React.ComponentType, frontmatter }
+    return { default: mod.default as React.ComponentType, frontmatter, quiz }
   } catch {
     return null
   }
