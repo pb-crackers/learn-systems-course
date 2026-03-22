@@ -288,3 +288,114 @@ The same discipline applies in the cloud:
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "iam-q1",
+    question: "A new developer joins the team. The IAM group Developers has the correct policies attached. What is the single operation needed to grant her the right access?",
+    options: [
+      "Create an IAM policy listing her specific permissions and attach it to her user",
+      "Add her IAM user to the Developers group",
+      "Grant her AdministratorAccess and restrict it later",
+      "Copy the permissions from an existing developer user to hers",
+    ],
+    correctIndex: 1,
+    explanation: "IAM groups exist for exactly this purpose: batch permission management. If the Developers group already has the correct policies attached, adding a new user to the group is the single operation needed. This is the cloud equivalent of usermod -aG developers alice on Linux. Attaching individual policies to each user is error-prone and hard to audit at scale.",
+  },
+  {
+    id: "iam-q2",
+    question: "An IAM policy has Effect=Allow, Action=s3:GetObject, Resource=arn:aws:s3:::company-reports/*. What Linux permission concept does this most closely resemble?",
+    options: [
+      "sudo, because it grants elevated temporary access to a specific resource",
+      "chmod 640 on a specific file, because it defines who can do what (read) on a specific resource",
+      "useradd, because it creates a new identity with credentials",
+      "chown, because it changes the owner of a cloud resource",
+    ],
+    correctIndex: 1,
+    explanation: "An IAM policy specifies who (the principal the policy is attached to) can do what (s3:GetObject means read an object) on which resource (the specific S3 bucket ARN). This maps directly to chmod 640 on a file: it defines read access to a specific resource for a specific identity. sudo is the analog for IAM Role assumption, not policy attachment.",
+  },
+  {
+    id: "iam-q3",
+    question: "When a developer uses aws sts assume-role to get temporary credentials, which three properties make this analogous to Linux sudo?",
+    options: [
+      "The credentials are permanent, audited by CloudTrail, and controlled by the IAM user policy",
+      "The credentials are temporary (expire after 1 hour), audited by CloudTrail, and controlled by a Trust Policy on the role",
+      "The credentials are temporary, stored in /etc/sudoers, and require a password each time",
+      "The credentials are permanent, stored in ~/.aws/credentials, and limited to one action type",
+    ],
+    correctIndex: 1,
+    explanation: "IAM Role assumption mirrors sudo in three ways: the credentials are temporary (they expire, just as sudo's privilege escalation ends after the command), every assume-role call is logged to AWS CloudTrail (just as sudo logs to /var/log/auth.log), and a Trust Policy on the role controls which principals can assume it (just as /etc/sudoers controls which users can run which commands as root).",
+  },
+  {
+    id: "iam-q4",
+    question: "A developer committed AWS access keys to a public repository with AdministratorAccess. A bot scraped the keys within 30 seconds. What specific property of AdministratorAccess explains why the resulting bill was $47,000?",
+    options: [
+      "AdministratorAccess grants access to all services in all AWS regions with no resource scope restrictions",
+      "AdministratorAccess grants access only to EC2, but EC2 instances are expensive to run",
+      "AdministratorAccess has a 30-day expiration that the bot exploited before rotation",
+      "AdministratorAccess bypasses billing alerts and spending caps",
+    ],
+    correctIndex: 0,
+    explanation: "AdministratorAccess grants permission to perform any action on any resource in the entire AWS account. With these keys, the bot could launch the most powerful EC2 instance types in any region in unlimited quantities, creating crypto-mining capacity that billed at full on-demand rates all weekend. If the keys had been scoped to only the specific actions the developer needed, the bot's capability would have been limited to those specific actions, not unrestricted EC2 provisioning.",
+  },
+  {
+    id: "iam-q5",
+    question: "An EC2 instance needs to read from an S3 bucket. Which approach follows IAM best practices?",
+    options: [
+      "Hardcode the access key and secret in environment variables on the instance",
+      "Store the access key in a .env file committed to the repository",
+      "Attach an IAM Role to the EC2 instance with a policy allowing only s3:GetObject on the specific bucket",
+      "Create a shared IAM user with S3 access and distribute the keys to all instances that need them",
+    ],
+    correctIndex: 2,
+    explanation: "IAM Roles attached to EC2 instances provide temporary credentials that the AWS SDK automatically retrieves and rotates. No access key is stored anywhere on the instance. This follows least privilege (only s3:GetObject on a specific bucket) and eliminates the risk of credentials being leaked in environment variables, repository commits, or log files. Roles also cannot be used from outside the specific instance that assumed them, limiting the blast radius if the instance is compromised.",
+  },
+  {
+    id: "iam-q6",
+    question: "An IAM policy for an image resizer grants s3:* on * (all actions on all resources). The application only needs to read from one S3 bucket and write to another. What specific harm becomes possible if the application server is compromised?",
+    options: [
+      "The attacker can only read and write to the two S3 buckets the application uses",
+      "The attacker can delete any S3 bucket in the account, exfiltrate data from all buckets, and change bucket policies",
+      "The attacker gains access to EC2 and RDS resources because S3 permissions escalate automatically",
+      "The attacker can create new IAM users, since s3:* includes IAM management actions",
+    ],
+    correctIndex: 1,
+    explanation: "s3:* includes s3:DeleteBucket, s3:PutBucketPolicy, s3:DeleteObject, s3:GetObject on every bucket in the account. An attacker with these credentials can delete all buckets, exfiltrate data from every bucket, and change bucket policies to make data public. Least privilege would restrict the policy to s3:GetObject on the source bucket ARN and s3:PutObject on the destination bucket ARN, limiting the attacker to exactly those two operations.",
+  },
+  {
+    id: "iam-q7",
+    question: "What controls which principals are allowed to assume an IAM Role, and what is its Linux equivalent?",
+    options: [
+      "The IAM Policy attached to the role; equivalent to chmod on the role resource",
+      "The Trust Policy attached to the role; equivalent to /etc/sudoers",
+      "The IAM Group membership of the role; equivalent to groupadd",
+      "The AWS Organizations SCP; equivalent to PAM configuration",
+    ],
+    correctIndex: 1,
+    explanation: "The Trust Policy is a separate JSON document attached to the role that declares which principals (IAM users, services like ec2.amazonaws.com, or other accounts) can call sts:AssumeRole to assume it. This is directly equivalent to /etc/sudoers: both are declarations of identity-based access control that specify who can temporarily become a different identity. Without being listed in the Trust Policy, no principal can assume the role regardless of their IAM permissions.",
+  },
+  {
+    id: "iam-q8",
+    question: "An IAM policy allows ec2:DescribeInstances and an explicit Deny policy denies ec2:DescribeInstances. What is the effective permission?",
+    options: [
+      "Allow, because explicit Allow takes precedence over Deny",
+      "Depends on the order the policies are evaluated",
+      "Deny, because an explicit Deny always overrides any Allow",
+      "Allow, because Deny only applies to resource-level permissions, not action-level",
+    ],
+    correctIndex: 2,
+    explanation: "An explicit Deny in any attached policy always wins, regardless of how many Allow statements exist for the same action. This is a fundamental IAM evaluation rule. Permissions are additive (multiple Allow statements combine), but a single explicit Deny in any policy overrides all Allow statements for that action. This property makes Deny statements useful as guardrails that cannot be bypassed by other policies.",
+  },
+  {
+    id: "iam-q9",
+    question: "Which IAM concept is the cloud equivalent of running sudo systemctl restart myapp to temporarily perform a privileged action?",
+    options: [
+      "Attaching an IAM policy with the specific action to your IAM user",
+      "Assuming an IAM Role via aws sts assume-role to get temporary credentials for the elevated action",
+      "Adding your IAM user to a group that has the required permissions",
+      "Using an IAM user with AdministratorAccess for all deployments",
+    ],
+    correctIndex: 1,
+    explanation: "IAM Role assumption via sts:AssumeRole is the cloud equivalent of sudo. Both are temporary privilege escalations: sudo gives you root UID for the duration of a command, and assume-role gives you temporary credentials (expiring in 1 hour by default) for the role's permissions. Both are audited (auth.log vs CloudTrail) and controlled by a policy that specifies who is allowed to escalate (sudoers vs Trust Policy).",
+  },
+]

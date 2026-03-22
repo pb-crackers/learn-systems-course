@@ -125,3 +125,102 @@ All cloud concepts, service mappings, and mental models from this module in one 
 <Callout type="tip">
 **What's Next:** You now understand infrastructure as code and cloud concepts. In the next module, you will learn to monitor all of this with Prometheus and Grafana — turning running infrastructure into observable systems. You will see how the same containers, networks, and services you have built throughout this course emit metrics that reveal exactly what is happening inside them at runtime.
 </Callout>
+
+export const quiz = [
+  {
+    id: "cloud-ref-q1",
+    question: "What does IaaS stand for and which AWS service is a canonical example?",
+    options: [
+      "Infrastructure as a Service; EC2 (Elastic Compute Cloud)",
+      "Integration as a Service; ECS (Elastic Container Service)",
+      "Interface as a Service; ALB (Application Load Balancer)",
+      "Infrastructure as a Service; Lambda",
+    ],
+    correctIndex: 0,
+    explanation: "IaaS stands for Infrastructure as a Service. EC2 is the canonical example: you rent a virtual machine, SSH into it, and manage the OS, runtime, and application yourself. The provider manages the physical hardware and hypervisor. Other IaaS examples include GCP Compute Engine and Azure VMs.",
+  },
+  {
+    id: "cloud-ref-q2",
+    question: "Which compute service is described as 'per-invocation billing with no idle cost and event-driven execution'?",
+    options: [
+      "Virtual Machines (EC2, Compute Engine, Azure VMs)",
+      "Managed Containers (ECS Fargate, Cloud Run, Container Apps)",
+      "Serverless Functions (Lambda, Cloud Functions, Azure Functions)",
+      "Kubernetes clusters (EKS, GKE, AKS)",
+    ],
+    correctIndex: 2,
+    explanation: "Serverless functions bill per invocation (each function call), have no idle cost because they scale to zero when not running, and are triggered by events. AWS Lambda, GCP Cloud Functions, and Azure Functions are the three major serverless offerings. This model is cost-effective for infrequent or spiky workloads but expensive for constant traffic.",
+  },
+  {
+    id: "cloud-ref-q3",
+    question: "According to the service mapping table, what is the cloud equivalent of docker network create?",
+    options: [
+      "Load Balancer (ALB, Cloud Load Balancing, Azure Load Balancer)",
+      "VPC (AWS), VPC Network (GCP), Virtual Network (Azure)",
+      "Security Group (AWS), Firewall Rules (GCP), NSG (Azure)",
+      "Subnet (AWS, GCP, Azure)",
+    ],
+    correctIndex: 1,
+    explanation: "The lesson's service mapping table explicitly maps docker network create to the VPC layer: VPC on AWS, VPC Network on GCP, and Virtual Network on Azure. A Docker bridge network and a cloud VPC both create isolated private networks where internal resources can communicate and external traffic must be explicitly allowed.",
+  },
+  {
+    id: "cloud-ref-q4",
+    question: "Which storage service has no Docker equivalent and is described as a cloud-native concept in this module?",
+    options: [
+      "Block Storage (EBS, Persistent Disk, Azure Disk Storage)",
+      "File Storage (EFS, Filestore, Azure Files)",
+      "Object Storage (S3, Cloud Storage, Azure Blob Storage)",
+      "Container Storage (ECR, Artifact Registry, ACR)",
+    ],
+    correctIndex: 2,
+    explanation: "Object storage is explicitly described as having no Docker equivalent in both the storage lesson and the cheat sheet. It stores files as key-value pairs accessible via HTTP URL with no filesystem, no mount points, and no directory structure. Block storage maps to docker volume, and file storage maps to an NFS mount, but object storage is a cloud-native pattern without a local equivalent.",
+  },
+  {
+    id: "cloud-ref-q5",
+    question: "An Availability Zone is described as an isolated failure domain. What does isolated mean in this context?",
+    options: [
+      "Each AZ is in a different country to guarantee geographic separation",
+      "Each AZ has its own independent power, cooling, and networking",
+      "Each AZ runs a completely different cloud provider stack",
+      "Each AZ is accessible only to one customer at a time",
+    ],
+    correctIndex: 1,
+    explanation: "An AZ is isolated in the sense that it has independent power supply, cooling systems, and network connections from other AZs in the same region. A failure in one AZ (power outage, network cut) does not affect the others because they share no single point of failure. AZs in the same region are connected by low-latency fiber for inter-AZ communication.",
+  },
+  {
+    id: "cloud-ref-q6",
+    question: "According to the IAM section, what is the best practice for services that need to call cloud APIs, as opposed to human users?",
+    options: [
+      "Create a shared IAM user with long-lived access keys distributed to all services",
+      "Use IAM Roles (AWS), Service Accounts (GCP), or Managed Identities (Azure) for service identities",
+      "Grant services AdministratorAccess to avoid permission errors during development",
+      "Use the root account credentials stored in the application's environment variables",
+    ],
+    correctIndex: 1,
+    explanation: "IAM Roles, Service Accounts, and Managed Identities are the identity constructs for non-human service identities. They provide temporary credentials that auto-rotate, require no long-lived keys stored in application config, and can be scoped with least-privilege policies. Long-lived keys for services violate best practices because they do not expire and are frequently leaked in logs, environment dumps, or repository commits.",
+  },
+  {
+    id: "cloud-ref-q7",
+    question: "Multi-AZ deployment is described as costing '2x instances'. What benefit does this provide in exchange for the cost?",
+    options: [
+      "Twice the CPU and memory performance for latency-sensitive workloads",
+      "Automatic data replication across two cloud providers simultaneously",
+      "High availability: if one AZ fails, the load balancer routes all traffic to the healthy AZ",
+      "Reduced per-instance cost through bulk pricing for two instances",
+    ],
+    correctIndex: 2,
+    explanation: "Running instances in two or more AZs behind a load balancer means that when one AZ experiences a hardware or power failure, the load balancer's health checks detect the failing instances and route all traffic to instances in the healthy AZ. Users experience no downtime beyond the few seconds for health checks to mark the failed targets as unhealthy. The cost is running twice as many instances, but the benefit is eliminating the entire class of single-AZ hardware failures as a source of user-facing downtime.",
+  },
+  {
+    id: "cloud-ref-q8",
+    question: "The cheat sheet maps chmod/chown to which IAM concept?",
+    options: [
+      "IAM Role, because chmod temporarily elevates permissions",
+      "IAM Group, because chmod applies permissions to a group of files",
+      "IAM Policy, because it defines who can perform which action on a specific resource",
+      "Trust Policy, because chmod sets the owner of a file",
+    ],
+    correctIndex: 2,
+    explanation: "The cheat sheet explicitly maps chmod/chown to IAM Policy. Both define access control: chmod specifies which operations (read, write, execute) a given identity (user, group, other) can perform on a specific file. An IAM Policy specifies which actions (s3:GetObject, ec2:DescribeInstances) a principal can perform on a specific resource (identified by ARN). The structure is the same; the scope is larger in IAM.",
+  },
+]

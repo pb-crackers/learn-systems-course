@@ -245,3 +245,114 @@ The security group for the database references `sg-api` as the source — not an
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "cnet-q1",
+    question: "A VPC in cloud networking is most analogous to which Docker construct?",
+    options: [
+      "A Docker container running nginx as a reverse proxy",
+      "A Docker bridge network created with docker network create",
+      "A Docker named volume providing persistent storage",
+      "A Dockerfile defining the image build steps",
+    ],
+    correctIndex: 1,
+    explanation: "A VPC is an isolated private network where resources can communicate internally and external traffic must be explicitly allowed. This maps directly to a Docker bridge network: when you run docker network create appnet, Docker creates an isolated network where containers on it can reach each other by name, and containers outside cannot reach in. Cloud VPCs apply the same isolation model at infrastructure scale.",
+  },
+  {
+    id: "cnet-q2",
+    question: "You are designing a production web application. Where should the PostgreSQL database be placed?",
+    options: [
+      "In a public subnet so developers can connect directly for debugging",
+      "In a private subnet, reachable only from the application servers within the VPC",
+      "In a public subnet with a strong password, since the security group restricts access",
+      "Outside the VPC entirely, using a managed database service",
+    ],
+    correctIndex: 1,
+    explanation: "Databases must go in private subnets. A private subnet has no route to an internet gateway, meaning resources in it have no public IP and cannot receive inbound connections from the internet regardless of security group configuration. Placing the database in a private subnet ensures it is only reachable from application servers within the VPC, eliminating the entire category of internet-facing database attacks.",
+  },
+  {
+    id: "cnet-q3",
+    question: "Given a VPC with CIDR 10.0.0.0/16, which subnet has a route to the internet gateway and can receive inbound internet traffic?",
+    options: [
+      "10.0.10.0/24 in us-east-1a with no internet gateway route",
+      "10.0.11.0/24 in us-east-1b with no internet gateway route",
+      "10.0.1.0/24 in us-east-1a with an internet gateway route",
+      "All subnets in the VPC share the same internet gateway route",
+    ],
+    correctIndex: 2,
+    explanation: "A public subnet is defined by having a route to an internet gateway in its route table. Resources in a public subnet can receive public IPs and are reachable from the internet. Subnets 10.0.10.0/24 and 10.0.11.0/24 without internet gateway routes are private subnets. The distinction is the route table entry, not the CIDR range itself.",
+  },
+  {
+    id: "cnet-q4",
+    question: "A cloud load balancer performs health checks and stops routing traffic to a failing instance in us-east-1a. Traffic continues going to the healthy instance in us-east-1b. What is the Docker Compose equivalent of this behavior?",
+    options: [
+      "docker restart automatically restarts a failed container on the same host",
+      "nginx upstream health checking removes a failed backend and routes to healthy ones",
+      "docker compose scale increases replicas when one instance is busy",
+      "docker network connect attaches the healthy instance to an additional network",
+    ],
+    correctIndex: 1,
+    explanation: "The nginx upstream module in Docker Compose checks whether each backend is alive and stops routing requests to unhealthy ones. A cloud load balancer does the same thing at infrastructure scale across availability zones. The key difference is that cloud load balancers operate across multiple physical machines in different AZs, not just multiple containers on one host.",
+  },
+  {
+    id: "cnet-q5",
+    question: "A security group rule allows inbound port 80 from the load balancer. Do you need to add a separate outbound rule to allow the response traffic?",
+    options: [
+      "Yes, you must add an outbound rule for port 80 to the client IP",
+      "Yes, you must add an outbound ESTABLISHED rule, the same as raw iptables",
+      "No, security groups are stateful and automatically allow return traffic for established connections",
+      "No, all outbound traffic is always allowed regardless of rules",
+    ],
+    correctIndex: 2,
+    explanation: "Cloud security groups are stateful. When an inbound connection is allowed, the return traffic for that connection is automatically permitted without a separate outbound rule. This matches the ufw default behavior but differs from raw iptables where you must explicitly allow ESTABLISHED,RELATED return traffic. Statefulness simplifies rule design: you only write inbound rules for services you want to expose.",
+  },
+  {
+    id: "cnet-q6",
+    question: "The database security group allows inbound port 5432 from sg-app instead of from a specific IP range. Three new app servers are launched with sg-app attached. What happens to their database access?",
+    options: [
+      "You must manually add the new servers' IP addresses to the database security group",
+      "The new servers automatically have database access because they carry sg-app",
+      "The new servers are blocked until you update the security group rule",
+      "You must create a new security group for the additional servers",
+    ],
+    correctIndex: 1,
+    explanation: "Security group chaining references identity (which security group is attached) rather than location (which IP address). Any resource with sg-app attached is automatically covered by the database rule. When new app servers launch with sg-app, they immediately have port 5432 access with no rule changes required. This is more maintainable than IP-based rules, which break whenever instances are stopped and restarted with new IPs.",
+  },
+  {
+    id: "cnet-q7",
+    question: "Which subnet placement is correct for a load balancer that receives HTTPS traffic from the internet?",
+    options: [
+      "Private subnet, to prevent direct exposure of the load balancer",
+      "Public subnet, because it must receive inbound internet traffic and needs a public IP",
+      "Either subnet works since the security group controls access",
+      "A dedicated DMZ subnet that is neither public nor private",
+    ],
+    correctIndex: 1,
+    explanation: "The load balancer must be in a public subnet because it needs a public IP to receive inbound connections from the internet. Public subnets have a route to an internet gateway, which is the mechanism that allows resources to be reachable from outside the VPC. The application servers behind the load balancer then go in private subnets, reachable only from the load balancer within the VPC.",
+  },
+  {
+    id: "cnet-q8",
+    question: "On AWS, where does the VPC's internal DNS resolver sit within a 10.0.0.0/16 VPC CIDR block?",
+    options: [
+      "At 10.0.0.1, the network gateway address",
+      "At 10.0.0.2, the base of the VPC CIDR plus two",
+      "At 127.0.0.53, the loopback DNS resolver address",
+      "At 169.254.169.253, the link-local metadata address",
+    ],
+    correctIndex: 1,
+    explanation: "AWS places the VPC DNS resolver at the base of the VPC CIDR block plus 2. For a 10.0.0.0/16 VPC, the resolver is at 10.0.0.2. This is the cloud equivalent of Docker's embedded DNS resolver at 127.0.0.11 inside containers. When an EC2 instance resolves internal hostnames, it queries this VPC resolver automatically.",
+  },
+  {
+    id: "cnet-q9",
+    question: "Which cloud provider offers a global VPC that spans all regions rather than a per-region VPC?",
+    options: [
+      "AWS, with its default VPC created in every region",
+      "Azure, with its Virtual Network spanning global deployments",
+      "GCP, whose VPC Network is global and spans all regions",
+      "All three providers support both regional and global VPC configurations",
+    ],
+    correctIndex: 2,
+    explanation: "GCP's VPC Network is global by default: a single VPC spans all regions, and subnets within it are regional. AWS VPCs are regional (one VPC per region, and cross-region communication requires VPC peering or Transit Gateway). Azure Virtual Networks are also regional. This is a meaningful architectural difference when designing multi-region deployments.",
+  },
+]

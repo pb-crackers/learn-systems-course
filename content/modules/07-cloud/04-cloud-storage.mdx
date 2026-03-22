@@ -240,3 +240,102 @@ The key differentiation from block storage: multiple instances can mount the sam
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "cstor-q1",
+    question: "A PostgreSQL database running on an EC2 instance needs its data files to survive a stop/restart cycle. Which storage type is the correct choice and why?",
+    options: [
+      "Object storage (S3), because it scales to any size and is cheaper per GB",
+      "File storage (EFS), because multiple instances might need to query the database simultaneously",
+      "Block storage (EBS), because PostgreSQL requires a filesystem with random read/write access and single-writer semantics",
+      "The EC2 instance store, because it provides the lowest latency",
+    ],
+    correctIndex: 2,
+    explanation: "PostgreSQL requires a filesystem with POSIX semantics, random read/write access, and consistent low-latency IOPS. Block storage (EBS) provides a virtual disk formatted with ext4 or xfs that PostgreSQL interacts with like a physical hard drive. Object storage has no filesystem — you cannot seek to a byte offset or update part of a file without replacing the whole object. Instance store is ephemeral and does not survive stop/restart.",
+  },
+  {
+    id: "cstor-q2",
+    question: "Your application stores user-uploaded product photos. The storefront displays them directly in the browser. Which storage type is the architectural match?",
+    options: [
+      "Block storage on an EBS volume attached to one app server",
+      "File storage (EFS) so all app servers can access the volume",
+      "Object storage (S3), because photos are accessed via HTTP and scale to billions of objects",
+      "Block storage with a RAID configuration across multiple EBS volumes",
+    ],
+    correctIndex: 2,
+    explanation: "Photos accessed by browsers over HTTP are a perfect fit for object storage. S3 serves files via HTTP URL from anywhere, scales to billions of objects with no performance degradation, and costs roughly $0.023/GB versus $0.10/GB for EBS. No mounted disk or filesystem operations are needed to serve a photo to a browser. Block storage would require the app server to read the file and proxy it, adding latency and not scaling to multiple app servers.",
+  },
+  {
+    id: "cstor-q3",
+    question: "You have two EC2 app servers behind a load balancer. User file uploads are currently stored on an EBS volume attached to one server. What breaks when the second server is added?",
+    options: [
+      "Nothing breaks. EBS volumes can be mounted to multiple instances simultaneously",
+      "The second server cannot mount the EBS volume, so uploads going to it are inaccessible from the first server",
+      "The load balancer automatically synchronizes the EBS volume between instances",
+      "EBS performance degrades when two servers share the same volume",
+    ],
+    correctIndex: 1,
+    explanation: "EBS volumes attach to one EC2 instance at a time. When the load balancer routes an upload request to the second server, that server writes the file to its own local disk or a different volume. The first server has no copy of the new file. Subsequent requests routed to the first server will find the file missing. Migrating uploads to S3 solves this: all servers make HTTP calls to the same S3 bucket, and every uploaded file is immediately available to every instance.",
+  },
+  {
+    id: "cstor-q4",
+    question: "What is the defining characteristic of object storage that has no equivalent in Docker or local filesystems?",
+    options: [
+      "It provides higher IOPS than block storage",
+      "Files are accessed via HTTP URL rather than a mounted filesystem path",
+      "It supports concurrent writes from multiple instances simultaneously",
+      "Objects are automatically compressed to reduce storage costs",
+    ],
+    correctIndex: 1,
+    explanation: "Object storage stores files as key-value pairs accessible via HTTP URLs. There are no mount points, no directories, no ls command, no chmod. Any client with credentials can retrieve an object from its URL over the internet without SSHing into a machine or mounting a drive. This HTTP-native access model is what enables object storage to serve files directly to browsers, CDNs, and Lambda functions simultaneously. Local filesystems and Docker volumes have no equivalent capability.",
+  },
+  {
+    id: "cstor-q5",
+    question: "Which command is the correct way to upload a file to AWS S3 using the AWS CLI?",
+    options: [
+      "aws s3 mount report.pdf /mnt/s3/bucket/report.pdf",
+      "aws s3 cp report.pdf s3://my-company-reports/2026/march/report.pdf",
+      "aws s3 attach report.pdf --bucket my-company-reports --key report.pdf",
+      "docker volume push report.pdf s3://my-company-reports/",
+    ],
+    correctIndex: 1,
+    explanation: "aws s3 cp (copy) is the standard AWS CLI command to upload a file to S3. The source is the local file path and the destination is an s3:// URI including the bucket name and key. S3 keys can include slashes that simulate directory structure, but these are part of the key name, not real filesystem directories.",
+  },
+  {
+    id: "cstor-q6",
+    question: "Multiple application servers need to read the same configuration files simultaneously, and the files must update in real time across all servers. Which storage type is designed for this pattern?",
+    options: [
+      "Block storage (EBS), because each server gets its own attached volume",
+      "Object storage (S3), because HTTP access works from any server",
+      "File storage (EFS/Filestore), because it is a managed NFS share mountable by multiple instances simultaneously",
+      "Block storage with snapshots synchronized between servers every minute",
+    ],
+    correctIndex: 2,
+    explanation: "File storage (EFS on AWS, Filestore on GCP, Azure Files on Azure) is a managed NFS server that multiple instances can mount simultaneously. All servers see the same filesystem and see changes in real time, just like mounting an NFS share with sudo mount -t nfs. Object storage works for static assets but does not provide real-time filesystem semantics. Block storage only attaches to one instance at a time.",
+  },
+  {
+    id: "cstor-q7",
+    question: "AWS S3 is described as providing 11 nines of durability. What does this mean in practice?",
+    options: [
+      "S3 guarantees 99.999999999% uptime (availability) per year",
+      "S3 redundantly stores each object across multiple AZs, making data loss extraordinarily unlikely",
+      "S3 replicates objects across 11 geographic regions automatically",
+      "S3 retains deleted objects for 11 days in a recycle bin",
+    ],
+    correctIndex: 1,
+    explanation: "11 nines (99.999999999%) durability means S3 redundantly stores each object across multiple availability zones and is engineered so that data loss is extraordinarily unlikely. Durability is about the probability of losing stored data, distinct from availability (whether the service is accessible). AWS achieves this by automatically replicating objects across multiple AZs within a region without any configuration required.",
+  },
+  {
+    id: "cstor-q8",
+    question: "A colleague suggests using object storage for the container root disk because it is cheaper per GB. What is wrong with this approach?",
+    options: [
+      "Object storage does not support Linux file permissions required by the OS",
+      "Object storage cannot store files larger than 5TB",
+      "A container or VM root disk requires a block device with a filesystem; object storage has no filesystem and cannot be formatted or mounted as a disk",
+      "Object storage is not available in the same region as the compute instances",
+    ],
+    correctIndex: 2,
+    explanation: "A container or VM root disk needs a block device that can be formatted with a filesystem (ext4, xfs) and mounted. The OS boots by loading a kernel from the filesystem and requires POSIX file operations at every step. Object storage has no filesystem, cannot be formatted, and cannot be mounted as a block device. Cost savings are irrelevant when the fundamental access model is incompatible with the workload.",
+  },
+]

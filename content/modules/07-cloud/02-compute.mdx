@@ -246,3 +246,102 @@ The cloud provider manages:
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "compute-q1",
+    question: "What is the key architectural difference between a VM and a Docker container?",
+    options: [
+      "VMs run on Linux only; containers support Windows and Linux",
+      "Containers virtualize hardware; VMs share the host kernel",
+      "VMs have their own kernel; containers share the host kernel using namespaces and cgroups",
+      "VMs start in milliseconds; containers take minutes to boot",
+    ],
+    correctIndex: 2,
+    explanation: "A VM virtualizes the entire hardware stack and runs its own kernel, providing strong isolation at the hypervisor level. Containers use Linux namespaces and cgroups to isolate processes while sharing the host kernel. This means containers start in milliseconds and are lighter weight, while VMs provide stronger isolation since a kernel bug in one VM does not affect another.",
+  },
+  {
+    id: "compute-q2",
+    question: "A team has a working Dockerfile for their Node.js API and wants to deploy to AWS without managing VMs. Which service is the correct choice?",
+    options: [
+      "EC2, because Node.js runs on Linux and EC2 provides Linux VMs",
+      "ECS with Fargate, because it runs Docker images without requiring VM management",
+      "Lambda, because Node.js is one of its supported runtimes",
+      "Compute Engine, because it is the GCP equivalent of EC2",
+    ],
+    correctIndex: 1,
+    explanation: "ECS with Fargate is a managed container service: you push a Docker image and the platform runs it across machines, handles health checks, and manages scaling without requiring you to provision or manage EC2 instances. If a team already has a working Dockerfile, managed containers are the fastest path to cloud deployment. Lambda would require rewriting the application as individual functions.",
+  },
+  {
+    id: "compute-q3",
+    question: "A Node.js REST API receives 200 requests per minute consistently throughout the business day. Why is serverless a poor fit for this workload?",
+    options: [
+      "Serverless does not support Node.js runtimes",
+      "At steady traffic there is no zero-instance state to scale from, so per-invocation billing exceeds container costs",
+      "Serverless has a maximum of 100 concurrent invocations",
+      "The API requires WebSocket support, which serverless provides but at higher latency",
+    ],
+    correctIndex: 1,
+    explanation: "Serverless billing is per invocation. At 200 requests per minute running constantly, there is no meaningful idle period and the total invocation cost exceeds the flat cost of a managed container running continuously. Serverless is optimized for workloads that can scale to zero when idle. A constantly-running API never reaches zero, so the scaling benefit disappears while per-invocation billing accumulates.",
+  },
+  {
+    id: "compute-q4",
+    question: "An image resizer triggers on user uploads, processes 50 uploads per day, and each resize takes about 2 seconds. What compute tier is the right choice and why?",
+    options: [
+      "VM (EC2), because the resizer needs full OS control to run image processing libraries",
+      "Managed containers, because the resizer already has a Dockerfile",
+      "Serverless (Lambda), because the workload is event-driven, infrequent, and short-duration",
+      "Managed containers, because steady traffic requires a persistent server",
+    ],
+    correctIndex: 2,
+    explanation: "Lambda is the correct choice because the workload is event-driven (triggered by upload events), infrequent (50 uploads per day means roughly 100 seconds of compute time), and short-duration (2 seconds per invocation, well under Lambda's 15-minute limit). Scale-to-zero means you pay for ~100 seconds of compute per day instead of a VM running 86,400 seconds.",
+  },
+  {
+    id: "compute-q5",
+    question: "Which component of the AWS stack handles running container images across multiple machines with health checks and auto-scaling?",
+    options: [
+      "EC2, paired with a manual deployment script",
+      "Lambda, configured with a container image trigger",
+      "ECS (Elastic Container Service) with Fargate",
+      "ECR (Elastic Container Registry)",
+    ],
+    correctIndex: 2,
+    explanation: "ECS is AWS's managed container service. Fargate is the serverless compute layer for ECS that removes the need to provision EC2 instances. Together they run Docker images across multiple machines, perform health checks, replace failed tasks, and scale replicas. ECR is the container image registry (like Docker Hub), not the execution environment.",
+  },
+  {
+    id: "compute-q6",
+    question: "What is the maximum execution time for an AWS Lambda function?",
+    options: [
+      "5 minutes",
+      "15 minutes",
+      "60 minutes",
+      "24 hours",
+    ],
+    correctIndex: 1,
+    explanation: "AWS Lambda has a maximum execution time of 15 minutes per invocation. This is a hard limit that affects workload suitability. GCP Cloud Functions and Azure Functions (Consumption plan) allow up to 60 minutes. A 10-minute nightly report would fit within Lambda's limit, but you should verify the specific cloud limit before choosing serverless for longer-running jobs.",
+  },
+  {
+    id: "compute-q7",
+    question: "You need to run a workload that requires a custom kernel module for hardware access. Which compute tier should you use?",
+    options: [
+      "Managed containers, because they run on Linux and support custom kernel modules",
+      "Serverless, because the platform manages the kernel for you",
+      "Virtual Machines, because you need OS-level control including the kernel",
+      "Managed containers with a custom base image containing the kernel module",
+    ],
+    correctIndex: 2,
+    explanation: "Custom kernel modules require direct access to the kernel, which is only available in a VM. Containers share the host kernel and cannot load additional kernel modules without root access to the underlying host. VMs give you full OS control including the ability to install kernel modules, configure custom kernel parameters, and access hardware directly.",
+  },
+  {
+    id: "compute-q8",
+    question: "The equivalent of pushing a Docker image to Docker Hub, but for AWS, is to push to which service?",
+    options: [
+      "ECS (Elastic Container Service)",
+      "ECR (Elastic Container Registry)",
+      "EBS (Elastic Block Store)",
+      "Lambda container image store",
+    ],
+    correctIndex: 1,
+    explanation: "ECR (Elastic Container Registry) is AWS's managed container registry, equivalent to Docker Hub. You push images to ECR with docker push, and ECS/Fargate pulls from ECR to run your containers. The registry stores container images; the managed container service runs them. GCP has Artifact Registry and Azure has Azure Container Registry for the same purpose.",
+  },
+]

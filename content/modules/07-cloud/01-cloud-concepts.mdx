@@ -208,3 +208,102 @@ This course is provider-agnostic. Cloud concepts are identical across providers 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "cloud-q1",
+    question: "Which statement best describes cloud computing in concrete terms?",
+    options: [
+      "Unlimited on-demand storage with zero latency",
+      "API-managed computer hardware in someone else's data center",
+      "A virtual operating system that runs in a web browser",
+      "Encrypted peer-to-peer file sharing across the internet",
+    ],
+    correctIndex: 1,
+    explanation: "Cloud computing is renting compute, storage, and networking resources from a large-scale data center and managing them via API calls (or IaC tools like OpenTofu) rather than calling a vendor to provision physical hardware. The marketing language of infinite scalability describes a real characteristic, but the underlying reality is API-managed hardware.",
+  },
+  {
+    id: "cloud-q2",
+    question: "In IaaS, which responsibilities belong to you rather than the cloud provider?",
+    options: [
+      "Physical hardware and power supply",
+      "Hypervisor and hardware virtualization",
+      "Operating system, runtime, and application code",
+      "Application code only",
+    ],
+    correctIndex: 2,
+    explanation: "With IaaS the provider manages the physical hardware and virtualization layer. You are responsible for everything above bare metal: the operating system, the runtime, and your application code. This mirrors managing your own Docker host, where the hardware is abstracted away but you control the OS and everything running on it.",
+  },
+  {
+    id: "cloud-q3",
+    question: "A team pushes a Docker image to AWS ECS and the platform handles scaling and load balancing. Which service model does this represent?",
+    options: [
+      "IaaS, because Docker containers are involved",
+      "SaaS, because no servers are visible to the team",
+      "PaaS, because the provider manages the host and runtime",
+      "IaaS, because the team built the Docker image themselves",
+    ],
+    correctIndex: 2,
+    explanation: "PaaS means you manage the application code while the provider manages the OS, runtime, scaling, and load balancing. ECS with Fargate is a PaaS pattern: you push a container image and the platform runs it across machines. Building the Docker image yourself is irrelevant to the service model classification.",
+  },
+  {
+    id: "cloud-q4",
+    question: "What is the primary difference between a cloud region and an availability zone?",
+    options: [
+      "Regions are virtual; availability zones are physical buildings",
+      "A region is a geographic location; an AZ is an isolated data center building within that region",
+      "Availability zones span multiple regions for redundancy",
+      "Regions are single data centers; AZs are groups of regions",
+    ],
+    correctIndex: 1,
+    explanation: "A region is a distinct geographic location, typically a city or metro area such as Northern Virginia (us-east-1). Within each region there are multiple availability zones, each an isolated data center building with independent power, cooling, and networking. AZs in the same region are connected by low-latency fiber but fail independently.",
+  },
+  {
+    id: "cloud-q5",
+    question: "Your API runs in a single availability zone. That AZ experiences a hardware failure at 2 AM. What is the outcome?",
+    options: [
+      "The cloud provider automatically migrates the instance to another AZ with no downtime",
+      "The API remains available because the region is still healthy",
+      "The API goes down until the failed AZ is restored or you manually relaunch it elsewhere",
+      "Traffic is automatically rerouted to the nearest region",
+    ],
+    correctIndex: 2,
+    explanation: "A single-AZ deployment is a single point of failure. If that AZ loses power or connectivity, all resources in it stop, and there is no automatic migration. Recovery requires either the AZ to be restored or manual intervention to relaunch in a healthy AZ. Multi-AZ deployment with a load balancer is required to survive AZ failures without downtime.",
+  },
+  {
+    id: "cloud-q6",
+    question: "Which cloud provider is described as having the oldest ecosystem and widest service breadth?",
+    options: [
+      "GCP, founded 2011, strongest in data and ML workloads",
+      "Azure, founded 2010, dominant in enterprise via Active Directory",
+      "AWS, founded 2006, largest market share",
+      "All three providers have equivalent service breadth",
+    ],
+    correctIndex: 2,
+    explanation: "AWS was founded in 2006 and has the largest market share along with the widest service catalog of the three major providers. GCP is known for its data engineering and ML capabilities, and Azure for enterprise adoption through Active Directory integration.",
+  },
+  {
+    id: "cloud-q7",
+    question: "When writing OpenTofu configuration for an AWS resource, what changes compared to the Docker provider used in the IaC module?",
+    options: [
+      "The plan/apply cycle and state management work differently on cloud providers",
+      "You must write a separate CLI script because HCL does not support cloud resources",
+      "Only the provider block and resource type names change; the plan/apply cycle and state management are identical",
+      "Cloud providers require importing existing resources manually before you can manage them",
+    ],
+    correctIndex: 2,
+    explanation: "Cloud providers in OpenTofu work exactly the same way as the Docker provider. You declare resources in HCL, run tofu plan and tofu apply, and state tracks drift. The only differences are the provider block and the resource type names. The underlying workflow is identical.",
+  },
+  {
+    id: "cloud-q8",
+    question: "GitHub is an example of which service model?",
+    options: [
+      "IaaS, because developers use git commands to interact with it",
+      "PaaS, because it hosts code repositories on managed servers",
+      "SaaS, because users consume the fully managed application without running any servers",
+      "IaaS, because it provides CI/CD pipelines",
+    ],
+    correctIndex: 2,
+    explanation: "SaaS means you consume a fully managed application. You do not run servers, install runtimes, or manage the platform. GitHub is SaaS: you use the application and manage your data (repositories, settings) while GitHub operates all infrastructure. The fact that you use git commands does not make it IaaS.",
+  },
+]
