@@ -1,64 +1,79 @@
 # Architecture Research
 
-**Domain:** MDX + React component architecture — command pedagogy features (v1.1 milestone)
-**Researched:** 2026-03-20
-**Confidence:** HIGH — based on direct codebase inspection of all relevant files, no external dependencies involved
+**Domain:** Quiz/assessment integration — multiple-choice quiz system added to existing Next.js MDX lesson architecture (v1.2 milestone)
+**Researched:** 2026-03-22
+**Confidence:** HIGH — based on direct codebase inspection of all relevant files
 
 ---
 
-## Context: What Exists
+## Context: What Exists (v1.1 Baseline)
 
-This is a subsequent-milestone document. All findings are based on inspecting the live codebase,
-not prior-milestone research. The existing system is fully understood.
+This is a subsequent-milestone document. All integration decisions are grounded in the live codebase.
 
 ### Existing Component Inventory
 
-| Component | File | What It Does |
-|-----------|------|--------------|
-| `CodeBlock` | `components/content/CodeBlock.tsx` | Wraps `<pre>` from rehype-pretty-code; shows language/filename tab, copy button |
-| `ExerciseCard` | `components/content/ExerciseCard.tsx` | Collapsible card with difficulty badge; steps have optional `command` string |
-| `TerminalBlock` | `components/content/TerminalBlock.tsx` | Simulated terminal with command/output/comment line types |
-| `QuickReference` | `components/content/QuickReference.tsx` | Structured or freeform command reference table; exports `ReferenceSection`, `ReferenceItem` types |
-| `VerificationChecklist` | `components/content/VerificationChecklist.tsx` | Interactive self-check list with optional hints |
-| `Callout` | `components/content/Callout.tsx` | Tip/warning/info callout box |
-| `LessonLayout` | `components/lesson/LessonLayout.tsx` | Wraps every lesson; renders frontmatter header with difficulty badge, ToC aside |
-| `ProgressProvider` | `components/progress/ProgressProvider.tsx` | React context + localStorage for lesson/exercise completion; uses `useLocalStorage` SSR-safe hook |
+| Component | File | Relevant to Quiz |
+|-----------|------|-----------------|
+| `ExerciseCard` | `components/content/ExerciseCard.tsx` | Hands-on exercise — quiz comes after this |
+| `MarkCompleteButton` | `components/lesson/MarkCompleteButton.tsx` | Must be replaced with gated completion logic |
+| `LessonLayout` | `components/lesson/LessonLayout.tsx` | Renders `MarkCompleteButton` — must add `LessonQuiz` above it |
+| `ProgressProvider` | `components/progress/ProgressProvider.tsx` | Stores `LessonProgress` — must add quiz state |
+| `PrerequisiteBanner` | `components/lesson/PrerequisiteBanner.tsx` | Reads `progress.lessons[id].completed` — no change needed |
+| `mdx-components.tsx` | root | Registers MDX-available components — no quiz registration needed (quiz is layout-level, not MDX-level) |
 
-### Existing Type Contracts
+### Existing Type Contracts (What Quiz Must Integrate With)
 
 ```typescript
-// types/content.ts
-export type Difficulty = 'Foundation' | 'Intermediate' | 'Challenge'
-
-export interface LessonFrontmatter {
-  difficulty: Difficulty   // per-lesson, from MDX frontmatter
-  // ... title, description, moduleSlug, lessonSlug, order, etc.
+// types/progress.ts — CURRENT
+export interface LessonProgress {
+  completed: boolean
+  completedAt?: string
+  exercisesCompleted: string[]
 }
 
-// types/progress.ts
 export interface ProgressState {
   lessons: Record<LessonId, LessonProgress>
   version: number
 }
-// PROGRESS_STORAGE_KEY = 'learn-systems-progress'
+
+export const PROGRESS_STORAGE_KEY = 'learn-systems-progress'
+```
+
+```typescript
+// types/content.ts — NO CHANGE NEEDED
+export interface LessonFrontmatter {
+  title: string
+  description: string
+  module: string
+  moduleSlug: ModuleSlug
+  lessonSlug: LessonSlug
+  order: number
+  difficulty: Difficulty
+  estimatedMinutes: number
+  prerequisites: LessonId[]
+  tags: string[]
+}
 ```
 
 ### Existing Data Flow
 
 ```
-content/modules/[module]/[lesson].mdx
-        | (import at build time via @next/mdx)
+content/modules/[module]/[lesson].mdx  (MDX source — quiz data lives here)
+        | (dynamic import at build time via @next/mdx)
         v
 app/modules/[moduleSlug]/[lessonSlug]/page.tsx
-        | getLessonContent() — dynamic import + gray-matter for frontmatter
+        | getLessonContent() — extracts frontmatter via gray-matter
+        | quiz data is NOT in frontmatter — it is exported from MDX or passed as props
         v
-LessonLayout (receives frontmatter.difficulty)
-        | renders children
+LessonLayout (receives frontmatter)
+        | renders MDXContent children, then LessonQuiz below content
         v
-<MDXContent /> — JSX routed through mdx-components.tsx useMDXComponents()
-        |
+<MDXContent /> — renders lesson prose + ExerciseCard etc.
         v
-components/content/* (CodeBlock, ExerciseCard, TerminalBlock, etc.)
+LessonQuiz (new) — positioned after MDXContent, before MarkCompleteButton
+        | reads/writes progress via useProgress()
+        v
+MarkCompleteButton (modified) — disabled until quiz passed
 ```
 
 ---
@@ -69,41 +84,49 @@ components/content/* (CodeBlock, ExerciseCard, TerminalBlock, etc.)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         MDX Lesson Content                               │
-│  <AnnotatedCommand command="..." tokens={[...]} />         (NEW)        │
-│  <ExerciseCard difficulty="Foundation" mode="guided" .../>  (MODIFIED)  │
-│  <ExerciseCard difficulty="Challenge" challengePrompt="..." .../>       │
-│  <ChallengeReferenceSheet sections={[...]} />              (NEW)        │
+│                       MDX Lesson Content                                 │
+│  Prose + Callout + ExerciseCard + VerificationChecklist                  │
+│  quiz data exported from MDX as named export (see Pattern 1)            │
 └───────────────────────────────┬─────────────────────────────────────────┘
-                                | React component tree (via mdx-components.tsx)
+                                | MDX named export extracted by getLessonContent()
 ┌───────────────────────────────v─────────────────────────────────────────┐
-│                     components/content/                                  │
-│  ┌────────────────────┐  ┌────────────────────┐  ┌──────────────────┐  │
-│  │  AnnotatedCommand  │  │  ExerciseCard       │  │ ChallengeRef-    │  │
-│  │  (NEW)             │  │  (MODIFIED)         │  │ Sheet (NEW)      │  │
-│  │                    │  │                     │  │                  │  │
-│  │  Renders command   │  │  Reads explicit     │  │ Styled wrapper   │  │
-│  │  + per-flag        │  │  mode prop OR       │  │ over existing    │  │
-│  │  annotations in    │  │  ProgressContext     │  │ QuickReference   │  │
-│  │  expandable panel  │  │  preferredMode;     │  │                  │  │
-│  │                    │  │  gates render path  │  │                  │  │
-│  └────────────────────┘  └─────────┬───────────┘  └──────────────────┘  │
-└─────────────────────────────────────┼───────────────────────────────────┘
-                                      | context read
-┌─────────────────────────────────────v───────────────────────────────────┐
-│                     components/progress/ProgressProvider.tsx             │
-│                          (MODIFIED — add preferredMode)                  │
+│         app/modules/[moduleSlug]/[lessonSlug]/page.tsx                   │
+│  (MODIFIED) passes quiz prop to LessonLayout                             │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                |
+┌───────────────────────────────v─────────────────────────────────────────┐
+│                    components/lesson/LessonLayout.tsx                    │
+│  (MODIFIED) receives quiz prop; renders LessonQuiz below MDXContent      │
+│             removes MarkCompleteButton; LessonQuiz owns completion gate  │
+└──────────────┬──────────────────────────┬───────────────────────────────┘
+               |                          |
+┌──────────────v──────────────┐  ┌────────v──────────────────────────────┐
+│  components/lesson/         │  │  components/quiz/ (NEW directory)      │
+│  LessonQuiz.tsx (NEW)       │  │  QuizQuestion.tsx (NEW)                │
+│                             │  │  QuizResult.tsx (NEW)                  │
+│  Orchestrates quiz state:   │  │                                        │
+│  - not-started              │  │  QuizQuestion: single question with    │
+│  - in-progress              │  │  4 options, submit, explanation reveal │
+│  - passed                   │  │                                        │
+│  - failed (retake whole)    │  │  QuizResult: end-of-quiz summary       │
+│                             │  │  (passed: lesson unlocked message;     │
+│  Calls markLessonComplete() │  │   failed: full retake prompt)          │
+│  on 100% score              │  │                                        │
+└──────────────┬──────────────┘  └────────────────────────────────────────┘
+               |
+┌──────────────v──────────────────────────────────────────────────────────┐
+│           components/progress/ProgressProvider.tsx (MODIFIED)            │
 │                                                                          │
-│  preferredMode: 'guided' | 'challenge' | null   (localStorage)          │
-│  setPreferredMode: (mode: 'guided' | 'challenge' | null) => void        │
-└─────────────────────────────────────────────────────────────────────────┘
-                                      |
-┌─────────────────────────────────────v───────────────────────────────────┐
-│                     components/lesson/LessonLayout.tsx                   │
-│                          (MODIFIED — add DifficultyToggle)               │
+│  EXTENDED ProgressState:                                                 │
+│    quizPassed: boolean           (has the quiz ever been passed)         │
+│    quizPassedAt?: string         (ISO timestamp)                         │
 │                                                                          │
-│  Reads frontmatter.difficulty to gate toggle display.                   │
-│  Calls setPreferredMode via ProgressContext.                             │
+│  NEW context methods:                                                    │
+│    markQuizPassed(lessonId): void                                        │
+│    isQuizPassed(lessonId): boolean                                       │
+│                                                                          │
+│  MODIFIED markLessonComplete:                                            │
+│    lesson.completed = quizPassed (quiz gate enforced here)               │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -111,12 +134,73 @@ components/content/* (CodeBlock, ExerciseCard, TerminalBlock, etc.)
 
 | Component | Responsibility | Status |
 |-----------|----------------|--------|
-| `AnnotatedCommand` | Render a single CLI command with per-token annotations in an expandable panel | NEW |
-| `ChallengeReferenceSheet` | Always-visible command reference for challenge-mode exercises | NEW |
-| `ExerciseCard` | Add mode-aware render branching; guided path vs challenge path | MODIFIED |
-| `ProgressProvider` | Add `preferredMode` preference alongside existing progress state | MODIFIED |
-| `LessonLayout` | Add `DifficultyToggle` UI in lesson header when lesson supports challenge mode | MODIFIED |
-| `mdx-components.tsx` | Register two new components so MDX can use them without explicit imports | MODIFIED |
+| `LessonQuiz` | Orchestrates quiz state machine; calls `markLessonComplete` on pass | NEW |
+| `QuizQuestion` | Renders one multiple-choice question; handles answer selection, reveals explanation on correct, blocks on incorrect | NEW |
+| `QuizResult` | End-of-quiz screen: pass (lesson unlocked) or fail (retake prompt) | NEW |
+| `ProgressProvider` | Adds `quizPassed` to `LessonProgress`; exposes `markQuizPassed` | MODIFIED |
+| `LessonLayout` | Receives `quiz` prop; renders `LessonQuiz` below `MDXContent`; removes standalone `MarkCompleteButton` | MODIFIED |
+| `MarkCompleteButton` | Removed from `LessonLayout`; quiz pass triggers completion directly | REMOVED from layout (may keep for lessons without quizzes) |
+| `page.tsx` | Extracts quiz data from MDX named export; passes to `LessonLayout` | MODIFIED |
+| `lib/mdx.ts` | Extracts `quiz` named export alongside `frontmatter` | MODIFIED |
+
+---
+
+## Quiz Data Storage Decision
+
+**Decision: MDX named export — NOT frontmatter, NOT separate file.**
+
+### Why Not Frontmatter
+
+Frontmatter (`gray-matter` parsing) is YAML. Multi-line question/answer text in YAML is verbose and error-prone. The `LessonFrontmatter` type is clean and minimal — adding 7-10 question objects with 4 options each creates unreadable YAML and pollutes the type with runtime content.
+
+### Why Not Separate JSON/TS Files
+
+A separate `content/quizzes/01-linux-fundamentals/01-how-computers-work.json` creates a parallel directory tree with no co-location. The quiz is pedagogically part of the lesson — splitting it into a different file means authoring two files per lesson change and risks content drift (question references a concept removed from the lesson). 56 separate quiz files adds complexity with no benefit for a single-author local app.
+
+### Why MDX Named Export
+
+`@next/mdx` compiles MDX to a JavaScript module. The default export is the React component. Any other named export is accessible when you dynamically import the module. This is a first-class MDX feature.
+
+**Authoring pattern in MDX:**
+```mdx
+---
+title: "How Computers Work"
+# ... existing frontmatter unchanged ...
+---
+
+export const quiz = [
+  {
+    id: "q1",
+    question: "A process is using 400% CPU on a system with 4 cores. What does this indicate?",
+    options: [
+      "The process has a memory leak",
+      "The process is multi-threaded and using all 4 cores simultaneously",
+      "The system is overloaded and will crash soon",
+      "CPU measurement tools are reporting incorrectly"
+    ],
+    correctIndex: 1,
+    explanation: "CPU usage above 100% means the process has multiple threads running on multiple cores simultaneously. 400% on a 4-core system means all cores are fully utilized by this one process — a sign of good parallelization, not a problem."
+  },
+  // ... 6-9 more questions
+]
+
+## Overview
+...existing lesson content unchanged...
+```
+
+**Extraction in `lib/mdx.ts`:**
+```typescript
+const mod = await import(`@/content/modules/${moduleSlug}/${lessonSlug}.mdx`)
+// mod.default = React component (existing)
+// mod.quiz = QuizQuestion[] | undefined (NEW named export)
+return {
+  default: mod.default,
+  frontmatter,
+  quiz: mod.quiz ?? null,
+}
+```
+
+This requires zero changes to the MDX build pipeline (`next.config.ts`, `remarkFrontmatter`, `rehypePrettyCode` are all untouched). Named exports in MDX are supported by `@next/mdx` without any plugin additions.
 
 ---
 
@@ -124,381 +208,416 @@ components/content/* (CodeBlock, ExerciseCard, TerminalBlock, etc.)
 
 ```
 components/
-└── content/
-    ├── AnnotatedCommand.tsx          # NEW — per-flag command annotation component
-    └── ChallengeReferenceSheet.tsx   # NEW — challenge mode command reference panel
+└── quiz/                        # NEW directory
+    ├── LessonQuiz.tsx           # Quiz orchestrator: state machine, completion gate
+    ├── QuizQuestion.tsx         # Single question renderer
+    └── QuizResult.tsx           # Pass/fail end screen
 
-hooks/
-└── useDifficultyPreference.ts        # NEW (optional) — thin hook wrapper for clean DX
+types/
+└── quiz.ts                      # NEW — QuizQuestion type, QuizState type
 ```
 
-No new routes, no new API endpoints, no new lib utilities. This is entirely a component-layer addition.
+Modified files:
+```
+types/progress.ts                # Extend LessonProgress with quizPassed
+components/progress/ProgressProvider.tsx   # Add markQuizPassed, isQuizPassed
+components/lesson/LessonLayout.tsx         # Accept quiz prop, render LessonQuiz
+app/modules/[moduleSlug]/[lessonSlug]/page.tsx  # Pass quiz from getLessonContent
+lib/mdx.ts                       # Extract quiz named export from MDX module
+```
 
 ### Structure Rationale
 
-- **`components/content/`:** All new components are content primitives used in MDX. They belong with existing content components, not in a new directory. The existing content component set has clear precedent for this organization.
-- **`hooks/useDifficultyPreference.ts`:** Optional extraction. If multiple components read `preferredMode` from context, a named hook is cleaner than calling `useProgress()` and destructuring everywhere.
+- **`components/quiz/`**: Quiz components are distinct from `components/content/` (MDX content primitives) and `components/lesson/` (layout-level chrome). A separate directory signals these are lesson-level interactive assessment components, not reusable content blocks.
+- **`types/quiz.ts`**: Quiz question shape and state machine enum live here. Keeping them separate from `types/progress.ts` (persistence) and `types/content.ts` (MDX structure) maintains the existing type file discipline.
+- **No new route or API**: Everything is component-local state + existing localStorage. No server needed.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Props-in-MDX for Content Data
+### Pattern 1: MDX Named Export for Quiz Data
 
-**What:** All annotation data and challenge prompts live entirely in MDX JSX props. No external JSON, no fetched data, no content database.
+**What:** Quiz questions are a named export (`export const quiz = [...]`) in the MDX file, extracted via dynamic import in `lib/mdx.ts`.
 
-**When to use:** Always, for both `AnnotatedCommand` and `ExerciseCard` challenge props. The annotation belongs adjacent to the command it describes in the same file.
+**When to use:** All 56 lessons. Lessons without a quiz yet simply do not export `quiz` — `mod.quiz` is `undefined`, `getLessonContent` returns `quiz: null`, `LessonLayout` omits `LessonQuiz`.
 
-**Trade-offs:** Verbose MDX authoring. Correct trade-off because: annotations live with their commands (no sync problem), works with the static build, no runtime fetch, author intent is explicit.
-
-**Example:**
-```mdx
-<AnnotatedCommand
-  command="find /var/log -name '*.log' -mtime +7 -delete"
-  tokens={[
-    { token: "-name '*.log'", annotation: "Filter by filename pattern — glob syntax, quoted to prevent shell expansion before find sees it" },
-    { token: "-mtime +7", annotation: "Modified more than 7 days ago. + means more than, - means less than, no prefix means exactly N days" },
-    { token: "-delete", annotation: "Primary action — deletes matched files. Must come after all filters or it runs on everything" }
-  ]}
-/>
-```
-
-### Pattern 2: Context-Driven Render Branching
-
-**What:** `ExerciseCard` reads `preferredMode` from `ProgressContext` to choose between guided and challenge render paths. The MDX author does not decide at read-time — the learner's preference does.
-
-**When to use:** Any component that must respond to a persistent learner preference.
-
-**Trade-offs:** ExerciseCard becomes a context consumer. It already is ('use client' directive exists). The context re-render touches every ExerciseCard on the page when the preference changes. Acceptable: at most 3-5 exercises per lesson page, React reconciliation handles this with no perceptible cost.
-
-**Example:**
-```typescript
-// Inside ExerciseCard
-const { preferredMode } = useProgress()
-const effectiveMode = mode ?? preferredMode ?? difficultyDefault(difficulty)
-```
-
-### Pattern 3: Explicit Mode Override for Pedagogy Requirements
-
-**What:** The `mode` prop on `ExerciseCard` lets the MDX author pin a specific render mode regardless of the learner's global preference. Used for exercises where pedagogy absolutely requires one path.
-
-**When to use:** Foundation exercises that must always be annotated/guided (learner's first encounter with a command). Challenge capstone exercises that must never degrade to step-by-step.
+**Trade-offs:**
+- Pro: Co-located with lesson content, no new file per lesson, zero build pipeline change, natural MDX authoring experience
+- Pro: Progressive rollout — lessons without `quiz` export keep working exactly as before
+- Con: Quiz data is compiled into the JavaScript bundle for that lesson (no lazy loading). Acceptable — 7-10 question objects of ~200 bytes each is negligible bundle impact.
+- Con: `export const` in MDX body is unusual; authors need to know the convention. Address with the template.
 
 **Example:**
 ```mdx
-{/* Always guided — first encounter with chmod, annotations are essential */}
-<ExerciseCard mode="guided" difficulty="Foundation" ... />
-
-{/* Always challenge — final module capstone */}
-<ExerciseCard mode="challenge" difficulty="Challenge" ... />
+export const quiz = [
+  {
+    id: "q1",
+    question: "When the Linux OOM killer runs, what does it do?",
+    options: [
+      "Increases swap space automatically",
+      "Kills the process using the most memory to free RAM",
+      "Pauses all processes until memory is freed",
+      "Writes excess memory to disk as a core dump"
+    ],
+    correctIndex: 1,
+    explanation: "The OOM (Out of Memory) killer selects and kills a process — usually the one consuming the most memory — to reclaim RAM and prevent a full system crash."
+  }
+]
 ```
 
----
+### Pattern 2: Client-Side Quiz State Machine
 
-## New Component Specifications
+**What:** `LessonQuiz` manages quiz state as a React `useState` state machine: `'idle' | 'active' | 'passed' | 'failed'`. No server state, no persistence for in-progress state — only the final `quizPassed` boolean persists to localStorage.
 
-### `AnnotatedCommand`
+**When to use:** All quiz orchestration in `LessonQuiz.tsx`.
 
-**File:** `components/content/AnnotatedCommand.tsx`
+**Trade-offs:**
+- Pro: Simple, no persistence complexity, matches existing single-learner local-app model
+- Pro: Failed quiz resets entirely — intentional per requirements ("wrong answers require retaking the entire quiz")
+- Con: Refreshing mid-quiz resets to start. This is correct behavior: the system should not track partial quiz state. A learner who closes the browser mid-quiz simply retakes from question 1.
 
-**Props:**
+**State transitions:**
+```
+idle ──(start quiz)──> active
+active ──(all correct, 100%)──> passed ──(markLessonComplete called)
+active ──(any wrong answer)──> failed
+failed ──(retake)──> active (fresh, question 0, shuffled or fixed order)
+passed ──(persisted quizPassed=true in localStorage)──> idle (next visit shows lesson complete)
+```
+
+**Example:**
 ```typescript
-interface CommandToken {
-  token: string          // exact substring from command, e.g. "-R", "--format=json"
-  annotation: string     // educational explanation of this token
-  type?: 'flag' | 'argument' | 'subcommand' | 'option-value'
-}
+type QuizPhase = 'idle' | 'active' | 'passed' | 'failed'
 
-interface AnnotatedCommandProps {
-  command: string         // full command string, displayed verbatim
-  tokens: CommandToken[]  // tokens to annotate (can be a subset)
-  language?: string       // for display hint, defaults to 'bash'
-  copyable?: boolean      // show copy button, default true
-}
-```
+function LessonQuiz({ lessonId, questions }: LessonQuizProps) {
+  const [phase, setPhase] = useState<QuizPhase>('idle')
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [score, setScore] = useState(0)
+  const { markLessonComplete, isQuizPassed } = useProgress()
 
-**Rendering contract:**
-- Base command always renders in full, in monospace, with copy button
-- Annotated tokens are visually highlighted in the command display (underline or subtle color)
-- Annotations panel below the command, collapsed by default
-- Each annotation row links visually to its token
-- Collapsed state is correct default: advanced learners can skip; Foundation learners expand
-
-**'use client' required:** Yes — interactive collapse/expand state.
-
-### `ChallengeReferenceSheet`
-
-**File:** `components/content/ChallengeReferenceSheet.tsx`
-
-**Props:** Extends `QuickReferenceProps` from the existing QuickReference component:
-```typescript
-interface ChallengeReferenceSheetProps extends QuickReferenceProps {
-  collapsible?: boolean  // default false — always visible during a challenge
+  // On mount: if quiz already passed, skip to completed display
+  // On correct answer: show explanation, advance to next question
+  // On wrong answer: immediately transition to 'failed' state
+  // On all correct: transition to 'passed', call markLessonComplete
 }
 ```
 
-**Rendering contract:**
-- Thin wrapper over existing `QuickReference` with distinct visual treatment: different border accent color, "Command Reference" header label, slightly elevated bg to signal "this is your toolkit"
-- Reuses `ReferenceSection` and `ReferenceItem` types already exported from `QuickReference.tsx`
-- `collapsible=false` (default): never hidden, always visible as the learner works
-- No separate state management needed
+### Pattern 3: Fail-Fast Wrong Answer Handling
 
-**'use client' required:** Only if `collapsible=true` is implemented. Start with server component; add 'use client' if collapse behavior is added later.
+**What:** When a learner selects a wrong answer, the quiz transitions to `failed` immediately — no explanation shown, no "which one was right" reveal, retake required.
 
-### `ExerciseCard` Additions
+**When to use:** Every question in every quiz.
 
-**New props:**
-```typescript
-interface ExerciseCardProps {
-  // existing props unchanged — no breaking changes
-  title: string
-  scenario: string
-  difficulty: Difficulty
-  objective: string
-  steps: ExerciseStep[]
-  children?: React.ReactNode
-  // NEW:
-  mode?: 'guided' | 'challenge'          // explicit author override
-  challengePrompt?: string               // English goal description for challenge mode
-  challengeReference?: ReferenceSection[] // commands available in challenge mode
-}
-```
+**Rationale from requirements:** "Wrong answers show no correct answer — learner retakes entire quiz." This is a deliberate retrieval-practice design: the learner must recall the correct answer, not learn it from a correction screen. This is harder and more effective for long-term retention (see: testing effect, spaced repetition research).
 
-**Mode resolution inside ExerciseCard:**
-```
-1. explicit `mode` prop — beats everything (author override)
-2. ProgressContext.preferredMode (learner's global preference)
-3. difficulty default:
-     'Foundation'    -> 'guided'
-     'Intermediate'  -> 'guided'
-     'Challenge'     -> 'challenge'
-```
+**Trade-offs:**
+- Pro: Prevents passive "I'll just see which one is highlighted" behavior
+- Pro: Simpler component — no "reveal correct/incorrect" logic on wrong answers
+- Con: Potentially frustrating if questions 9 of 10 is failed. Mitigate with clear "You must get all 10 correct" messaging before starting.
 
-**Guided render path:** Existing behavior. Steps list unchanged. If a step's command is in an `AnnotatedCommand` placed as children, it renders there; plain `step.command` strings continue to render as inline code.
+**Implementation note:** On wrong answer selection, immediately call `setPhase('failed')`. Do not reveal which option was wrong or which was right. Show only a "Not quite — try the full quiz again" message.
 
-**Challenge render path (new):** Shows `challengePrompt` paragraph, renders `ChallengeReferenceSheet` if `challengeReference` is provided, renders `children` (which includes `VerificationChecklist`). Hides the numbered step list.
+### Pattern 4: Correct Answer Explanation Reveal
 
-### `ProgressProvider` Additions
+**What:** When a learner selects the correct answer, an explanation panel slides in below the options. They confirm they've read it and advance to the next question.
 
-**Context value additions:**
-```typescript
-interface ProgressContextValue {
-  // existing fields unchanged
-  progress: ProgressState
-  isHydrated: boolean
-  markLessonComplete: (lessonId: LessonId) => void
-  markExerciseComplete: (lessonId: LessonId, exerciseId: string) => void
-  resetProgress: () => void
-  // NEW:
-  preferredMode: 'guided' | 'challenge' | null
-  setPreferredMode: (mode: 'guided' | 'challenge' | null) => void
-}
-```
+**When to use:** Every question when the correct answer is selected.
 
-**Storage:** Use a separate localStorage key `'learn-systems-preferences'` rather than extending `ProgressState`. Mode preference is a UI setting, not progress data. Keeping them in separate keys means a progress reset does not wipe the learner's mode preference, and the storage shapes stay cohesive.
+**Rationale:** The explanation reinforces WHY the answer is correct — this is the elaborative interrogation effect. Explaining the mechanism deepens understanding beyond "I picked the right letter."
 
-### `LessonLayout` Additions
-
-**What changes:** Render a difficulty toggle control in the lesson metadata row when the lesson supports challenge mode.
-
-**Gate condition:** Render the toggle only when `frontmatter.difficulty === 'Challenge'`. This is a simple heuristic: Challenge-difficulty lessons are the ones where the challenge render path is meaningful. Foundation and Intermediate lessons always show guided.
-
-**Toggle placement:** In the existing metadata row (same line as difficulty badge and estimated time), after the difficulty badge. A compact two-option control: `Guided | Challenge` with active option highlighted.
-
-**Wire-up:** Toggle calls `setPreferredMode` from `useProgress()`. The toggle is a client component ('use client'). Extract it as a small `DifficultyToggle.tsx` component in `components/lesson/` to keep LessonLayout server-friendly.
+**Trade-offs:**
+- Pro: Reinforces reasoning, not just fact recall
+- Pro: Differentiates from a simple multiple-choice checkbox — the explanation is the value
+- Con: Adds a "Continue" button click per question (minor friction)
 
 ---
 
 ## Data Flow
 
-### Annotated Command Rendering
+### Quiz Initialization
 
 ```
-MDX author writes <AnnotatedCommand command="..." tokens={[...]} />
-        | mdx-components.tsx maps JSX element to AnnotatedCommand component
+getLessonContent(moduleSlug, lessonSlug)
+        | dynamic import of MDX module
+        | mod.quiz = QuizQuestion[] | undefined
         v
-AnnotatedCommand renders:
-  - Full command string in monospace (copyable)
-  - Highlighted tokens in command display
-  - Collapsible annotation panel (collapsed by default)
-  (no external data source — all data is in MDX props, static at build time)
-```
-
-### Challenge Mode Toggle
-
-```
-Learner clicks "Challenge" in DifficultyToggle (in LessonLayout header)
-        |
+page.tsx receives { default, frontmatter, quiz }
+        | passes quiz to LessonLayout as prop
         v
-DifficultyToggle calls setPreferredMode('challenge') via useProgress()
-        |
+LessonLayout renders LessonQuiz only if quiz !== null
+        | passes lessonId + questions to LessonQuiz
         v
-ProgressProvider writes 'challenge' to localStorage key 'learn-systems-preferences'
-        | (React context re-render propagates to all consumers)
-        v
-Every ExerciseCard on the page re-reads context
-        | resolves effectiveMode via fallback chain
-        v
-Cards with challengePrompt + effective challenge mode -> render challenge UI
-Cards without challengePrompt -> remain in guided mode (graceful fallback)
-Foundation cards with explicit mode="guided" -> unaffected by toggle
+LessonQuiz mounts
+        | checks isQuizPassed(lessonId) from ProgressContext
+        | if true: render "quiz complete" state (lesson already unlocked)
+        | if false: render "Start Quiz" idle state
 ```
 
-### Exercise Card Mode Resolution
+### Quiz Completion and Lesson Gating
 
 ```
-ExerciseCard renders:
-  effectiveMode = mode (explicit prop)
-               ?? context.preferredMode (learner preference)
-               ?? (difficulty === 'Challenge' ? 'challenge' : 'guided')
-
-  effectiveMode === 'guided':
-    render numbered steps list (existing)
-    step.command -> inline code block (existing)
-    children -> VerificationChecklist etc. (existing)
-
-  effectiveMode === 'challenge':
-    render challengePrompt paragraph
-    if challengeReference -> render <ChallengeReferenceSheet sections={challengeReference} />
-    render children (VerificationChecklist, etc.)
-    hide step list
+Learner answers all questions correctly
+        | LessonQuiz phase = 'passed'
+        v
+LessonQuiz calls markQuizPassed(lessonId)
+        | ProgressProvider writes quizPassed: true to localStorage
+        | ProgressProvider calls markLessonComplete(lessonId)
+        |   lesson.completed = true persisted to 'learn-systems-progress'
+        v
+ProgressContext re-renders all consumers
+        | PrerequisiteBanner on subsequent lessons now shows prerequisites satisfied
+        | Module completion percentage updates
+        | Dashboard progress updates
 ```
+
+### Wrong Answer Handling
+
+```
+Learner selects wrong answer
+        | QuizQuestion receives onWrongAnswer callback from LessonQuiz
+        v
+LessonQuiz phase transitions: 'active' -> 'failed'
+        | No answer revealed, no explanation shown
+        v
+QuizResult renders failed state
+        | Shows "Try again — all questions must be answered correctly"
+        | Shows "Retake Quiz" button
+        v
+Learner clicks Retake
+        | LessonQuiz resets: currentIndex=0, score=0, phase='active'
+        | Questions presented in same fixed order (not shuffled — content is authored in sequence)
+```
+
+### Progress Gating for Next Lessons
+
+```
+lesson.completed === true is the single gate for:
+  - PrerequisiteBanner (existing — no change)
+  - Module completion percent (existing — no change)
+  - Dashboard progress bars (existing — no change)
+
+lesson.completed is only set to true when:
+  - Quiz exists AND quizPassed === true (new path)
+  - Quiz does not exist (quiz === null) AND learner clicks MarkCompleteButton (existing path — kept for lessons pending quiz authoring)
+```
+
+---
+
+## Modified Type Contracts
+
+### `types/quiz.ts` (NEW)
+
+```typescript
+export interface QuizQuestion {
+  id: string                  // unique within lesson, e.g. "q1", "q2"
+  question: string            // question text — full sentence, no trailing colon
+  options: [string, string, string, string]  // exactly 4 options
+  correctIndex: 0 | 1 | 2 | 3               // index into options
+  explanation: string         // shown after correct answer — explains WHY, not just confirms
+}
+
+export type QuizPhase = 'idle' | 'active' | 'passed' | 'failed'
+```
+
+### `types/progress.ts` (MODIFIED)
+
+```typescript
+export interface LessonProgress {
+  completed: boolean
+  completedAt?: string
+  exercisesCompleted: string[]
+  // NEW:
+  quizPassed?: boolean        // optional — absent on existing records (treated as false)
+  quizPassedAt?: string       // ISO timestamp
+}
+```
+
+The `quizPassed` field is optional (`?`), which means:
+- All 56 existing lesson progress records in learners' localStorage remain valid with no migration
+- A lesson record without `quizPassed` is treated as `quizPassed === false`
+- Lessons that have no quiz yet can be completed via `MarkCompleteButton` (quizPassed irrelevant)
 
 ---
 
 ## Integration Points
 
+### New vs. Modified — Explicit Inventory
+
+**New files:**
+| File | What It Does |
+|------|-------------|
+| `types/quiz.ts` | `QuizQuestion` type, `QuizPhase` type |
+| `components/quiz/LessonQuiz.tsx` | Quiz state machine orchestrator |
+| `components/quiz/QuizQuestion.tsx` | Single question renderer |
+| `components/quiz/QuizResult.tsx` | Pass/fail end screen |
+
+**Modified files:**
+| File | What Changes |
+|------|-------------|
+| `types/progress.ts` | Add `quizPassed?: boolean`, `quizPassedAt?: string` to `LessonProgress` |
+| `components/progress/ProgressProvider.tsx` | Add `markQuizPassed`, expose `isQuizPassed`; update `markLessonComplete` to accept quiz-gated path |
+| `components/lesson/LessonLayout.tsx` | Accept `quiz: QuizQuestion[] \| null` prop; render `LessonQuiz` below `MDXContent`; gate `MarkCompleteButton` |
+| `app/modules/[moduleSlug]/[lessonSlug]/page.tsx` | Extract `quiz` from `getLessonContent`; pass to `LessonLayout` |
+| `lib/mdx.ts` | Return `quiz: mod.quiz ?? null` from `getLessonContent` |
+
+**No-touch files (confirmed):**
+| File | Why Unchanged |
+|------|--------------|
+| `next.config.ts` | Named exports work without any plugin change |
+| `mdx-components.tsx` | Quiz is layout-level, not MDX-embedded component |
+| `content/modules/**/*.mdx` | Adding `export const quiz = [...]` is additive; existing lessons work without it |
+| `hooks/useLocalStorage.ts` | Generic hook; no quiz-specific changes needed |
+| `types/content.ts` | `LessonFrontmatter` unchanged |
+| `components/content/*` | All content components unchanged |
+| `components/lesson/PrerequisiteBanner.tsx` | Already reads `progress.lessons[id].completed` — will automatically work once quizPassed gates completion |
+| `components/lesson/ScrollProgressBar.tsx` | No change |
+| `components/lesson/TableOfContents.tsx` | No change |
+| `lib/modules.ts` | No change |
+| `lib/progress.ts` | No change — `isModuleComplete` already reads `lesson.completed` correctly |
+
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| MDX content → `AnnotatedCommand` | JSX props in MDX body | All annotation data is static at build time; no runtime fetch |
-| MDX content → `ExerciseCard` | JSX props in MDX body | `challengePrompt` and `challengeReference` are new optional props; existing MDX files need no changes |
-| `ExerciseCard` → `ProgressContext` | React context read via `useProgress()` | ExerciseCard already 'use client'; adding a context read is zero friction |
-| `DifficultyToggle` → `ProgressContext` | React context write via `setPreferredMode` | New client component in `components/lesson/`; thin — just a toggle UI |
-| `ChallengeReferenceSheet` → `QuickReference` | Composition — wraps QuickReference | Reuse `ReferenceSection` and `ReferenceItem` types already exported from QuickReference.tsx |
-| `LessonLayout` → `DifficultyToggle` | Renders DifficultyToggle conditionally on frontmatter.difficulty | LessonLayout stays server-friendly; DifficultyToggle is the only client piece added |
-
-### What Does NOT Change
-
-These are confirmed no-touch from code inspection:
-
-- `getLessonContent()` in `lib/mdx.ts` — no change; frontmatter already has `difficulty`
-- `generateStaticParams()` in lesson page — no change
-- `LessonFrontmatter` type in `types/content.ts` — no change
-- `ProgressState` shape in `types/progress.ts` — mode preference stored in a separate key
-- `TerminalBlock` — no change; used for expected output display, not exercises
-- `QuickReference` — no change to existing component; ChallengeReferenceSheet wraps it
-- `VerificationChecklist` — no change; still used as ExerciseCard children in both render paths
-- `Callout` — no change
-- `CodeBlock` — no change; AnnotatedCommand is a separate primitive, not a CodeBlock variant
-
----
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Reading Lesson-Level Difficulty Inside ExerciseCard
-
-**What people do:** Pass `frontmatter.difficulty` down through props or context into ExerciseCard and use it to determine mode.
-
-**Why it's wrong:** A lesson has one difficulty in frontmatter but may contain exercises of multiple effective difficulties. A Foundation lesson can include a bonus Challenge exercise. The ExerciseCard's own `difficulty` prop is the correct signal, not the lesson-level field.
-
-**Do this instead:** Use the card's `difficulty` prop for the default fallback, and `ProgressContext.preferredMode` for the learner override. The lesson-level frontmatter difficulty only controls whether the DifficultyToggle renders in the header.
-
-### Anti-Pattern 2: Annotating Inside TerminalBlock
-
-**What people do:** Add annotation metadata to TerminalBlock's line types.
-
-**Why it's wrong:** TerminalBlock shows what you would see in a real terminal session — command + output sequences. Annotations are pedagogical metadata. Mixing them creates a component with two jobs and makes neither work well.
-
-**Do this instead:** Use `AnnotatedCommand` for a single command with educational breakdown. Use `TerminalBlock` for showing a session with multiple commands and their expected output. These are intentionally distinct primitives.
-
-### Anti-Pattern 3: Per-Lesson or Per-Exercise Toggle UI Instead of Global Preference
-
-**What people do:** Put a small toggle on each exercise card, or in a per-lesson route.
-
-**Why it's wrong:**
-- Per-exercise toggle: clutters every card with mode-switch UI; learner has to set it N times per lesson.
-- Per-lesson URL query string (`?mode=challenge`): creates shareable URLs with mode baked in, breaks back-button expectation, requires query-param parsing on every render.
-
-**Do this instead:** Global preference in `ProgressProvider`, stored in localStorage. Set once, affects all exercises on all pages. Consistent with how the app handles all other persistent state.
-
-### Anti-Pattern 4: Building ChallengeReferenceSheet from Scratch
-
-**What people do:** Write ChallengeReferenceSheet with its own table rendering.
-
-**Why it's wrong:** `QuickReference` already renders a well-styled, tested command reference table. Duplicating the rendering logic creates two components to maintain for the same presentation.
-
-**Do this instead:** `ChallengeReferenceSheet` wraps `QuickReference` and applies distinct visual treatment (border accent, header label). Reuse `ReferenceSection` and `ReferenceItem` types already exported from `QuickReference.tsx`.
+| MDX → `getLessonContent` | Named export `quiz` extracted via dynamic import | `@next/mdx` supports named exports natively; no pipeline change |
+| `page.tsx` → `LessonLayout` | New `quiz` prop (nullable) | `LessonFrontmatter` type unchanged |
+| `LessonLayout` → `LessonQuiz` | Props: `lessonId`, `questions` | `LessonLayout` stays server-friendly; `LessonQuiz` is 'use client' |
+| `LessonQuiz` → `ProgressContext` | `markQuizPassed`, `isQuizPassed`, `markLessonComplete` via `useProgress()` | `LessonQuiz` is the only new context consumer |
+| `LessonQuiz` → `QuizQuestion` | Props: question data, callbacks (`onCorrect`, `onWrong`) | Pure parent-child; `QuizQuestion` has no context reads |
+| `LessonQuiz` → `QuizResult` | Props: `phase`, `onRetake` callback | Pure parent-child |
+| `ProgressProvider` → localStorage | Extends existing `LessonProgress` records with `quizPassed` | Additive field; backward-compatible with existing stored records |
 
 ---
 
 ## Build Order
 
-Dependencies determine order. Build bottom-up.
+Dependencies determine order. Quiz touches fewer existing systems than v1.1 did.
 
-**Step 1 — Type and context contracts (no component dependencies)**
-- Extend `ProgressContextValue` with `preferredMode` and `setPreferredMode`
-- Extend `ProgressProvider` with localStorage persistence for mode preference (separate key)
+**Step 1 — Types (no component dependencies)**
+- Create `types/quiz.ts` with `QuizQuestion`, `QuizPhase`
+- Extend `types/progress.ts`: add `quizPassed?: boolean`, `quizPassedAt?: string` to `LessonProgress`
 
-**Step 2 — Leaf components (no context reads, no dependencies on new components)**
-- Build `AnnotatedCommand` — standalone, all data from props
-- Build `ChallengeReferenceSheet` — wraps existing `QuickReference`, no context reads
+**Step 2 — Progress context extension (depends on Step 1 types)**
+- Add `markQuizPassed(lessonId)` to `ProgressProvider`
+- Add `isQuizPassed(lessonId)` to `ProgressProvider`
+- Extend `ProgressContextValue` interface
+- Verify backward-compatibility: existing `LessonProgress` records without `quizPassed` treated as `false`
 
-**Step 3 — ExerciseCard modification (depends on Steps 1 and 2)**
-- Add `mode`, `challengePrompt`, `challengeReference` props
-- Add `useProgress()` context read for `preferredMode`
-- Add mode resolution logic and render branching
+**Step 3 — Quiz leaf components (no context reads, no Step 2 dependency)**
+- Build `components/quiz/QuizQuestion.tsx` — pure props, no context
+- Build `components/quiz/QuizResult.tsx` — pure props, no context
 
-**Step 4 — LessonLayout integration (depends on Step 1)**
-- Build `DifficultyToggle` client component (reads and writes `preferredMode`)
-- Add DifficultyToggle to LessonLayout header, gated on `frontmatter.difficulty === 'Challenge'`
+**Step 4 — LessonQuiz orchestrator (depends on Steps 2 + 3)**
+- Build `components/quiz/LessonQuiz.tsx`
+- Reads `useProgress()` for `markQuizPassed`, `isQuizPassed`, `markLessonComplete`
+- Manages `QuizPhase` state machine
+- Renders `QuizQuestion` per question; `QuizResult` at end
 
-**Step 5 — Registration**
-- Register `AnnotatedCommand` and `ChallengeReferenceSheet` in `mdx-components.tsx`
+**Step 5 — MDX data extraction (depends on Step 1 types)**
+- Modify `lib/mdx.ts`: extract `mod.quiz ?? null` from dynamic import
+- Modify `page.tsx`: pass `quiz` to `LessonLayout`
 
-**Step 6 — Content authoring**
-- Add `<AnnotatedCommand>` to Foundation exercises across all 8 modules
-- Add `challengePrompt` and `challengeReference` to Challenge difficulty exercises
-- No changes needed to existing MDX for Intermediate exercises (graceful fallback)
+**Step 6 — LessonLayout integration (depends on Steps 4 + 5)**
+- Add `quiz: QuizQuestion[] | null` prop to `LessonLayout`
+- Render `<LessonQuiz lessonId={lessonId} questions={quiz} />` below `MDXContent` when `quiz !== null`
+- Gate `MarkCompleteButton`: show only when `quiz === null` (unquizzed lessons during rollout)
+
+**Step 7 — Content authoring**
+- Add `export const quiz = [...]` to each lesson MDX file
+- 56 lessons × 7-10 questions each
+- No other MDX changes required
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Quiz Data in Frontmatter
+
+**What people do:** Add `quiz:` key to YAML frontmatter with question objects.
+
+**Why it's wrong:** YAML multi-line strings are fragile. Gray-matter parses YAML — question text with apostrophes, colons, special chars requires careful escaping. `LessonFrontmatter` becomes a mixed type (metadata + runtime content). The existing frontmatter validation in `lib/mdx.ts` throws on unexpected fields if the validation is ever tightened.
+
+**Do this instead:** MDX named export. Clean separation: frontmatter = lesson metadata, MDX body = lesson content + quiz data as a JavaScript object literal.
+
+### Anti-Pattern 2: Separate Quiz Files Per Lesson
+
+**What people do:** Create `content/quizzes/[module]/[lesson].json` parallel to MDX files.
+
+**Why it's wrong:** Two-file authoring means updating the lesson might require updating the quiz separately. Content drift is likely. For 56 lessons that is 56 additional files with no structural benefit for a single-author app.
+
+**Do this instead:** `export const quiz = [...]` in the lesson MDX file. Co-located, co-versioned, single edit point.
+
+### Anti-Pattern 3: Quiz as an MDX Component (`<Quiz questions={...} />`)
+
+**What people do:** Register a `Quiz` component in `mdx-components.tsx` and embed `<Quiz questions={[...]} />` inside lesson prose.
+
+**Why it's wrong:** Puts quiz in the middle of lesson content — placement becomes an authoring decision with no standard position. Every lesson has the quiz at a different vertical position. The quiz is a lesson-level concern (it gates completion), not a content-level concern (it is not part of the prose).
+
+**Do this instead:** Quiz is rendered at the layout level by `LessonLayout` after `MDXContent`. Its position is always consistent: bottom of lesson, after hands-on exercise, before (or in place of) `MarkCompleteButton`. Quiz data travels as a named export, not as embedded JSX.
+
+### Anti-Pattern 4: Tracking Per-Question State in localStorage
+
+**What people do:** Persist which questions were answered correctly mid-quiz to support resume-after-refresh.
+
+**Why it's wrong:** Adds persistence complexity for negligible benefit in a local single-session app. The requirement is "wrong answers require retaking the entire quiz" — there is no partial completion concept. Persisting partial state contradicts the pedagogical intent and the explicit retake mechanic.
+
+**Do this instead:** Only `quizPassed: boolean` is persisted. All in-progress state is ephemeral React state in `LessonQuiz`. A refresh resets the quiz to start — this is correct behavior.
+
+### Anti-Pattern 5: Showing the Correct Answer on Wrong Selection
+
+**What people do:** Highlight the correct option in green when the learner picks wrong.
+
+**Why it's wrong:** Explicit requirement: "Wrong answers show no correct answer." Beyond the requirement, this turns the quiz into a flash card — learners can click options to find the right one without retrieval practice. The testing effect requires the learner to actively recall the correct answer.
+
+**Do this instead:** On wrong selection, transition to `failed` state immediately. `QuizResult` (failed) shows only "Not correct — you must answer all questions correctly. Try again." No answer revealed.
+
+### Anti-Pattern 6: Shuffling Question Order
+
+**What people do:** Randomize question order or option order to prevent memorization.
+
+**Why it's wrong:** Questions are authored in a pedagogically meaningful sequence (foundational concept first, nuanced scenario last). Shuffling destroys this intentional ordering. Option order is also authored — "option A is a common misconception" is a deliberate authoring choice, not arbitrary.
+
+**Do this instead:** Fixed order. Questions are presented in exactly the order authored. The explanation reinforces each correct answer, so even retakers benefit from the sequence.
 
 ---
 
 ## Scaling Considerations
 
-This is a local single-learner app. The relevant scaling axis is content volume — 56 lessons across 8 modules.
+This is a local single-learner app. Scaling axis is content volume (56 lessons × ~8 questions = ~448 quiz questions).
 
 | Concern | Reality | Approach |
 |---------|---------|----------|
-| 56 lessons need annotation | All content is static MDX | Add AnnotatedCommand incrementally per lesson; no migration required on unmodified MDX |
-| Context re-render on mode switch | 3-5 ExerciseCards per lesson page max | No optimization needed; React reconciliation handles this trivially |
-| localStorage key management | Two keys currently exist | Add `'learn-systems-preferences'` as third key, isolated from progress state |
-| MDX authoring verbosity | AnnotatedCommand props are detailed | Acceptable tradeoff — annotations are editorial content, not boilerplate |
+| Progressive rollout of quiz to all 56 lessons | Lessons without `export const quiz` skip quiz rendering entirely | `quiz === null` path keeps `MarkCompleteButton` — no lesson regresses |
+| localStorage record migration | Existing `LessonProgress` lacks `quizPassed` field | Optional field treated as `false`; no migration script needed |
+| 56 lessons × ~8 questions bundle impact | Each lesson bundles its own questions in the JS chunk | ~200 bytes × 8 questions = ~1.6KB per lesson chunk; negligible |
+| `ProgressContext` re-renders on quiz pass | All context consumers re-render once on `markLessonComplete` | Same as existing `markLessonComplete` behavior — already acceptable |
+| Question explanation quality | 56 × 8 = 448 explanations to author | Content policy: each explanation must state the mechanism, not just confirm the answer. Establish in template before authoring. |
 
 ---
 
 ## Sources
 
-All findings are HIGH confidence — based on direct codebase inspection (2026-03-20):
+All findings are HIGH confidence — based on direct codebase inspection (2026-03-22):
 
-- `components/content/CodeBlock.tsx`
-- `components/content/ExerciseCard.tsx`
-- `components/content/TerminalBlock.tsx`
-- `components/content/QuickReference.tsx`
-- `components/content/VerificationChecklist.tsx`
+- `app/modules/[moduleSlug]/[lessonSlug]/page.tsx`
+- `lib/mdx.ts` — getLessonContent, dynamic import pattern
 - `components/lesson/LessonLayout.tsx`
+- `components/lesson/MarkCompleteButton.tsx`
+- `components/lesson/PrerequisiteBanner.tsx`
 - `components/progress/ProgressProvider.tsx`
 - `hooks/useLocalStorage.ts`
 - `hooks/useProgress.ts`
 - `types/content.ts`
 - `types/progress.ts`
+- `types/exercises.ts`
 - `mdx-components.tsx`
-- `app/modules/[moduleSlug]/[lessonSlug]/page.tsx`
-- `lib/mdx.ts`
-- `content/modules/01-linux-fundamentals/04-file-permissions.mdx` (representative lesson)
-- `.planning/PROJECT.md`
+- `next.config.ts`
+- `package.json` (next 16.2.0, @next/mdx ^16.2.0, react 19.2.4 confirmed)
+- `.planning/PROJECT.md` — v1.2 requirements (100% score gate, wrong-answer no-reveal, quiz-gated completion)
+- `content/modules/01-linux-fundamentals/01-how-computers-work.mdx` — representative lesson structure
 
 ---
 
-*Architecture research for: command pedagogy features (v1.1 milestone)*
-*Researched: 2026-03-20*
+*Architecture research for: quiz/assessment integration (v1.2 milestone)*
+*Researched: 2026-03-22*
