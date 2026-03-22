@@ -350,3 +350,126 @@ For automation and scripts, use `useradd` with explicit flags. For interactive a
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "user-q1",
+    question: "What does the 'x' in the password field of /etc/passwd indicate?",
+    options: [
+      "The account is locked and cannot log in",
+      "The password is stored in /etc/shadow",
+      "The account uses an external authentication provider",
+      "No password is required for this account"
+    ],
+    correctIndex: 1,
+    explanation: "The 'x' in the second field of /etc/passwd is a placeholder that tells the system the actual password hash is stored in /etc/shadow. This separation exists because /etc/passwd must be world-readable (many programs need to look up usernames), while /etc/shadow is readable only by root.",
+  },
+  {
+    id: "user-q2",
+    question: "What UID range does Linux conventionally assign to regular interactive user accounts?",
+    options: [
+      "0 to 99",
+      "100 to 999",
+      "1000 and above",
+      "500 to 999"
+    ],
+    correctIndex: 2,
+    explanation: "Regular interactive user accounts are assigned UIDs of 1000 and above by convention. UIDs 0 is reserved for root, 1-99 for static system accounts allocated by the distribution, and 100-999 for dynamic system accounts created by packages. This separation makes it easy to distinguish human users from service accounts.",
+  },
+  {
+    id: "user-q3",
+    question: "Which command should you always use to edit /etc/sudoers, and why?",
+    options: [
+      "nano /etc/sudoers, because it highlights syntax errors automatically",
+      "vim /etc/sudoers, because it locks the file to prevent concurrent edits",
+      "visudo, because it validates syntax before saving and prevents lockout",
+      "sudo cat /etc/sudoers, because it requires elevated privileges to read"
+    ],
+    correctIndex: 2,
+    explanation: "You must use visudo because it validates the sudoers file syntax before saving. A syntax error in /etc/sudoers causes sudo to refuse all commands — including attempts to fix the file — which creates a lockout scenario requiring console or recovery access. visudo's validation step is the safety net that prevents this.",
+  },
+  {
+    id: "user-q4",
+    question: "What is the key difference between 'usermod -G backend-team devuser' and 'usermod -aG backend-team devuser'?",
+    options: [
+      "The -a flag creates the group if it does not exist",
+      "Without -a, the user's existing supplementary group list is replaced entirely",
+      "The -a flag makes the change permanent across reboots",
+      "Without -a, only the primary group is changed, not supplementary groups"
+    ],
+    correctIndex: 1,
+    explanation: "Without the -a (append) flag, usermod -G replaces the user's entire supplementary group list with only the specified group. Any other groups the user belonged to — including sudo — are silently removed. The -aG combination appends the user to the new group without touching existing memberships.",
+  },
+  {
+    id: "user-q5",
+    question: "What does the hash prefix '$6$' in /etc/shadow indicate?",
+    options: [
+      "The password was hashed 6 rounds for extra security",
+      "The account has been locked for 6 days",
+      "The password uses SHA-512 hashing",
+      "The account was created with useradd version 6"
+    ],
+    correctIndex: 2,
+    explanation: "The '$6$' prefix identifies the hashing algorithm: $6$ means SHA-512, which is the current standard. $5$ means SHA-256 and $y$ indicates yescrypt (used in Ubuntu 22.04 and later, more resistant to GPU cracking). A '!' prefix means the account is locked rather than having a valid hash.",
+  },
+  {
+    id: "user-q6",
+    question: "Why does the lesson recommend using /etc/sudoers.d/ drop-in files instead of editing /etc/sudoers directly?",
+    options: [
+      "Drop-in files are automatically validated on every sudo invocation",
+      "Drop-in files allow granting sudo access without root privileges",
+      "Editing the main sudoers file requires a reboot to take effect",
+      "Drop-in files isolate changes per-user or per-service, reducing risk to the main sudoers file"
+    ],
+    correctIndex: 3,
+    explanation: "The sudoers.d directory lets you add isolated drop-in files per user or service without modifying the main /etc/sudoers file. This reduces the risk that an error in one grant breaks the entire sudo configuration. Each drop-in is independently testable with visudo -c, and removing a grant is as simple as deleting one file.",
+  },
+  {
+    id: "user-q7",
+    question: "A file on server B shows owner UID 1001 which maps to 'carol'. The file was created on server A where UID 1001 belonged to 'alice'. Who does the kernel consider the file owner?",
+    options: [
+      "The kernel looks up the username in /etc/passwd on the original server to determine ownership",
+      "The kernel owns the file until the administrator manually reassigns it with chown",
+      "The kernel records the UID (1001), so on server B it is treated as owned by carol",
+      "The file has no recognized owner because the username does not match the original"
+    ],
+    correctIndex: 2,
+    explanation: "The kernel stores and evaluates ownership by UID number, not by username. The name 'alice' or 'carol' is just a human-readable label looked up from /etc/passwd at display time. Because the UID 1001 maps to 'carol' on server B, the kernel treats the file as owned by carol — illustrating why UID consistency matters when migrating files between systems.",
+  },
+  {
+    id: "user-q8",
+    question: "What permission bits does a sudoers drop-in file in /etc/sudoers.d/ require, and what happens if they are wrong?",
+    options: [
+      "644 (world-readable), otherwise sudo cannot read the file",
+      "440 (read-only for owner and group), otherwise sudo ignores or rejects the file",
+      "755 (executable for all), otherwise sudo cannot invoke the grant",
+      "600 (root read/write only), otherwise unprivileged users can modify it"
+    ],
+    correctIndex: 1,
+    explanation: "Sudoers drop-in files must be mode 440 — read-only for owner and group, with no permissions for others. If the file is world-readable or group-writable, sudo treats it as unsafe and ignores it entirely, silently removing the sudo grant. The 440 permission is the required setting to prevent privilege escalation through file modification.",
+  },
+  {
+    id: "user-q9",
+    question: "Which command shows a user's UID, primary GID, and all supplementary group memberships in one output?",
+    options: [
+      "groups devuser",
+      "cat /etc/group | grep devuser",
+      "id devuser",
+      "passwd -S devuser"
+    ],
+    correctIndex: 2,
+    explanation: "The id command prints the user's UID, primary GID, and the complete list of supplementary groups in a single line of output. The groups command shows only group names without UIDs. Grepping /etc/group shows groups the user is a supplementary member of but misses the primary group stored in /etc/passwd.",
+  },
+  {
+    id: "user-q10",
+    question: "Which flag does useradd require to create the user's home directory at /home/username?",
+    options: [
+      "-h (home directory path)",
+      "-m (make home directory)",
+      "-d (directory creation)",
+      "-c (create home)"
+    ],
+    correctIndex: 1,
+    explanation: "The -m flag tells useradd to create the home directory at /home/username if it does not already exist. Without -m, no home directory is created — the account exists in /etc/passwd but has no home directory. The -d flag specifies a custom home directory path but still requires -m to actually create it.",
+  },
+]

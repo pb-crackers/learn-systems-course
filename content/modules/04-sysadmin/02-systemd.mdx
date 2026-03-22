@@ -361,3 +361,126 @@ Priority levels (from lowest to highest): `debug`, `info`, `notice`, `warning`, 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "sysd-q1",
+    question: "What is PID 1 in a Linux system, and what happens if it dies?",
+    options: [
+      "PID 1 is the first user login session; if it dies, that user is logged out",
+      "PID 1 is systemd; if it dies, the kernel panics",
+      "PID 1 is the init script runner; if it dies, the boot process pauses until it restarts",
+      "PID 1 is the cron daemon; if it dies, scheduled tasks stop running"
+    ],
+    correctIndex: 1,
+    explanation: "PID 1 is the first process the kernel starts in user space — in modern Linux this is systemd. Every other process on the system is a child or descendant of PID 1. If PID 1 dies, the kernel has no process to hand off to and triggers a kernel panic, which crashes the system.",
+  },
+  {
+    id: "sysd-q2",
+    question: "What is the purpose of 'systemctl daemon-reload'?",
+    options: [
+      "It restarts all running services to pick up configuration changes",
+      "It re-reads unit files from disk so in-memory configuration matches the file system",
+      "It reloads the kernel modules required by systemd",
+      "It resets failed services back to an inactive state"
+    ],
+    correctIndex: 1,
+    explanation: "systemd loads unit files into memory when it first reads them. Modifying a unit file on disk does not automatically update systemd's in-memory configuration. systemctl daemon-reload instructs systemd to re-read all unit files from disk, making any new or modified unit definitions available. Forgetting this step causes confusing behavior where edits appear to have no effect.",
+  },
+  {
+    id: "sysd-q3",
+    question: "What does 'systemctl enable myapp.service' do, and what does it NOT do?",
+    options: [
+      "It starts the service immediately and marks it to start on future boots",
+      "It creates a symlink for boot startup but does NOT start the service now",
+      "It installs the service binary and creates the unit file automatically",
+      "It sets the service as high-priority and adds it to the default target"
+    ],
+    correctIndex: 1,
+    explanation: "systemctl enable creates a symlink in the WantedBy target directory so the service starts automatically on the next boot. It does NOT start the service immediately. To both enable and start a service in one command, use systemctl enable --now myapp.service.",
+  },
+  {
+    id: "sysd-q4",
+    question: "What is the difference between 'After=network.target' and 'Requires=network.target' in a unit file's [Unit] section?",
+    options: [
+      "After= starts the service in parallel with network; Requires= waits for network first",
+      "After= is only for ordering (starts after network is active); Requires= is a hard dependency that fails the service if network fails",
+      "They are equivalent — both ensure the service does not start before network is up",
+      "Requires= is deprecated; After= is the modern replacement for all dependency types"
+    ],
+    correctIndex: 1,
+    explanation: "After= controls ordering only — the service starts after network.target is active, but if network.target fails, this service still attempts to start. Requires= is a hard dependency — if the required unit fails or cannot be activated, this unit will also fail. Wants= is a soft dependency that starts the required unit but does not fail if it is unavailable.",
+  },
+  {
+    id: "sysd-q5",
+    question: "A unit file has 'Restart=on-failure'. Under which condition will systemd NOT automatically restart the service?",
+    options: [
+      "The service process is killed with SIGKILL",
+      "The service exits with a non-zero exit code",
+      "The service exits with exit code 0 (success)",
+      "The service crashes due to a segmentation fault"
+    ],
+    correctIndex: 2,
+    explanation: "Restart=on-failure restarts the service only when it exits with a non-zero exit status, is killed by a signal (except SIGTERM from systemctl stop), or hits a timeout. If the process exits cleanly with code 0, systemd considers the job done and does not restart it. Use Restart=always to restart regardless of exit status.",
+  },
+  {
+    id: "sysd-q6",
+    question: "Where should you place custom service unit files that you create, and why?",
+    options: [
+      "/lib/systemd/system/ — this directory is scanned first and has highest priority",
+      "/etc/systemd/system/ — this is for admin-created units and overrides; package units go in /lib/systemd/system/",
+      "/usr/local/lib/systemd/ — this directory is for locally installed services",
+      "/run/systemd/system/ — this directory persists unit files across reboots"
+    ],
+    correctIndex: 1,
+    explanation: "/etc/systemd/system/ is the correct location for custom and admin-created unit files. /lib/systemd/system/ is reserved for units installed by distribution packages and should not be edited directly, as package upgrades can overwrite changes. Files in /etc/systemd/system/ take precedence over /lib/systemd/system/ and survive package updates.",
+  },
+  {
+    id: "sysd-q7",
+    question: "What journalctl command shows only error-level messages from a specific service?",
+    options: [
+      "journalctl -u myapp.service --level=error",
+      "journalctl -u myapp.service -p err",
+      "journalctl -u myapp.service --filter=err",
+      "journalctl -u myapp.service -s error"
+    ],
+    correctIndex: 1,
+    explanation: "The -p flag filters journal output by syslog priority level. -p err shows entries at error priority and above: err, crit, alert, and emerg. The -u flag scopes the output to a specific unit. Lower priority numbers are more severe — err is priority 3, so -p err shows priorities 0 through 3.",
+  },
+  {
+    id: "sysd-q8",
+    question: "What does 'WantedBy=multi-user.target' in the [Install] section of a unit file cause to happen when 'systemctl enable' is run?",
+    options: [
+      "systemd adds the unit to the kernel boot table so it starts before user space",
+      "systemd creates a symlink in /etc/systemd/system/multi-user.target.wants/ pointing to the unit file",
+      "systemd modifies /etc/fstab to ensure the service dependencies are mounted first",
+      "systemd sends SIGHUP to multi-user.target to incorporate the new unit immediately"
+    ],
+    correctIndex: 1,
+    explanation: "When you enable a service with WantedBy=multi-user.target, systemd creates a symlink in /etc/systemd/system/multi-user.target.wants/ that points to your unit file. When the system reaches multi-user.target during boot, systemd starts all units symlinked in that target's wants directory — which now includes your service.",
+  },
+  {
+    id: "sysd-q9",
+    question: "What is the key advantage of systemd's 'Type=oneshot' versus 'Type=simple' for a backup script?",
+    options: [
+      "Type=oneshot allows the script to run with root privileges without a password",
+      "Type=simple keeps the process in the foreground; Type=oneshot is for scripts that run once and exit",
+      "Type=oneshot provides better logging than Type=simple",
+      "Type=simple requires a network connection; Type=oneshot works offline"
+    ],
+    correctIndex: 1,
+    explanation: "Type=simple expects the service process to stay running in the foreground — it is for long-running daemons. Type=oneshot is designed for processes that complete their work and exit, like backup scripts or setup tasks. With Type=oneshot, systemd correctly considers the service 'done' after the process exits with 0, rather than treating a clean exit as a failure.",
+  },
+  {
+    id: "sysd-q10",
+    question: "Where does journald store logs by default, and what must you do to make logs persist across reboots?",
+    options: [
+      "Logs are stored in /var/log/journal/ by default and persist automatically",
+      "Logs are stored in /run/log/journal/ (volatile tmpfs) by default; creating /var/log/journal/ enables persistence",
+      "Logs are stored in /tmp/journal/ and must be manually archived to persist",
+      "Logs are stored in /etc/journal/ and persist by default unless the directory is deleted"
+    ],
+    correctIndex: 1,
+    explanation: "By default, journald stores logs in /run/log/journal/ which is a tmpfs — a volatile in-memory filesystem that is cleared on every reboot. To make logs persist across reboots, you must create the /var/log/journal/ directory, run systemd-tmpfiles --create --prefix /var/log/journal, and restart systemd-journald. Once this directory exists, journald will use it for persistent storage.",
+  },
+]

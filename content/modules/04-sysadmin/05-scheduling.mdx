@@ -353,3 +353,114 @@ renice 10 -u nobody        # change all processes owned by user 'nobody'
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "sched-q1",
+    question: "A cron job running at 2:30 AM exits with an error. The crontab entry has no output redirection. Where does cron send the error output, and what is the likely outcome on most production servers?",
+    options: [
+      "Cron writes errors to /var/log/cron.log automatically on all Linux distributions",
+      "Cron attempts to email output to the user's local mail account; without a mail daemon this is silently discarded",
+      "Cron writes errors to the system journal via journald on modern Ubuntu systems",
+      "Cron writes errors to /tmp/cron-errors.log and rotates it weekly"
+    ],
+    correctIndex: 1,
+    explanation: "Without output redirection in the crontab entry, cron tries to email the output to the system user's local mail account (typically stored in /var/spool/mail/username). On most production servers, no mail daemon is configured, so the email is silently dropped and no one sees the error. This is why adding >> /var/log/job.log 2>&1 to cron entries — or switching to systemd timers — is important for failure visibility.",
+  },
+  {
+    id: "sched-q2",
+    question: "What is the correct crontab syntax to run a command every 15 minutes?",
+    options: [
+      "15 * * * * /path/to/command",
+      "0,15,30,45 * * * * /path/to/command",
+      "*/15 * * * * /path/to/command",
+      "* */15 * * * /path/to/command"
+    ],
+    correctIndex: 2,
+    explanation: "The */15 syntax in the minutes field means 'every 15 minutes' — it matches minutes 0, 15, 30, and 45 of every hour. The '15 * * * *' syntax means 'at minute 15 of every hour' (once per hour). The '0,15,30,45' syntax is equivalent to */15 but more verbose. The '* */15' form would put the interval in the hours field, running at wrong intervals.",
+  },
+  {
+    id: "sched-q3",
+    question: "A systemd timer has Persistent=true. The system was shut down before the 2:30 AM backup ran. What happens when the system boots at 6:00 AM?",
+    options: [
+      "The timer is rescheduled for the next 2:30 AM; the missed run is permanently skipped",
+      "systemd checks the last trigger timestamp and runs the backup immediately at 6:00 AM to catch up",
+      "The backup runs at 2:30 PM the same day to maintain the schedule offset",
+      "systemd sends an alert to the admin indicating a missed run but does not execute the backup"
+    ],
+    correctIndex: 1,
+    explanation: "Persistent=true in a systemd timer causes the timer to record when it was last triggered. When the system boots, systemd checks whether the scheduled time has passed since the last run. If it has, systemd activates the associated service immediately on startup to catch up. This is the key reliability advantage over cron, which has no mechanism to detect or recover from missed scheduled runs.",
+  },
+  {
+    id: "sched-q4",
+    question: "What is the difference between nice values of 10 and -10, and which requires root to set?",
+    options: [
+      "Nice 10 increases priority (more CPU); nice -10 decreases priority; neither requires root",
+      "Nice 10 decreases priority (less CPU); nice -10 increases priority; setting negative nice values requires root",
+      "Nice 10 is for user processes; nice -10 is for kernel processes; root is required for both",
+      "Nice 10 and -10 are equivalent — the sign only affects how the priority is displayed in top"
+    ],
+    correctIndex: 1,
+    explanation: "Nice values range from -20 (highest priority) to 19 (lowest priority). A nice value of 10 gives the process lower priority, meaning it gets less CPU time when competing with other processes. A nice value of -10 gives higher priority and more CPU time. Only root can set negative nice values — regular users can only reduce their processes' priority (increase the nice value) but cannot increase it above the current setting.",
+  },
+  {
+    id: "sched-q5",
+    question: "A systemd timer requires two unit files. What are the roles of each file?",
+    options: [
+      "The .timer file defines the command to run; the .service file defines the schedule",
+      "The .timer file defines the schedule and activates the .service unit; the .service file defines what to run",
+      "The .timer file handles logging; the .service file handles execution and scheduling",
+      "The .timer and .service files are interchangeable — only one is required for a scheduled task"
+    ],
+    correctIndex: 1,
+    explanation: "A systemd timer always requires two unit files: the .timer file contains the [Timer] section with the OnCalendar schedule and activates the corresponding .service unit when the schedule fires. The .service file contains the [Service] section with the ExecStart command that does the actual work. This separation keeps scheduling configuration distinct from execution configuration.",
+  },
+  {
+    id: "sched-q6",
+    question: "What command validates a systemd OnCalendar expression and shows when it will next fire?",
+    options: [
+      "systemctl verify-calendar '*-*-* 02:30:00'",
+      "journalctl --test-timer '*-*-* 02:30:00'",
+      "systemd-analyze calendar '*-*-* 02:30:00'",
+      "systemctl-analyze schedule '*-*-* 02:30:00'"
+    ],
+    correctIndex: 2,
+    explanation: "systemd-analyze calendar parses an OnCalendar expression and outputs the normalized form plus the next several trigger times. Running this before deploying a timer unit catches syntax errors and confirms the schedule will fire at the intended times. It is the equivalent of a dry-run for timer expressions.",
+  },
+  {
+    id: "sched-q7",
+    question: "What does the 'at' command do, and how does it differ from a crontab entry?",
+    options: [
+      "at schedules recurring jobs at a specific time each day; crontab schedules one-time jobs",
+      "at schedules a command to run once at a specified future time; crontab defines recurring schedules",
+      "at runs commands with elevated privileges; crontab runs commands as the current user",
+      "at is for system-wide scheduling; crontab is only for per-user scheduling"
+    ],
+    correctIndex: 1,
+    explanation: "The at command schedules a command to run once at a specific future time — it does not repeat. Crontab defines recurring schedules that run on a repeating pattern. Use at for one-off maintenance tasks at a specific time without polluting the crontab with entries that will never be used again. After the job runs, it is removed from the at queue automatically.",
+  },
+  {
+    id: "sched-q8",
+    question: "Why do cron jobs often fail with 'command not found' even when the same command works in your terminal?",
+    options: [
+      "Cron runs as root by default, which has a different PATH than regular users",
+      "Cron jobs run in a minimal environment where PATH is typically only /usr/bin:/bin, not your full login shell PATH",
+      "Cron does not inherit any environment variables, so even basic commands like echo fail",
+      "Cron sanitizes all command arguments for security, stripping command names it does not recognize"
+    ],
+    correctIndex: 1,
+    explanation: "Cron executes jobs in a minimal shell environment. The PATH variable is typically only /usr/bin:/bin — not the extended PATH your login shell configures through .bashrc or .profile. Commands installed in /usr/local/bin, /opt, or custom directories are not in cron's PATH. The solution is to use absolute paths in crontab entries (e.g., /usr/local/bin/backup.sh) or set PATH explicitly at the top of the crontab.",
+  },
+  {
+    id: "sched-q9",
+    question: "Given a cron field of '0 9 * * 1-5', when does this job run?",
+    options: [
+      "Every 9 minutes from Monday through Friday",
+      "At 9:00 AM on weekdays (Monday through Friday)",
+      "At 9:00 AM on weekends (Saturday and Sunday)",
+      "At the 9th minute of every hour, 5 times per day"
+    ],
+    correctIndex: 1,
+    explanation: "Reading the five fields left to right: minute=0 (on the hour), hour=9 (9 AM), day-of-month=* (any day), month=* (any month), day-of-week=1-5 (Monday through Friday, where 1=Monday and 5=Friday). This job runs at exactly 9:00 AM every weekday. The range 1-5 in the day-of-week field selects Monday through Friday only.",
+  },
+]

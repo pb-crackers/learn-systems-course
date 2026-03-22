@@ -332,3 +332,102 @@ Full LVM administration (vgcreate, lvcreate, lvextend, pvmove) is a topic for ad
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "disk-q1",
+    question: "A server has /dev/sda and /dev/sdb listed in lsblk output. You add a third disk but on the next boot /dev/sdb becomes /dev/sdc. Which /etc/fstab entry strategy survives this change without breaking the mount?",
+    options: [
+      "Use /dev/sdb in fstab — the kernel always preserves device names after the first boot",
+      "Use UUID=<value> from blkid — UUIDs are written into the filesystem and remain stable regardless of device enumeration order",
+      "Use LABEL=data in fstab — labels are maintained by the kernel when device names change",
+      "Use /dev/disk/by-path/ — path-based names are stable because they reflect the physical bus address"
+    ],
+    correctIndex: 1,
+    explanation: "Device names like /dev/sdb are assigned by the kernel based on the order devices are detected at boot, which can change when disks are added or removed. UUIDs are written into the filesystem metadata by mkfs and never change regardless of how the device is enumerated. Using UUID= in fstab ensures the correct filesystem is always mounted even after hardware changes.",
+  },
+  {
+    id: "disk-q2",
+    question: "What is the critical step to take before rebooting after adding a new /etc/fstab entry?",
+    options: [
+      "Run fsck on the new device to verify filesystem integrity before adding the entry",
+      "Run mount -a to test that the fstab entry mounts successfully before rebooting",
+      "Run blkid to confirm the device UUID matches the fstab entry",
+      "Run lsblk to verify the partition is visible to the kernel"
+    ],
+    correctIndex: 1,
+    explanation: "A bad fstab entry causes the system to drop into emergency mode on the next boot, requiring console access or a rescue disk to fix. Running mount -a mounts all unmounted fstab entries and immediately fails if there is a syntax error or missing device — giving you a chance to fix it while the system is still running. This is the mandatory test before any reboot after editing fstab.",
+  },
+  {
+    id: "disk-q3",
+    question: "What is the fundamental difference between what 'df -h' and 'du -sh /path' report?",
+    options: [
+      "df reports real-time usage while du reports a cached snapshot from the last scan",
+      "df reports filesystem-level space allocation; du reports directory-level space consumed by actual files",
+      "df includes swap space in its totals while du reports only file data",
+      "df operates on mounted filesystems; du operates on block devices directly"
+    ],
+    correctIndex: 1,
+    explanation: "df answers the filesystem-level question: of the total space allocated to this mounted filesystem, how much is used versus available. du answers the directory-level question: how much space do the files in this directory tree actually occupy. When df shows a filesystem near full but du totals seem lower, the gap typically indicates deleted files still held open by running processes.",
+  },
+  {
+    id: "disk-q4",
+    question: "You run 'mkfs.ext4 /dev/sdb1'. What does this command do and what irreversible consequence does it have?",
+    options: [
+      "It checks the ext4 filesystem on /dev/sdb1 for errors and repairs them",
+      "It writes filesystem metadata structures to /dev/sdb1, destroying all existing data on that partition",
+      "It expands an existing ext4 filesystem on /dev/sdb1 to use any newly available space",
+      "It creates a filesystem image file named ext4 in the /dev/sdb1 directory"
+    ],
+    correctIndex: 1,
+    explanation: "mkfs.ext4 (make filesystem) writes the ext4 metadata structures — superblock, inode tables, and block group descriptors — to the specified partition, overwriting whatever was there before. This is a destructive operation: all data on the partition is permanently lost. You should always double-check that you are targeting the correct device before running any mkfs command.",
+  },
+  {
+    id: "disk-q5",
+    question: "What is the correct sequence of commands to make a new disk partition available at /mnt/data?",
+    options: [
+      "mkfs.ext4 /dev/sdb1 → mount /dev/sdb1 /mnt/data → mkdir /mnt/data",
+      "mkdir /mnt/data → mkfs.ext4 /dev/sdb1 → mount /dev/sdb1 /mnt/data",
+      "fdisk /dev/sdb → mkfs.ext4 /dev/sdb1 → mkdir /mnt/data → mount /dev/sdb1 /mnt/data",
+      "mount /dev/sdb1 /mnt/data → mkfs.ext4 /dev/sdb1 → mkdir /mnt/data"
+    ],
+    correctIndex: 2,
+    explanation: "The full sequence is: first partition the disk with fdisk to create /dev/sdb1, then format the partition with mkfs.ext4 to create a filesystem, then create the mount point directory with mkdir, and finally mount the filesystem. The mount point directory must exist before mount can attach the filesystem to it.",
+  },
+  {
+    id: "disk-q6",
+    question: "What does the 'nofail' mount option in /etc/fstab do, and when is it especially important?",
+    options: [
+      "It prevents the filesystem from reporting errors — useful for temporary scratch disks",
+      "It allows the boot process to continue even if this mount fails, instead of entering emergency mode",
+      "It mounts the filesystem in read-only mode if the device fails its integrity check",
+      "It disables the fsck check at boot for this filesystem, speeding up boot time"
+    ],
+    correctIndex: 1,
+    explanation: "Without nofail, a missing device in fstab causes the boot process to drop into emergency mode. With nofail, the system boots normally even if the device is absent or the mount fails. This is especially important for secondary data volumes, external drives, and cloud-attached storage that might not always be present — you do not want a detached data volume to prevent the entire system from booting.",
+  },
+  {
+    id: "disk-q7",
+    question: "The lesson mentions two partition table formats. Which should you use for a new disk larger than 2TB?",
+    options: [
+      "MBR (Master Boot Record), because it has broader hardware compatibility",
+      "GPT (GUID Partition Table), because MBR has a 2TB disk size limit",
+      "LVM, which replaces partition tables on disks larger than 2TB",
+      "ext4, which includes its own partition table for large disks"
+    ],
+    correctIndex: 1,
+    explanation: "MBR (Master Boot Record) uses 32-bit addressing and can only address disks up to 2TB. GPT (GUID Partition Table) uses 64-bit addressing and supports disks up to 9.4 zettabytes with up to 128 partitions by default. For any disk larger than 2TB — or any new system using UEFI boot — you must use GPT. fdisk uses the 'g' command to create a new GPT partition table.",
+  },
+  {
+    id: "disk-q8",
+    question: "What is LVM's key advantage over traditional fixed partitions for a production database server?",
+    options: [
+      "LVM encrypts the data at rest, which traditional partitions cannot do",
+      "LVM allows online resize of logical volumes without unmounting, enabling storage growth without downtime",
+      "LVM provides faster I/O throughput by striping data across multiple disks automatically",
+      "LVM automatically compresses data to use disk space more efficiently"
+    ],
+    correctIndex: 1,
+    explanation: "LVM (Logical Volume Manager) interposes a virtualization layer between physical disks and filesystems. Its primary operational advantage is online resize — you can extend a logical volume and its filesystem while the database is running and the filesystem is mounted. With traditional fixed partitions, growing storage requires unmounting the filesystem, which means taking the database offline.",
+  },
+]

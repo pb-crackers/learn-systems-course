@@ -391,3 +391,102 @@ This architecture is the foundation for Phase 7's monitoring and observability m
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "log-q1",
+    question: "What is the correct order of the Linux logging pipeline when a systemd service writes to stdout?",
+    options: [
+      "Service stdout → /var/log/syslog → journald → logrotate",
+      "Service stdout → journald → rsyslog → /var/log/ → logrotate",
+      "Service stdout → rsyslog → journald → /var/log/ → logrotate",
+      "Service stdout → /dev/log → /var/log/syslog → journald"
+    ],
+    correctIndex: 1,
+    explanation: "When a service has StandardOutput=journal in its unit file, output flows to journald first. rsyslog optionally reads from journald and writes to plain text files in /var/log/. logrotate then manages retention of those text files on a schedule. journald is the primary store; rsyslog is an optional consumer that re-exports entries to traditional log files.",
+  },
+  {
+    id: "log-q2",
+    question: "What syslog severity number corresponds to 'err', and what does journalctl -p err display?",
+    options: [
+      "Severity 5; it shows only 'err' priority messages",
+      "Severity 3; it shows err, crit, alert, and emerg (all severities 0-3)",
+      "Severity 7; it shows all messages at or below the error threshold",
+      "Severity 4; it shows warning, err, crit, alert, and emerg"
+    ],
+    correctIndex: 1,
+    explanation: "In syslog, lower numbers indicate greater severity. 'err' is severity 3. journalctl -p err shows all entries at priority 3 and below — meaning err (3), crit (2), alert (1), and emerg (0). This is why filtering by -p err catches critical and emergency messages as well; it sets a maximum priority threshold, not an exact match.",
+  },
+  {
+    id: "log-q3",
+    question: "Where does journald store logs by default, and what is the consequence for log availability after a reboot?",
+    options: [
+      "Logs are stored in /var/log/journal/ by default and survive reboots",
+      "Logs are stored in /run/log/journal/ (volatile tmpfs) by default and are cleared on reboot",
+      "Logs are stored in /tmp/journal/ and are moved to /var/log/ automatically during shutdown",
+      "Logs are stored in memory only and are never written to disk"
+    ],
+    correctIndex: 1,
+    explanation: "By default journald writes to /run/log/journal/, which is a tmpfs (in-memory temporary filesystem). This directory is cleared on every reboot. To retain logs across reboots, you must create the /var/log/journal/ directory and restart systemd-journald. Once /var/log/journal/ exists, journald uses it for persistent storage.",
+  },
+  {
+    id: "log-q4",
+    question: "What does the 'delaycompress' directive do in a logrotate configuration?",
+    options: [
+      "It compresses log files after a 24-hour delay from when they were written",
+      "It postpones compressing the most recently rotated file until the next rotation cycle",
+      "It compresses log files only during off-peak hours to reduce disk I/O",
+      "It delays starting the rotation until the log file reaches maximum size"
+    ],
+    correctIndex: 1,
+    explanation: "delaycompress prevents logrotate from compressing the most recently rotated file (access.log.1) immediately after rotation. Some applications keep the previous log file open briefly after rotation, and compressing it while it is still being written would corrupt the data. On the next rotation cycle, access.log.1 becomes access.log.2 and is then compressed safely.",
+  },
+  {
+    id: "log-q5",
+    question: "Which journalctl flag filters log output to a specific systemd service unit?",
+    options: [
+      "-s (service name)",
+      "-f (follow filter)",
+      "-u (unit name)",
+      "-t (target unit)"
+    ],
+    correctIndex: 2,
+    explanation: "The -u flag filters the journal to show only entries tagged with the specified unit name. For example, journalctl -u nginx.service shows only nginx log entries. This is one of the key advantages of journald's structured binary format — the unit name is stored as metadata on every log entry, making per-service filtering fast and reliable.",
+  },
+  {
+    id: "log-q6",
+    question: "Why does querying journalctl give richer filtering capabilities than grepping /var/log/syslog?",
+    options: [
+      "journalctl compresses logs for faster reads while /var/log/syslog is uncompressed plain text",
+      "journalctl queries the structured binary journal with indexed metadata fields; syslog is a plain-text re-export that has lost the structured fields",
+      "journalctl has built-in full-text search while grep only matches exact strings",
+      "journalctl reads from a live socket while /var/log/syslog is updated only once per minute"
+    ],
+    correctIndex: 1,
+    explanation: "journald stores each log entry as a set of structured key=value fields including the unit name, PID, priority, hostname, and message text — all indexed for fast lookup. /var/log/syslog is created by rsyslog reading FROM journald and converting entries to plain text, which loses the structured metadata. Filtering by unit name, priority, or PID in journalctl queries the structured index directly, making it faster and more precise than grep.",
+  },
+  {
+    id: "log-q7",
+    question: "What is the purpose of the 'postrotate...endscript' block in a logrotate configuration?",
+    options: [
+      "It runs a validation check after rotation to ensure the rotated file was not corrupted",
+      "It runs a command after rotation, typically to signal the application to reopen its log file handle",
+      "It compresses rotated log files using a custom compression algorithm",
+      "It sends a notification email to the system administrator after each successful rotation"
+    ],
+    correctIndex: 1,
+    explanation: "When logrotate renames or replaces a log file, applications that have the old file open by file descriptor continue writing to the renamed file rather than the new one. The postrotate block runs a command after rotation — typically a signal like nginx -s reopen or systemctl reload nginx — to tell the application to close its old file handle and open the new log file at the same path.",
+  },
+  {
+    id: "log-q8",
+    question: "What syslog facility value range do applications typically use for their own log messages?",
+    options: [
+      "Facilities 0-3 (kern, user, mail, daemon)",
+      "Facilities 16-23 (local0 through local7)",
+      "Facilities 8-15 (uucp through cron)",
+      "Facility 4 only (auth) is available for application use"
+    ],
+    correctIndex: 1,
+    explanation: "Facilities 16-23, named local0 through local7, are reserved for local use by applications and site administrators. The lower-numbered facilities (kern, user, auth, etc.) are assigned to specific system components. Applications use the local facilities to label their log messages, allowing rsyslog routing rules to direct them to specific files based on the facility value.",
+  },
+]

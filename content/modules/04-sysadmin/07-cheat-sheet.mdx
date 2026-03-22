@@ -180,3 +180,102 @@ All system administration commands and concepts from this module in one place. B
 <Callout type="tip" title="What's Next: CI/CD Pipelines">
 You now have the system administration foundation. The next module covers CI/CD — how code moves from a developer's machine through automated pipelines to a running service managed by the tools you just learned. GitHub Actions pipelines trigger deployments that interact directly with systemd services, cron jobs, and the disk management patterns covered here.
 </Callout>
+
+export const quiz = [
+  {
+    id: "sysadmin-ref-q1",
+    question: "Which command safely edits /etc/sudoers by validating syntax before saving?",
+    options: [
+      "sudo nano /etc/sudoers",
+      "sudo vim /etc/sudoers",
+      "visudo",
+      "sudo edit /etc/sudoers"
+    ],
+    correctIndex: 2,
+    explanation: "visudo is the only safe way to edit /etc/sudoers. It validates the file syntax before saving, preventing you from writing a broken sudoers file that would lock out all sudo access. Direct editing with any other editor skips this validation step.",
+  },
+  {
+    id: "sysadmin-ref-q2",
+    question: "What is the required permission mode for files in /etc/sudoers.d/?",
+    options: [
+      "644 — readable by everyone so sudo can verify the rules",
+      "600 — private to root only",
+      "440 — read-only for owner and group, nothing for others",
+      "755 — executable so sudo can run the grant scripts"
+    ],
+    correctIndex: 2,
+    explanation: "Files in /etc/sudoers.d/ must be mode 440. sudo rejects files that are world-readable or group-writable as a security measure to prevent privilege escalation through file tampering. After creating a drop-in file, always run chmod 440 /etc/sudoers.d/yourfile.",
+  },
+  {
+    id: "sysadmin-ref-q3",
+    question: "What does 'systemctl daemon-reload' do, and when is it required?",
+    options: [
+      "It restarts all active services to apply configuration changes",
+      "It re-reads all unit files from disk; it is required after creating or modifying any unit file",
+      "It reloads the Linux kernel to apply systemd version upgrades",
+      "It refreshes the service status cache so systemctl status shows current information"
+    ],
+    correctIndex: 1,
+    explanation: "systemd caches unit file contents in memory. When you create or edit a unit file on disk, systemd does not automatically notice the change. systemctl daemon-reload forces systemd to re-read all unit files from disk. Forgetting this step means systemd uses the old (or non-existent) unit definition when you run systemctl start or restart.",
+  },
+  {
+    id: "sysadmin-ref-q4",
+    question: "What does 'usermod -aG devteam alice' do, and why is -a critical?",
+    options: [
+      "-aG creates a new group called devteam and automatically adds alice as its first member",
+      "-aG appends alice to the devteam group while keeping all her existing group memberships; without -a, all her other groups are replaced",
+      "-a stands for administrative, which grants alice elevated permissions within devteam",
+      "-a makes the change persistent across reboots; without it the group membership resets"
+    ],
+    correctIndex: 1,
+    explanation: "The -a flag means append — it adds the user to the specified supplementary group without changing any existing group memberships. Without -a, the -G flag replaces the user's entire supplementary group list with only the groups you specify. This means omitting -a silently removes the user from sudo and every other supplementary group they were in.",
+  },
+  {
+    id: "sysadmin-ref-q5",
+    question: "What is the first step to take after adding a new line to /etc/fstab, and why?",
+    options: [
+      "Run blkid to confirm the device UUID before the system reads it at boot",
+      "Run mount -a to test the entry immediately; a bad fstab entry will fail now rather than causing emergency mode at boot",
+      "Run fsck on the new device to verify filesystem integrity before the entry takes effect",
+      "Run lsblk to verify the partition is visible before adding it to fstab"
+    ],
+    correctIndex: 1,
+    explanation: "A bad fstab entry causes the system to drop into emergency recovery mode on the next reboot — requiring console or rescue disk access to fix. Running mount -a immediately after editing fstab attempts to mount all unmounted entries. If the entry is wrong, mount -a fails instantly with an error message while you can still fix it. Always test with mount -a before rebooting.",
+  },
+  {
+    id: "sysadmin-ref-q6",
+    question: "What is the difference between 'df -h' and 'du -sh /var/log'?",
+    options: [
+      "df shows per-file usage while du shows totals for the entire filesystem",
+      "df reports filesystem-level space (total vs available); du reports how much space the files in a specific directory actually consume",
+      "df is real-time while du reads from a cached disk scan updated hourly",
+      "df includes filesystem metadata overhead; du counts only data blocks"
+    ],
+    correctIndex: 1,
+    explanation: "df answers the question at the filesystem level: of all the space allocated to this mounted volume, how much is used versus available. du answers the question at the directory level: how much space do the actual files in this directory tree consume. You use df to identify which filesystem is full, then du to identify which directory within that filesystem is responsible.",
+  },
+  {
+    id: "sysadmin-ref-q7",
+    question: "What does the 'Persistent=true' directive in a systemd timer's [Timer] section do?",
+    options: [
+      "It makes the timer file persistent across system upgrades and package reinstalls",
+      "It causes systemd to immediately run the associated service on the next boot if a scheduled run was missed while the system was off",
+      "It persists the output of the service run to /var/log instead of the volatile journal",
+      "It prevents the timer from being automatically disabled by power management features"
+    ],
+    correctIndex: 1,
+    explanation: "Persistent=true makes the timer record when it last fired. On the next boot, systemd checks this timestamp and immediately runs the associated service if the scheduled time passed while the system was powered off. Without Persistent=true, missed runs are silently skipped — exactly like cron behavior. Persistent=true is the key reliability difference between systemd timers and cron for critical jobs like backups.",
+  },
+  {
+    id: "sysadmin-ref-q8",
+    question: "When diagnosing a slow server, what does a vmstat output showing r=1, b=4, wa=52% indicate?",
+    options: [
+      "CPU bottleneck — 4 processes are competing for the available CPU core",
+      "Memory pressure — the system is swapping 52% of its memory out to disk",
+      "I/O bottleneck — 4 processes are blocked waiting for disk I/O with the CPU idle 52% of the time waiting for I/O",
+      "Network bottleneck — 52% of available network bandwidth is consumed"
+    ],
+    correctIndex: 2,
+    explanation: "b=4 means 4 processes are in uninterruptible sleep blocked on I/O. wa=52% means the CPU is idle and waiting for I/O to complete more than half the time. These two signals together point to a definitive I/O bottleneck: processes are queued waiting for disk operations, and the CPU has nothing to do while they wait. The correct next step is iostat -x to identify which disk device has high %util.",
+  },
+]

@@ -346,3 +346,114 @@ In Phase 7 (Monitoring and Observability), you will learn **Prometheus** for col
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "sysmon-q1",
+    question: "A 4-core server shows load average 2.0, 3.0, 4.5 in uptime output. Which direction is the load trend moving?",
+    options: [
+      "Increasing — the 1-minute load is rising toward a future peak",
+      "Decreasing — the 1-minute load is lower than the 15-minute average",
+      "Stable — the load averages within a normal operating range",
+      "Indeterminate — you need vmstat data to determine the direction"
+    ],
+    correctIndex: 1,
+    explanation: "Load averages are presented as 1-minute, 5-minute, and 15-minute values. When 1-min < 5-min < 15-min (2.0 < 3.0 < 4.5), the trend is decreasing — the recent average is lower than the historical average, meaning the load that caused the spike is resolving. The opposite pattern (1-min > 5-min > 15-min) indicates a worsening trend.",
+  },
+  {
+    id: "sysmon-q2",
+    question: "vmstat shows r=6, b=0, %wa=1% on a 4-core server. What does this pattern diagnose?",
+    options: [
+      "I/O bottleneck — processes are waiting for disk reads to complete",
+      "Memory pressure — processes are being swapped out to disk",
+      "CPU bottleneck — 6 processes are competing for 4 CPU cores with minimal I/O wait",
+      "Network saturation — processes are blocked on network I/O"
+    ],
+    correctIndex: 2,
+    explanation: "r=6 means 6 processes are in the CPU run queue — more than the 4 available cores, so processes are waiting. b=0 means zero processes are in uninterruptible sleep (I/O wait). %wa=1% confirms the CPU is almost never idle waiting for disk or network. This is the classic CPU bottleneck signature: run queue longer than CPU count with low I/O wait.",
+  },
+  {
+    id: "sysmon-q3",
+    question: "In the top CPU line, what does '%wa' measure, and what does a consistently high %wa value indicate?",
+    options: [
+      "%wa measures CPU time spent on kernel system calls; high values indicate a misbehaving application",
+      "%wa measures CPU time the CPU is idle while waiting for I/O to complete; high values indicate an I/O bottleneck",
+      "%wa measures CPU time used by low-priority niced processes; high values indicate a background job overload",
+      "%wa measures time spent on hardware interrupt handling; high values indicate a faulty device driver"
+    ],
+    correctIndex: 1,
+    explanation: "%wa (I/O wait) measures the percentage of time the CPU is idle but cannot be used because it is waiting for disk or network I/O operations to complete. High %wa consistently above 10-20% indicates an I/O bottleneck — the CPU has work to do but is stalled waiting for storage. This should be confirmed with vmstat (high b column) and investigated with iostat to identify the saturated device.",
+  },
+  {
+    id: "sysmon-q4",
+    question: "What does the 'b' column in vmstat output represent, and what value indicates an I/O bottleneck?",
+    options: [
+      "b is the number of background daemon processes; values above 50 indicate too many background jobs",
+      "b is the number of blocked processes in uninterruptible sleep (waiting for I/O); consistently > 0 indicates an I/O bottleneck",
+      "b is the blocks written per second to disk; values above 1000 indicate disk saturation",
+      "b is the buffer cache size in MB; values near 0 mean the system has insufficient RAM"
+    ],
+    correctIndex: 1,
+    explanation: "The 'b' column in vmstat counts processes in the 'uninterruptible sleep' state — these are processes blocked waiting for disk or other I/O to complete. They cannot be interrupted by signals and consume a load average unit without using any CPU. Consistently seeing b > 0 alongside high %wa in the cpu section is the definitive signature of an I/O bottleneck.",
+  },
+  {
+    id: "sysmon-q5",
+    question: "What does iostat's '%util' column measure, and at what threshold should you investigate disk performance?",
+    options: [
+      "%util measures the percentage of time the device was busy; values above 80-90% indicate disk saturation",
+      "%util measures disk space utilization as a percentage of total capacity; above 90% means the disk is nearly full",
+      "%util measures the utilization of the disk controller, not the disk itself; 100% means the controller is saturated",
+      "%util measures the percentage of I/O requests that completed within the SLA target; below 80% indicates problems"
+    ],
+    correctIndex: 0,
+    explanation: "%util in iostat measures the percentage of elapsed time during which the device was busy servicing I/O requests. Values consistently above 80-90% indicate the disk is saturated — it is busy almost all the time and cannot keep up with the request rate. High %util combined with elevated r_await or w_await (average completion time in ms) confirms the disk is the bottleneck.",
+  },
+  {
+    id: "sysmon-q6",
+    question: "A server shows load average 0.8 on a 4-core system (healthy), but users report slow responses. What should you investigate?",
+    options: [
+      "The disk is full — run df -h to check all filesystems for capacity",
+      "Non-resource bottlenecks: network latency to external dependencies, thread pool exhaustion, or lock contention",
+      "Memory is too low — run free -h and look for swap usage above 10%",
+      "cron jobs are consuming burst CPU — check crontab -l for overlapping schedules"
+    ],
+    correctIndex: 1,
+    explanation: "Low load with slow responses means the server itself is not resource-saturated — the bottleneck is elsewhere. Common causes are external dependency latency (a slow database, API, or DNS lookup), application-level limits like thread pool or connection pool exhaustion, or GC pauses in JVM/Go runtimes that stall request processing without consuming CPU. Command-line monitoring tools measure local resources; distributed tracing and application metrics are needed to find these bottlenecks.",
+  },
+  {
+    id: "sysmon-q7",
+    question: "In vmstat output, what do non-zero 'si' and 'so' columns indicate?",
+    options: [
+      "si and so are socket operations per second; non-zero values indicate high network traffic",
+      "si and so are swap in and swap out activity; non-zero values indicate the system is under memory pressure and paging",
+      "si is system interrupts and so is software interrupts; non-zero values indicate a busy kernel",
+      "si and so are context switches; non-zero values are normal and indicate active process scheduling"
+    ],
+    correctIndex: 1,
+    explanation: "In vmstat, 'si' (swap in) and 'so' (swap out) count kilobytes per second being moved between RAM and swap space. Non-zero values mean the system is actively paging — it does not have enough free RAM to keep all process data in memory and is using the much slower disk swap. Consistent si/so activity causes severe performance degradation because disk access is orders of magnitude slower than RAM access.",
+  },
+  {
+    id: "sysmon-q8",
+    question: "What is the correct bottleneck identification sequence described in this lesson?",
+    options: [
+      "iostat → vmstat → top → uptime",
+      "uptime/load average → vmstat (r/b/wa) → iostat (if I/O) or top (if CPU)",
+      "top → free -h → iostat → vmstat",
+      "ping dependencies → netstat → vmstat → top"
+    ],
+    correctIndex: 1,
+    explanation: "The bottleneck pattern starts broad and narrows: load average (uptime) tells you something is wrong and how long it has been happening. vmstat with the r, b, and wa columns tells you whether the bottleneck is CPU, I/O, or memory. If I/O is indicated (high b, high wa), iostat identifies which specific disk is saturated. If CPU is indicated (high r, low wa), top sorted by CPU identifies the consuming process.",
+  },
+  {
+    id: "sysmon-q9",
+    question: "In top's process list, what does process state 'D' indicate?",
+    options: [
+      "D means the process is a daemon running in the background",
+      "D means the process is in uninterruptible sleep waiting for I/O and cannot be killed with regular signals",
+      "D means the process has been marked for deletion by the kernel",
+      "D means the process is in a debug mode and outputting verbose logging"
+    ],
+    correctIndex: 1,
+    explanation: "Process state 'D' in top means uninterruptible sleep — the process is waiting for an I/O operation (typically disk) to complete and cannot be interrupted by signals, including SIGKILL. This is why kill -9 does not work on processes stuck in D state — the kernel holds them until the I/O completes. Multiple processes in D state is a strong indicator of an I/O bottleneck.",
+  },
+]
