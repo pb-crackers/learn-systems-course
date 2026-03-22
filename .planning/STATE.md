@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
-stopped_at: Completed 15-05-PLAN.md
-last_updated: "2026-03-22T21:23:35.142Z"
+stopped_at: Completed 15-07-PLAN.md
+last_updated: "2026-03-22T21:23:45.943Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 | Phase 14-layout-integration-and-gating P01 | 10min | 3 tasks | 5 files |
 | Phase 15-content-authoring P06 | 4min | 2 tasks | 5 files |
 | Phase 15-content-authoring P05 | 4min | 2 tasks | 5 files |
+| Phase 15-content-authoring P07 | 5min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,7 @@ Recent decisions affecting v1.2 work:
 - [Phase 14-layout-integration-and-gating]: MarkCompleteButton renders only when quiz is null — empty quiz array does not show the button
 - [Phase 15-content-authoring]: Foundation/Intermediate question style distinction maintained: lessons 01, 02, 05 test recall; lessons 03, 04 test application
 - [Phase 15-content-authoring]: Questions scoped strictly to lesson content in Module 06 IaC: no cross-lesson knowledge required to answer correctly
+- [Phase 15-content-authoring]: Foundation lessons (01, 02, 06) test recall; Intermediate lessons (03, 04, 05) test application — 50 questions total across Module 07
 
 ### Pending Todos
 
@@ -111,6 +113,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:23:25.693Z
-Stopped at: Completed 15-05-PLAN.md
+Last session: 2026-03-22T21:23:45.940Z
+Stopped at: Completed 15-07-PLAN.md
 Resume file: None
