@@ -359,3 +359,62 @@ When you see "Security Group" in AWS, think "stateful iptables rules attached to
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'fw-q1',
+    question: 'You set iptables -P INPUT DROP before adding any ACCEPT rules. What immediately happens to your active SSH session?',
+    options: ['The session continues because existing connections are grandfathered in', 'The session is severed because return ACK packets for the established TCP connection are now dropped', 'The DROP policy only affects new connections, not existing ones', 'The SSH daemon automatically adds an exception rule for active sessions'],
+    correctIndex: 1,
+    explanation: 'Setting the INPUT policy to DROP immediately applies to all incoming packets — including ACK packets returning from the remote server for your current SSH session. Without an ESTABLISHED,RELATED ACCEPT rule already in place, those return packets are dropped and the session hangs then times out. This is the most common firewall lockout mistake.',
+  },
+  {
+    id: 'fw-q2',
+    question: 'Why must the ESTABLISHED,RELATED ACCEPT rule come before the DROP default policy in an INPUT chain?',
+    options: ['It is a convention but order does not actually matter in iptables', 'Without it, return traffic for connections you initiated is blocked, breaking all outbound TCP and killing existing sessions', 'It only matters for UDP traffic, not TCP', 'The ESTABLISHED rule only applies to FORWARD chain traffic'],
+    correctIndex: 1,
+    explanation: 'iptables processes rules in order — first match wins. The ESTABLISHED,RELATED rule allows return packets for connections already in progress. Without it, when the DROP default policy applies, the kernel drops ACK and data packets coming back from servers you connected to, breaking all TCP communication. It must come before DROP so it is evaluated first.',
+  },
+  {
+    id: 'fw-q3',
+    question: 'A port scan tool reports that port 8080 on your server is "filtered" rather than "closed". What does this tell you about which iptables target is being used?',
+    options: ['DROP — packets are silently discarded with no reply, so the scanner sees no response and reports filtered', 'REJECT — an error is sent back, and the scanner interprets error responses as filtered', 'ACCEPT — the port is open but nothing is listening, causing the filtered report', 'LOG — the packet is logged and the scanner detects log entries'],
+    correctIndex: 0,
+    explanation: 'When DROP is used, packets are silently discarded with no TCP RST or ICMP error sent back. Port scanners interpret no response as filtered — the port might exist but traffic is being blocked. REJECT, by contrast, sends back an immediate TCP RST or ICMP port unreachable, which scanners report as closed. DROP is preferred for internet-facing servers because it reveals less information.',
+  },
+  {
+    id: 'fw-q4',
+    question: 'You have two iptables rules in this order: (1) ACCEPT all traffic from 10.0.0.5, (2) DROP all traffic from 10.0.0.0/24. What happens to packets from 10.0.0.5?',
+    options: ['They are dropped because the subnet rule is more specific', 'They are accepted because rule 1 matches first and processing stops', 'Both rules apply and the packet is both accepted and dropped', 'The result depends on the protocol (TCP vs UDP)'],
+    correctIndex: 1,
+    explanation: 'iptables evaluates rules in order and stops at the first match. A packet from 10.0.0.5 matches rule 1 (ACCEPT) before it even reaches rule 2 (DROP). Processing stops as soon as a rule matches. If the rules were in reverse order, the subnet DROP rule would match first and 10.0.0.5 would be blocked.',
+  },
+  {
+    id: 'fw-q5',
+    question: 'What does ufw allow ssh actually do under the hood?',
+    options: ['It sets the iptables INPUT chain default policy to ACCEPT', 'It generates iptables rules that accept TCP traffic on port 22 in the INPUT chain', 'It configures the SSH daemon to allow password authentication', 'It opens port 22 in the kernel firewall without using iptables'],
+    correctIndex: 1,
+    explanation: 'ufw is a frontend that translates simple commands into proper iptables rules. Running ufw allow ssh generates an iptables rule that accepts TCP traffic on port 22. You can verify this by running iptables -L -n -v after enabling ufw — the underlying rules are visible. ufw handles rule persistence across reboots and common edge cases that raw iptables commands require manual handling for.',
+  },
+  {
+    id: 'fw-q6',
+    question: 'In the netfilter chain flow, which chain handles packets that are passing through a Linux machine to another network destination?',
+    options: ['INPUT', 'OUTPUT', 'FORWARD', 'PREROUTING'],
+    correctIndex: 2,
+    explanation: 'The FORWARD chain handles packets that the Linux machine is routing — packets that arrive on one interface destined for a different network that this machine will forward. INPUT handles packets destined for the local machine itself. OUTPUT handles packets generated by processes on this machine. FORWARD is the chain used when the Linux host acts as a router or gateway.',
+  },
+  {
+    id: 'fw-q7',
+    question: 'How do AWS security groups differ from standard iptables rules in terms of statefulness?',
+    options: ['Security groups are stateless and require explicit rules for both inbound and outbound traffic', 'Security groups are stateful — return traffic for established connections is automatically allowed without explicit rules', 'Security groups use REJECT by default while iptables uses DROP', 'Security groups operate at Layer 2 while iptables operates at Layer 3'],
+    correctIndex: 1,
+    explanation: 'AWS security groups are stateful — if you allow inbound TCP on port 443, return traffic for those established connections is automatically permitted without needing a separate outbound rule. Standard iptables requires an explicit ESTABLISHED,RELATED rule to achieve the same behavior. Security groups are also applied in the cloud network fabric before traffic reaches the VM OS.',
+  },
+  {
+    id: 'fw-q8',
+    question: 'You need to allow SSH access to your server only from a specific trusted IP (10.0.0.100). Which iptables command achieves this, assuming port 22 is not already open?',
+    options: ['iptables -A INPUT -p tcp --dport 22 -j ACCEPT', 'iptables -A INPUT -s 10.0.0.100 -p tcp --dport 22 -j ACCEPT', 'iptables -A INPUT -d 10.0.0.100 -p tcp --dport 22 -j ACCEPT', 'iptables -A INPUT --sport 22 -s 10.0.0.100 -j ACCEPT'],
+    correctIndex: 1,
+    explanation: 'The -s flag matches on the source IP address. Combining -s 10.0.0.100 with -p tcp --dport 22 creates a rule that only accepts SSH connections originating from that specific IP. Without the -s constraint, the first option would accept SSH from any IP. The -d flag would match on destination IP (your server), not the source.',
+  },
+]

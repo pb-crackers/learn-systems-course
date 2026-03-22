@@ -201,3 +201,62 @@ resolve each other by service name, that's the same DNS mechanism you explored i
 lesson. When you publish a port with `-p 8080:80`, that's iptables NAT rules under the
 hood. The Docker module will feel familiar because you already understand the primitives.
 </Callout>
+
+export const quiz = [
+  {
+    id: 'net-ref-q1',
+    question: 'Which command displays the IP routing table on a Linux host?',
+    options: ['ip addr show', 'ip neigh show', 'ip route show', 'ip link show'],
+    correctIndex: 2,
+    explanation: 'ip route show displays the kernel routing table — it shows which network destinations map to which gateway and interface. ip addr show lists IP addresses on interfaces, ip neigh show lists ARP cache entries, and ip link show displays interface link state and MAC addresses.',
+  },
+  {
+    id: 'net-ref-q2',
+    question: 'What port does SSH use by default?',
+    options: ['21', '22', '23', '25'],
+    correctIndex: 1,
+    explanation: 'SSH operates on port 22 by default. Port 21 is FTP, port 23 is Telnet (the insecure predecessor that SSH replaced), and port 25 is SMTP for email. These are all well-known ports in the range 0-1023 that require root privileges to bind.',
+  },
+  {
+    id: 'net-ref-q3',
+    question: 'What does the dig +short command option do?',
+    options: ['It limits the query to records with short TTL values', 'It suppresses all output except the direct answer, printing just the IP address', 'It uses UDP instead of TCP for the DNS query', 'It queries the closest (shortest round-trip) DNS server'],
+    correctIndex: 1,
+    explanation: 'dig +short suppresses the full dig output (flags, question section, authority section, statistics) and prints only the answer value — typically just the IP address. This is useful in shell scripts where you only need the resolved IP, not the full diagnostic output.',
+  },
+  {
+    id: 'net-ref-q4',
+    question: 'In the TCP/IP model, which protocol does ss -tlnp display information about?',
+    options: ['Only UDP listening sockets', 'TCP listening sockets including the process name', 'All protocols including ICMP', 'Only established TCP connections'],
+    correctIndex: 1,
+    explanation: 'The flags in ss -tlnp mean: -t (TCP sockets), -l (listening only), -n (numeric ports, no name resolution), -p (show process name and PID). This combination shows which TCP services are accepting connections and which process owns each socket — the standard command for checking whether a service is actually running.',
+  },
+  {
+    id: 'net-ref-q5',
+    question: 'The 172.17.0.0/16 network is commonly used for what purpose?',
+    options: ['Home router default subnet', 'Docker default bridge network', 'AWS VPC default range', 'IPv6 transition addressing'],
+    correctIndex: 1,
+    explanation: 'Docker uses 172.17.0.0/16 for its default bridge network (docker0). This falls within the RFC 1918 private range 172.16.0.0/12. The /16 prefix provides 65,534 host addresses, enough for many containers. This is why containers often have IPs like 172.17.0.2, 172.17.0.3, etc.',
+  },
+  {
+    id: 'net-ref-q6',
+    question: 'What is the difference between the DROP and REJECT iptables targets?',
+    options: ['DROP sends an ICMP error back; REJECT silently discards the packet', 'DROP silently discards the packet with no reply; REJECT discards it and sends an error response back to the sender', 'DROP applies to UDP; REJECT applies to TCP', 'They are identical — the naming is historical'],
+    correctIndex: 1,
+    explanation: 'DROP silently discards the packet and sends nothing back — the sender waits and eventually times out. REJECT discards the packet but sends an ICMP port unreachable or TCP RST back immediately, so the sender gets an instant error. DROP is preferred for internet-facing servers because it reveals less information about blocked ports to scanners.',
+  },
+  {
+    id: 'net-ref-q7',
+    question: 'What is the systematic order of tools to use when a service is unreachable?',
+    options: ['tcpdump first, then curl, then ping', 'curl first to see the error, then ss, then ping', 'ping first (Layer 3), then ss to check the port (Layer 4), then curl to test the app (Layer 7)', 'DNS lookup first, then ping, then traceroute, then curl'],
+    correctIndex: 2,
+    explanation: 'The bottom-up approach starts at Layer 3 with ping to confirm the host is reachable. If ping works, ss checks whether the service is listening on the expected port (Layer 4). If the port is open, curl tests whether the application responds correctly (Layer 7). Working up the stack in order avoids wasting time debugging the application when the network path is broken.',
+  },
+  {
+    id: 'net-ref-q8',
+    question: 'What does ARP stand for, and what problem does it solve?',
+    options: ['Address Routing Protocol — routes packets between different IP networks', 'Address Resolution Protocol — maps IP addresses to MAC addresses on the local subnet', 'Authenticated Routing Protocol — verifies that routing table entries are legitimate', 'Automatic Registration Protocol — assigns IP addresses to new devices on a network'],
+    correctIndex: 1,
+    explanation: 'ARP (Address Resolution Protocol) solves the problem of finding a device MAC address when you only know its IP address on the local subnet. Before sending an Ethernet frame, the sender broadcasts "who has IP X?" and the target replies with its MAC address. The mapping is cached in the ARP table to avoid broadcasting on every packet.',
+  },
+]

@@ -438,3 +438,76 @@ When you troubleshoot "why can't I connect to port 8080?", `ss -tlnp` tells you 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'tcp-q1',
+    question: 'Which layer of the TCP/IP model is responsible for routing packets between different IP networks?',
+    options: ['Link layer', 'Internet layer', 'Transport layer', 'Application layer'],
+    correctIndex: 1,
+    explanation: 'The Internet layer (Layer 2 in TCP/IP) handles host-to-host delivery across networks using IP addresses. It makes routing decisions and moves packets from their source network to their destination network. The Link layer handles one physical segment; the Transport layer deals with end-to-end delivery between processes.',
+  },
+  {
+    id: 'tcp-q2',
+    question: 'In the TCP three-way handshake, what is the correct sequence of messages?',
+    options: ['SYN → ACK → SYN-ACK', 'SYN → SYN-ACK → ACK', 'SYN-ACK → SYN → ACK', 'ACK → SYN → SYN-ACK'],
+    correctIndex: 1,
+    explanation: 'The client sends SYN to initiate the connection, the server responds with SYN-ACK to acknowledge and advertise its own sequence number, and the client finishes with ACK to confirm. This three-way exchange establishes sequence numbers on both sides before any data is transmitted.',
+  },
+  {
+    id: 'tcp-q3',
+    question: 'A host has IP address 192.168.1.50/24. Is 192.168.1.200 on the same subnet?',
+    options: ['No — different third octets', 'Yes — both share the same /24 network 192.168.1.0', 'Cannot determine without the full subnet mask', 'No — one address ends in an even number and the other in an odd number'],
+    correctIndex: 1,
+    explanation: 'A /24 prefix means the first 24 bits (three octets) identify the network. Both 192.168.1.50 and 192.168.1.200 share the same first three octets (192.168.1), so they are on the same 192.168.1.0/24 network and can communicate directly without a router.',
+  },
+  {
+    id: 'tcp-q4',
+    question: 'Which transport protocol is the best choice for DNS queries, and why?',
+    options: ['TCP, because reliability ensures the query is never lost', 'UDP, because DNS queries are small and the overhead of a TCP handshake would add unnecessary latency', 'Both equally; modern DNS always uses TCP', 'Neither — DNS uses its own dedicated protocol'],
+    correctIndex: 1,
+    explanation: 'DNS queries and responses are small (usually fitting in a single datagram) and speed matters more than guaranteed delivery. If a UDP query is lost, the resolver simply retries — the overhead cost is low. Adding a TCP three-way handshake to every DNS lookup would roughly double its latency for no benefit in most cases.',
+  },
+  {
+    id: 'tcp-q5',
+    question: 'What does a port number identify in the TCP/IP model?',
+    options: ['A specific physical network interface on the host', 'A specific process or service running on a host', 'A specific subnet that the host belongs to', 'The hardware address of the destination device'],
+    correctIndex: 1,
+    explanation: 'Port numbers allow the transport layer to multiplex many connections on one host. A port identifies which process receives incoming data — for example, the OS routes a packet arriving on port 443 to the web server process, not the SSH daemon. IP addresses identify hosts; ports identify services on those hosts.',
+  },
+  {
+    id: 'tcp-q6',
+    question: 'What is encapsulation in the context of the TCP/IP stack?',
+    options: ['Encrypting data before transmission', 'Each layer adding its own header (and sometimes trailer) as data passes down the stack', 'The process of reassembling fragmented packets', 'Compressing data to reduce bandwidth usage'],
+    correctIndex: 1,
+    explanation: 'Encapsulation is the process where each layer wraps the data from the layer above by prepending its own header. The application data becomes a TCP segment, which becomes an IP packet, which becomes an Ethernet frame. On the receiving side, each layer strips its header and passes the payload up.',
+  },
+  {
+    id: 'tcp-q7',
+    question: 'A PostgreSQL process is shown by ss as listening on 127.0.0.1:5432. Can another container on the same Docker network connect to it?',
+    options: ['Yes — port 5432 is a well-known port that is always reachable', 'No — 127.0.0.1 is the loopback interface and is only reachable from processes on the same machine', 'Yes — Docker automatically bridges loopback to the container network', 'No — PostgreSQL only allows connections from root processes'],
+    correctIndex: 1,
+    explanation: 'The loopback address 127.0.0.1 exists only within a single network namespace. Each Docker container has its own network namespace with its own loopback — a process listening on 127.0.0.1 inside one container cannot be reached from another container. To accept remote connections, PostgreSQL must be configured to listen on 0.0.0.0 or the container IP.',
+  },
+  {
+    id: 'tcp-q8',
+    question: 'What is the private address range used by Docker default bridge networks?',
+    options: ['10.0.0.0/8', '192.168.0.0/16', '172.17.0.0/16', '169.254.0.0/16'],
+    correctIndex: 2,
+    explanation: 'Docker default bridge networks use the 172.17.0.0/16 range, which falls within the RFC 1918 private block 172.16.0.0/12. This range provides 65,534 usable host addresses and is not routable on the public internet, making it suitable for container-internal networking.',
+  },
+  {
+    id: 'tcp-q9',
+    question: 'What is an ephemeral port, and when does the OS assign one?',
+    options: ['A reserved port below 1024 that requires root to bind', 'A temporary source port assigned by the OS when a client initiates an outgoing TCP connection', 'A port that is only valid for one packet before expiring', 'A port number above 49151 that is permanently reserved for system services'],
+    correctIndex: 1,
+    explanation: 'When your browser connects to a web server on port 443, the OS assigns a random ephemeral port (typically 32768-60999 on Linux) as the source port for that connection. This allows the OS to track many simultaneous connections to the same server by differentiating them via unique source ports.',
+  },
+  {
+    id: 'tcp-q10',
+    question: 'Which fields together uniquely identify a single TCP connection?',
+    options: ['Source IP and destination IP only', 'Source IP, source port, destination IP, and destination port (plus protocol)', 'Source port and destination port only', 'Destination IP and destination port only'],
+    correctIndex: 1,
+    explanation: 'A TCP connection is uniquely identified by a 5-tuple: protocol, source IP, source port, destination IP, and destination port. Two connections from the same browser to the same server differ only in their ephemeral source port. The OS uses this 5-tuple to route incoming data to the correct socket.',
+  },
+]

@@ -439,3 +439,76 @@ The `-k` flag tells curl to ignore TLS certificate errors, including invalid or 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'http-q1',
+    question: 'What does a 502 Bad Gateway status code mean in an HTTP response?',
+    options: ['The client sent a malformed request', 'The server received a valid request but failed internally', 'The proxy reached the backend but received an invalid or bad response from it', 'The client is not authenticated and must provide credentials'],
+    correctIndex: 2,
+    explanation: 'A 502 means the proxy (like nginx) successfully connected to the backend service but the backend returned an invalid or unreadable response. The proxy itself is working. This is different from 504, where the proxy times out waiting for the backend. A 502 means the backend is up but crashing or misbehaving.',
+  },
+  {
+    id: 'http-q2',
+    question: 'Which HTTP method is considered idempotent and safe for reading a resource without side effects?',
+    options: ['POST', 'PATCH', 'PUT', 'GET'],
+    correctIndex: 3,
+    explanation: 'GET is both safe (no side effects) and idempotent (repeating it returns the same result). This is why browsers safely retry GET requests on network errors. POST is not idempotent — retrying a POST could create duplicate resources. PUT is idempotent but not safe since it modifies a resource.',
+  },
+  {
+    id: 'http-q3',
+    question: 'What is the purpose of the Host header in an HTTP/1.1 request?',
+    options: ['It specifies the IP address of the server for routing', 'It identifies which virtual host on the server should handle the request', 'It carries the client authentication token', 'It tells the server which HTTP version the client supports'],
+    correctIndex: 1,
+    explanation: 'The Host header is required in HTTP/1.1 because a single IP address can serve many different websites (virtual hosting). The server uses the Host header value to determine which site or backend to route the request to. Without it the server would not know which of many hosted domains the client is requesting.',
+  },
+  {
+    id: 'http-q4',
+    question: 'What does a 401 Unauthorized status code indicate, and how does it differ from 403?',
+    options: ['401 means no credentials were provided; 403 means credentials were provided but access is denied', '401 means the server crashed; 403 means the request was malformed', '401 means the resource was not found; 403 means the method is not allowed', '401 means too many requests; 403 means the service is unavailable'],
+    correctIndex: 0,
+    explanation: '401 Unauthorized means the client is not authenticated — it has not provided credentials or the credentials are invalid. 403 Forbidden means the client is authenticated but does not have permission to access the resource. The distinction is important: 401 requires authentication, 403 requires authorization.',
+  },
+  {
+    id: 'http-q5',
+    question: 'Why does the TLS handshake use asymmetric encryption to set up the session, then switch to symmetric encryption for data transfer?',
+    options: ['Asymmetric encryption is faster for bulk data; symmetric is used only for key exchange because it is more secure', 'Asymmetric encryption is slow and computationally expensive; symmetric encryption (AES-GCM) is orders of magnitude faster for bulk data', 'Symmetric encryption cannot be used over untrusted networks; asymmetric must be used throughout', 'The switch happens because symmetric keys expire after the handshake completes'],
+    correctIndex: 1,
+    explanation: 'Asymmetric cryptography (RSA, ECDH) uses complex mathematical operations that are too slow for encrypting large data volumes. It is used only to securely establish a shared secret without transmitting it. Once both sides derive the same symmetric key, they switch to AES-GCM which is orders of magnitude faster, making TLS overhead measured in milliseconds rather than seconds.',
+  },
+  {
+    id: 'http-q6',
+    question: 'What curl flag displays the full TLS handshake details and request/response headers?',
+    options: ['-s', '-I', '-v', '-k'],
+    correctIndex: 2,
+    explanation: 'The -v (verbose) flag tells curl to print all connection details including TLS negotiation, request headers sent, and response headers received. The > lines show outgoing request headers and the < lines show incoming response headers. This is the primary tool for debugging HTTP and HTTPS issues.',
+  },
+  {
+    id: 'http-q7',
+    question: 'A 304 Not Modified response means what in the context of HTTP caching?',
+    options: ['The server could not find the resource', 'The client cached version is still valid and no body is returned — the client can use its cached copy', 'The resource has moved permanently to a new URL', 'The server partially modified the resource in response to a PATCH request'],
+    correctIndex: 1,
+    explanation: 'When a client sends a conditional request (using If-None-Match or If-Modified-Since headers), a 304 tells the client its cached copy is still current. The response has no body — the client simply continues using its local cache. This saves bandwidth and speeds up repeated page loads for resources that have not changed.',
+  },
+  {
+    id: 'http-q8',
+    question: 'What security guarantee does the -k flag remove when using curl?',
+    options: ['It disables data encryption, sending traffic in plaintext', 'It skips TLS certificate verification, removing the ability to confirm you are talking to the intended server', 'It disables HTTP authentication header encoding', 'It allows the server to read the local filesystem'],
+    correctIndex: 1,
+    explanation: 'The -k flag tells curl to accept any TLS certificate, including self-signed or invalid ones. This removes server identity verification — without a valid certificate chain, you cannot confirm you are talking to the intended server rather than an attacker performing a man-in-the-middle attack. Data is still encrypted, but its destination is unverified.',
+  },
+  {
+    id: 'http-q9',
+    question: 'Which HTTP method should be used to create a new resource on a server?',
+    options: ['GET', 'PUT', 'POST', 'PATCH'],
+    correctIndex: 2,
+    explanation: 'POST is used to create a new resource. The server determines the resource URL and typically returns 201 Created with a Location header pointing to the new resource. POST is not idempotent — calling it twice creates two resources. PUT replaces an existing resource at a URL the client specifies, and is idempotent.',
+  },
+  {
+    id: 'http-q10',
+    question: 'What does the Cache-Control: max-age=3600 response header instruct the client to do?',
+    options: ['Refresh the resource every 3600 milliseconds', 'Cache the response and consider it fresh for 3600 seconds before re-requesting', 'Only cache the response if it is under 3600 bytes', 'Retry the request after 3600 seconds if the initial response failed'],
+    correctIndex: 1,
+    explanation: 'max-age=3600 tells the client to cache the response and serve it from cache for up to 3600 seconds (1 hour) without re-requesting from the server. This reduces server load and speeds up repeat visits. After the max-age expires, the client must revalidate with the server, potentially getting a 304 Not Modified if the content has not changed.',
+  },
+]

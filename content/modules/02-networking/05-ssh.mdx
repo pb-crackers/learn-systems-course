@@ -336,3 +336,62 @@ For containers that get recreated frequently, this is a nuisance. You can remove
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'ssh-q1',
+    question: 'You try to SSH to a server you rebuilt and see the warning "REMOTE HOST IDENTIFICATION HAS CHANGED". The server is known to have been rebuilt this week. Which command removes the stale known_hosts entry so you can reconnect?',
+    options: ['ssh -R server.example.com', 'ssh-keygen -R server.example.com', 'rm ~/.ssh/known_hosts', 'ssh -o StrictHostKeyChecking=accept-new user@server'],
+    correctIndex: 1,
+    explanation: 'ssh-keygen -R removes a specific hostname entry from ~/.ssh/known_hosts. The warning appears because the rebuilt server has new host keys that do not match the cached fingerprint. Removing just that one entry with -R is safer than deleting the entire known_hosts file, which would remove all previously verified server fingerprints.',
+  },
+  {
+    id: 'ssh-q2',
+    question: 'A developer needs to access a database at db.internal:5432 that is only reachable from a bastion host. Given this SSH tunnel: ssh -L 5432:db.internal:5432 user@bastion, which command would they use to connect to the database from their laptop?',
+    options: ['psql -h bastion -p 5432 -U dbuser mydb', 'psql -h db.internal -p 5432 -U dbuser mydb', 'psql -h localhost -p 5432 -U dbuser mydb', 'psql -h 127.0.0.11 -p 5432 -U dbuser mydb'],
+    correctIndex: 2,
+    explanation: 'Local port forwarding (-L) binds a local port on the developer machine and forwards connections through the SSH tunnel to the remote host. With -L 5432:db.internal:5432, any connection to localhost:5432 is tunneled through the bastion and forwarded to db.internal:5432. The developer connects to localhost as if the database were local.',
+  },
+  {
+    id: 'ssh-q3',
+    question: 'Your ~/.ssh/config has a ProxyJump bastion directive for host app-server. What happens when you run ssh app-server?',
+    options: ['SSH connects directly to app-server, ignoring the ProxyJump since app-server is in the config', 'SSH first connects to bastion, then from bastion opens a new connection to app-server — your key authenticates both hops locally', 'SSH connects to bastion and copies your private key there to use for the second hop', 'SSH asks you which server to jump through interactively'],
+    correctIndex: 1,
+    explanation: 'ProxyJump causes your SSH client to first open a TCP connection through bastion, then establish the second SSH session to app-server through that forwarded connection. Critically, authentication for both hops is handled by your local SSH client — your private key never touches the bastion host, unlike agent forwarding.',
+  },
+  {
+    id: 'ssh-q4',
+    question: 'What files must exist and have correct permissions for key-based SSH authentication to work on the server side?',
+    options: ['~/.ssh/id_ed25519 with permissions 644', '~/.ssh/authorized_keys containing the public key with permissions 600 or 644, and ~/.ssh/ with permissions 700', '~/.ssh/id_ed25519.pub copied to the server root directory', '/etc/ssh/sshd_config with PubkeyAuthentication set to no'],
+    correctIndex: 1,
+    explanation: 'The server needs ~/.ssh/authorized_keys to contain the public key, with permissions restrictive enough that sshd trusts them (600 recommended, 700 for the directory). If the permissions are too open, sshd refuses to use authorized_keys as a security measure. The public key in authorized_keys is what the server uses to issue the challenge during authentication.',
+  },
+  {
+    id: 'ssh-q5',
+    question: 'Why is agent forwarding with ssh -A considered a security risk on shared bastion hosts?',
+    options: ['It sends your private key over the network to the bastion in encrypted form', 'Root on the bastion can use your forwarded agent socket to authenticate as you to any server with your public key', 'It allows other users on the bastion to see your SSH session in plain text', 'It disables host key verification for subsequent hops through the bastion'],
+    correctIndex: 1,
+    explanation: 'Agent forwarding creates a Unix socket on the bastion that proxies authentication requests back to your local agent. Any process running as root on the bastion can use this socket to impersonate you to any server that trusts your public key — without ever seeing your private key. The attack window exists for your entire session duration. ProxyJump achieves the same transparent access without this exposure.',
+  },
+  {
+    id: 'ssh-q6',
+    question: 'You generate an Ed25519 key pair with ssh-keygen. Which file is safe to share with servers, and which must never leave your machine?',
+    options: ['~/.ssh/id_ed25519.pub is private; ~/.ssh/id_ed25519 is the public key to share', '~/.ssh/id_ed25519 is safe to share; ~/.ssh/id_ed25519.pub must stay secret', '~/.ssh/id_ed25519.pub is the public key that goes into authorized_keys; ~/.ssh/id_ed25519 is the private key that must never be shared', 'Both files must stay private; only the fingerprint hash is shared'],
+    correctIndex: 2,
+    explanation: 'The .pub file is the public key — it is safe to distribute and is placed in ~/.ssh/authorized_keys on any server you want to log in to. The private key (id_ed25519 without extension) must never leave your machine. Authentication works by the server issuing a challenge encrypted with your public key, which only your private key can decrypt.',
+  },
+  {
+    id: 'ssh-q7',
+    question: 'A team member wants to expose their local development server (running on port 3000) so a remote colleague can test it via the team bastion at server.example.com. Which tunnel type and command achieves this?',
+    options: ['Local forwarding: ssh -L 3000:localhost:3000 user@server.example.com', 'Remote forwarding: ssh -R 8080:localhost:3000 user@server.example.com', 'Dynamic forwarding: ssh -D 3000 user@server.example.com', 'ProxyJump: ssh -J server.example.com localhost:3000'],
+    correctIndex: 1,
+    explanation: 'Remote port forwarding (-R) binds a port on the remote server and forwards connections back to the developer local machine. With -R 8080:localhost:3000, anyone connecting to port 8080 on server.example.com is forwarded through the tunnel to localhost:3000 on the developer machine. This is the reverse of local forwarding, which brings remote services to you.',
+  },
+  {
+    id: 'ssh-q8',
+    question: 'What does the ssh -N flag do, and when would you use it?',
+    options: ['It disables host key verification for non-interactive connections', 'It tells SSH not to execute a remote shell, used when you only want a tunnel without an interactive session', 'It enables verbose output for debugging non-interactive connections', 'It prevents the tunnel from forwarding any data until explicitly activated'],
+    correctIndex: 1,
+    explanation: 'The -N flag opens the SSH connection without allocating a shell on the remote side — only the tunnel is established. Combined with -f (background), ssh -N -f -L 5432:db:5432 user@bastion creates a background tunnel you can use while doing other work. Without -N, SSH would drop you into an interactive shell you do not need.',
+  },
+]

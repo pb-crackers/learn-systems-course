@@ -376,3 +376,76 @@ DNSSEC is not universally deployed — many domains do not sign their zones, and
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'dns-q1',
+    question: 'What does an A record in DNS map?',
+    options: ['A hostname to an IPv6 address', 'A hostname to an IPv4 address', 'One hostname to another hostname', 'An IP address to a hostname'],
+    correctIndex: 1,
+    explanation: 'An A record maps a hostname to an IPv4 address — for example, app.example.com to 93.184.216.34. It is the most common DNS record type. AAAA records handle IPv6 addresses, CNAME records create hostname aliases, and PTR records do reverse lookups (IP to hostname).',
+  },
+  {
+    id: 'dns-q2',
+    question: 'In the DNS resolution chain, which server actually holds the authoritative records for a domain like example.com?',
+    options: ['The root nameserver', 'The TLD nameserver (e.g., Verisign for .com)', 'The recursive resolver (e.g., 8.8.8.8)', 'The authoritative nameserver designated in the domain NS records'],
+    correctIndex: 3,
+    explanation: 'The authoritative nameserver is the final authority for a domain zone. It holds the actual A, CNAME, MX, and other records. Root nameservers only know which nameservers handle each TLD. TLD nameservers only know which nameservers are authoritative for each second-level domain. Recursive resolvers query all of these on your behalf but do not hold authoritative data.',
+  },
+  {
+    id: 'dns-q3',
+    question: 'An A record for api.example.com has a TTL of 86400. You update the record to point to a new IP. How long could some resolvers continue serving the old IP?',
+    options: ['Until the authoritative nameserver is updated', 'Up to 86400 seconds (24 hours), until their cached copy expires', 'No more than 300 seconds regardless of TTL', 'Immediately — all resolvers query the authoritative server on every request'],
+    correctIndex: 1,
+    explanation: 'Resolvers cache DNS responses for the full TTL duration. A record with TTL 86400 that was cached just before your change will serve the old IP for up to 24 hours. This is why the best practice is to lower the TTL to a small value (300s) several hours before a migration, wait for old caches to expire, then make the change.',
+  },
+  {
+    id: 'dns-q4',
+    question: 'What is a CNAME record?',
+    options: ['A record that maps a canonical hostname to an IP address', 'A record that creates an alias — pointing one hostname to another hostname', 'A record that identifies which nameservers are authoritative for a zone', 'A record that specifies which mail server handles email for a domain'],
+    correctIndex: 1,
+    explanation: 'A CNAME (Canonical Name) record makes one hostname an alias for another. When a resolver encounters a CNAME it must perform an additional lookup to resolve the target name to an IP. CNAMEs cannot be placed at the zone apex because that would conflict with required SOA and NS records.',
+  },
+  {
+    id: 'dns-q5',
+    question: 'What does the dig +trace flag do?',
+    options: ['It shows only the final answer without intermediate steps', 'It displays the DNS resolution chain step by step from root nameservers to the authoritative response', 'It measures round-trip latency for each DNS query', 'It queries multiple DNS servers in parallel and compares their answers'],
+    correctIndex: 1,
+    explanation: 'dig +trace performs the full DNS resolution iteratively, starting at the root nameservers and following each delegation step. It shows the responses from the root, TLD, and authoritative nameservers in sequence. This makes it the most powerful tool for debugging DNS resolution failures or verifying delegation chains.',
+  },
+  {
+    id: 'dns-q6',
+    question: 'What does a PTR record contain, and where does it live in DNS?',
+    options: ['A priority number for mail server selection, stored under the MX zone', 'A reverse mapping from IP to hostname, stored in the in-addr.arpa zone', 'A public key for DNSSEC validation, stored under the DNSKEY zone', 'A text value for domain ownership verification, stored under the TXT zone'],
+    correctIndex: 1,
+    explanation: 'PTR records provide reverse DNS lookup — mapping an IP address back to a hostname. The IP is written in reverse octets and appended with .in-addr.arpa (e.g., 93.184.216.34 becomes 34.216.184.93.in-addr.arpa). Mail servers use PTR records to verify that a sending IP matches the expected hostname.',
+  },
+  {
+    id: 'dns-q7',
+    question: 'Where does a Docker container on a bridge network send DNS queries to resolve other container service names?',
+    options: ['To the host machine DNS resolver at 127.0.0.1', 'To the public DNS server 8.8.8.8 configured in /etc/resolv.conf', 'To Docker embedded DNS resolver at 127.0.0.11', 'To the first container in the network which acts as a nameserver'],
+    correctIndex: 2,
+    explanation: 'Docker injects an embedded DNS resolver at 127.0.0.11 into every container on a bridge network. When a container queries for another service by name (e.g., db), Docker embedded resolver intercepts the query and returns the target container IP. This is visible in /etc/resolv.conf inside any Docker container.',
+  },
+  {
+    id: 'dns-q8',
+    question: 'What is the first file the OS checks before querying any DNS server when resolving a hostname?',
+    options: ['/etc/resolv.conf', '/etc/hosts', '/etc/nsswitch.conf', '/etc/network/interfaces'],
+    correctIndex: 1,
+    explanation: 'The OS resolver checks /etc/hosts before making any DNS queries. If a matching entry is found there (e.g., 127.0.0.1 localhost), it is used immediately with no network lookup needed. /etc/resolv.conf specifies which DNS servers to query when /etc/hosts does not have an answer.',
+  },
+  {
+    id: 'dns-q9',
+    question: 'Which DNS record type would you query to find the mail servers responsible for delivering email to a domain?',
+    options: ['A', 'TXT', 'MX', 'NS'],
+    correctIndex: 2,
+    explanation: 'MX (Mail Exchange) records identify the mail servers for a domain, along with a priority number. Lower priority numbers are tried first. If the primary mail server is down, the sender retries at the next-highest priority MX. A records map hostnames to IPs; NS records identify authoritative nameservers for a zone.',
+  },
+  {
+    id: 'dns-q10',
+    question: 'What dig flag queries a specific DNS server instead of the one in /etc/resolv.conf?',
+    options: ['-s', '+server', '@<server>', '-r'],
+    correctIndex: 2,
+    explanation: 'Prefixing a server address with @ (e.g., dig @8.8.8.8 example.com) sends the query directly to that specific resolver, bypassing whatever is configured in /etc/resolv.conf. This is essential for testing whether a particular DNS server has the correct record and for comparing different resolvers during DNS migrations.',
+  },
+]

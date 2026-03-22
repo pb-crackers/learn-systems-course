@@ -334,3 +334,76 @@ When you reach Phase 4 (Docker), you will run `ip link show` on the host and see
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'net-q1',
+    question: 'What is the fundamental unit of data at the data-link layer (Layer 2)?',
+    options: ['Packet', 'Segment', 'Frame', 'Datagram'],
+    correctIndex: 2,
+    explanation: 'An Ethernet frame is the fundamental unit at Layer 2. It contains destination and source MAC addresses, an EtherType field, a payload (typically an IP packet), and a Frame Check Sequence checksum. Packets are the Layer 3 unit and segments belong to the transport layer.',
+  },
+  {
+    id: 'net-q2',
+    question: 'A switch receives a frame destined for a MAC address that is not in its MAC address table. What does the switch do?',
+    options: ['Drops the frame silently', 'Sends the frame back to the source', 'Floods the frame out every port except the incoming port', 'Asks the router for the correct port'],
+    correctIndex: 2,
+    explanation: 'When a destination MAC is unknown, the switch floods the frame out every port except the one it arrived on. The correct device responds, and the switch learns its port by inspecting the source MAC of the reply. This is how the MAC address table is built over time.',
+  },
+  {
+    id: 'net-q3',
+    question: 'What makes MAC addresses different from IP addresses in terms of their scope?',
+    options: ['MAC addresses are 4 bytes; IP addresses are 6 bytes', 'MAC addresses are only meaningful within a single network segment and do not route across the internet', 'MAC addresses are assigned by the ISP; IP addresses are burned into hardware', 'MAC addresses change at every router hop; IP addresses stay constant per segment'],
+    correctIndex: 1,
+    explanation: 'MAC addresses are local identifiers — they are only meaningful within a single network segment and never traverse router boundaries. IP addresses are what identify a host globally and travel unchanged across multiple networks. This is why the IP packet stays intact while the Ethernet frame is rebuilt at every router hop.',
+  },
+  {
+    id: 'net-q4',
+    question: 'Which layer device makes forwarding decisions based on IP addresses rather than MAC addresses?',
+    options: ['Hub', 'Switch', 'Router', 'Bridge'],
+    correctIndex: 2,
+    explanation: 'A router is a Layer 3 device that reads the destination IP address in each packet and consults its routing table to determine the next hop. A switch operates at Layer 2 and makes forwarding decisions based on MAC addresses within a single network segment.',
+  },
+  {
+    id: 'net-q5',
+    question: 'What is the purpose of the FCS (Frame Check Sequence) field in an Ethernet frame?',
+    options: ['It identifies the manufacturer of the network card', 'It specifies the maximum payload size', 'It is a CRC checksum used to detect frames corrupted during transmission', 'It carries the VLAN tag for traffic segmentation'],
+    correctIndex: 2,
+    explanation: 'The FCS is a CRC (Cyclic Redundancy Check) computed over the frame contents. If a frame is corrupted in transit, the receiving device recomputes the checksum — if it does not match the FCS, the frame is silently discarded. This provides error detection at the data-link layer.',
+  },
+  {
+    id: 'net-q6',
+    question: 'When Host A wants to send a packet to Host B on a different subnet, what does Host A use as the destination MAC address in the Ethernet frame?',
+    options: ['Host B MAC address', 'The broadcast MAC ff:ff:ff:ff:ff:ff', 'The default gateway (router) MAC address', 'Host A own MAC address'],
+    correctIndex: 2,
+    explanation: 'When the destination IP is on a different subnet, Host A cannot reach it directly via Layer 2. Host A sets the frame destination MAC to its default gateway (router), which receives the frame, strips it, reads the IP packet, and forwards it toward the destination. The IP destination address remains Host B throughout.',
+  },
+  {
+    id: 'net-q7',
+    question: 'What protocol does a host use to discover the MAC address of another host on the same subnet?',
+    options: ['ICMP', 'DNS', 'ARP', 'DHCP'],
+    correctIndex: 2,
+    explanation: 'ARP (Address Resolution Protocol) maps IP addresses to MAC addresses on the local subnet. A host broadcasts an ARP request asking "who has this IP?" and the target responds with a unicast ARP reply containing its MAC address. The result is cached in the ARP table for a short TTL.',
+  },
+  {
+    id: 'net-q8',
+    question: 'What does the EtherType field value 0x0800 in an Ethernet frame indicate?',
+    options: ['The frame carries an ARP request', 'The frame payload is an IPv4 packet', 'The frame carries an IPv6 packet', 'The frame is a VLAN-tagged frame'],
+    correctIndex: 1,
+    explanation: 'EtherType 0x0800 indicates the frame payload is an IPv4 packet. Other common values are 0x0806 for ARP and 0x86DD for IPv6. The EtherType field tells the receiving network stack which protocol is encapsulated in the frame so it knows how to process the payload.',
+  },
+  {
+    id: 'net-q9',
+    question: 'What is the key difference between a collision domain and a broadcast domain on a switch?',
+    options: ['Each port on a switch is its own collision domain, but the entire switch is one broadcast domain', 'The entire switch is one collision domain, but each port is its own broadcast domain', 'A switch has one collision domain and one broadcast domain per VLAN', 'Collision domains and broadcast domains are the same concept on modern switches'],
+    correctIndex: 0,
+    explanation: 'Each port on a switch is its own collision domain because only one device connects per port, eliminating collisions. However, the entire switch forms a single broadcast domain — all ports receive any frame with a broadcast destination MAC (ff:ff:ff:ff:ff:ff). VLANs can further divide a switch into multiple broadcast domains.',
+  },
+  {
+    id: 'net-q10',
+    question: 'When a packet travels from Host A through two routers to reach Host B, what changes at each router hop?',
+    options: ['Both the source/destination MAC addresses and the source/destination IP addresses change', 'The source and destination MAC addresses change, but the source and destination IP addresses stay the same', 'The source and destination IP addresses change, but the MAC addresses stay the same', 'Only the TTL field changes; MAC and IP addresses remain constant throughout'],
+    correctIndex: 1,
+    explanation: 'At each router hop, the old Ethernet frame is stripped and a new one is created for the next network segment — so the MAC addresses change at every hop to reflect the local next-hop. The IP packet inside is forwarded unchanged; the source and destination IP addresses remain the same end-to-end. Only the TTL decrements alongside the frame replacement.',
+  },
+]

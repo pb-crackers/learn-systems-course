@@ -435,3 +435,62 @@ Everything you just learned — bridge networks, container DNS, IP routing, port
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'netdbg-q1',
+    question: 'ping app-server succeeds with 0% packet loss, but curl -v --connect-timeout 5 http://app-server/ times out. What layer does this narrow the problem to, and what tool should you use next?',
+    options: ['Layer 3 (routing) — run traceroute to find the broken hop', 'Layer 4 or firewall — run ss -tlnp on app-server to check if anything is listening on port 80', 'Layer 7 (application) — check the app server logs with journalctl', 'Layer 2 (link) — run ip link show to check the interface state'],
+    correctIndex: 1,
+    explanation: 'Successful ping rules out Layer 3 routing problems — the host is reachable. curl timeout on port 80 means either the service is not listening or a firewall is blocking TCP port 80 while allowing ICMP. The next step is ss -tlnp on app-server to check whether a process is actually bound to port 80. If ss shows nothing listening, the service is down; if it shows a listener, the problem is a firewall blocking the port.',
+  },
+  {
+    id: 'netdbg-q2',
+    question: 'tcpdump on the client shows SYN packets leaving eth0, but tcpdump on the server shows no packets arriving. What does this tell you about where the fault is?',
+    options: ['The application on the server crashed after receiving the SYN', 'The fault is between the two containers in the network infrastructure (routing, Docker network, or iptables on the host)', 'The client is sending SYN to the wrong port', 'The server interface is up but the service is bound to 127.0.0.1'],
+    correctIndex: 1,
+    explanation: 'If the client tcpdump confirms the SYN leaves eth0 but the server tcpdump sees nothing, the packet is being dropped in the network path between them — not at either endpoint. This indicates a network infrastructure problem: misconfigured Docker network, host-level iptables FORWARD rules, or containers on separate networks that are not connected. Application and service configuration are ruled out since the packet never arrives.',
+  },
+  {
+    id: 'netdbg-q3',
+    question: 'curl returns "Connection refused" on port 8080. ss -tlnp on the server shows nothing listening on that port. What is the most likely cause?',
+    options: ['A firewall is blocking port 8080 with a DROP rule', 'The service is not running or started on a different port', 'DNS is failing to resolve the service hostname', 'The TCP connection was established but the server closed it immediately'],
+    correctIndex: 1,
+    explanation: 'Connection refused means the kernel sent back a TCP RST — something received the SYN and immediately rejected it. This happens when no process is bound to that port. Since ss confirms nothing is listening, the service has crashed, failed to start, or launched on a different port. A firewall DROP would produce a timeout, not a refused response.',
+  },
+  {
+    id: 'netdbg-q4',
+    question: 'traceroute shows * * * at hop 3 but the final destination (hop 5) responds normally. What should you conclude?',
+    options: ['There is a routing problem at hop 3 that needs to be fixed', 'The intermediate router at hop 3 dropped the connection', 'The * * * at hop 3 is normal — that router filters ICMP Time Exceeded but still forwards packets', 'The connection has high packet loss between hops 3 and 5'],
+    correctIndex: 2,
+    explanation: 'Many routers deprioritize or filter ICMP Time Exceeded responses while still forwarding regular traffic normally. If the final destination is reachable (shows a response with RTT), the path is working. Intermediate * * * hops are irrelevant when the final hop responds. Only when traceroute stops at a specific hop and cannot reach the destination should you investigate that router as the fault point.',
+  },
+  {
+    id: 'netdbg-q5',
+    question: 'ss -tlnp shows your web server listening on 127.0.0.1:80. External users report they cannot connect. What is the problem and what is the fix?',
+    options: ['The firewall is blocking port 80 — add an iptables rule to allow it', 'The service is bound to loopback only and cannot accept external connections — it must be reconfigured to listen on 0.0.0.0:80', 'Port 80 is a privileged port and requires the server to run as root', 'The service is using the wrong protocol — it should be on port 443 instead'],
+    correctIndex: 1,
+    explanation: 'Listening on 127.0.0.1 binds the service to the loopback interface only. Connections from outside the machine — including from other containers on the same Docker network — cannot reach the loopback address. The service must be configured to listen on 0.0.0.0 (all interfaces) or the specific external IP to accept remote connections.',
+  },
+  {
+    id: 'netdbg-q6',
+    question: 'When running tcpdump on a busy production server, why should you always specify a port or host filter?',
+    options: ['Unfiltered tcpdump causes the kernel to drop packets it cannot process', 'Without a filter, tcpdump floods your terminal at hundreds of lines per second making output unreadable and unhelpful', 'Unfiltered tcpdump modifies packet headers and can break active connections', 'Filters are required by tcpdump syntax and it will fail without one'],
+    correctIndex: 1,
+    explanation: 'On a busy production server handling many connections per second, unfiltered tcpdump generates so much output so fast that you cannot identify the relevant packets. Always narrow the capture with at least a port filter (port 80) or host filter (host myserver). The -c N flag also helps by automatically stopping after N packets so you get a manageable snapshot.',
+  },
+  {
+    id: 'netdbg-q7',
+    question: 'curl returns "Could not resolve host api.example.com". What is the most likely layer and next diagnostic step?',
+    options: ['Layer 4 (transport) — check ss -tlnp to see if the service is listening', 'Layer 3 (network) — run ping api.example.com to test routing', 'DNS layer — run dig api.example.com or check /etc/resolv.conf to diagnose name resolution', 'Layer 7 (application) — the server is returning an error that curl interprets as a hostname failure'],
+    correctIndex: 2,
+    explanation: '"Could not resolve host" is a DNS failure — the OS resolver could not translate the hostname to an IP address. The TCP connection was never attempted. The next step is dig api.example.com to check whether the DNS lookup works and what record is returned, and checking /etc/resolv.conf to confirm the configured DNS server is reachable.',
+  },
+  {
+    id: 'netdbg-q8',
+    question: 'tcpdump shows a pattern of SYN followed by RST for connections to port 5432. What does the RST flag indicate?',
+    options: ['The three-way handshake completed successfully and the connection was gracefully closed', 'The port is closed — nothing is listening on it and the kernel immediately rejected the connection attempt', 'A firewall rule is dropping the packets silently', 'The server received the SYN but took too long to respond'],
+    correctIndex: 1,
+    explanation: 'A TCP RST (reset) is the kernel response when a SYN arrives on a port with no listener. The kernel immediately sends RST to tell the client there is nothing there. This is different from a firewall DROP, which shows repeated SYN with no response at all (timeout). An RST points to a missing service, not a firewall issue.',
+  },
+]
