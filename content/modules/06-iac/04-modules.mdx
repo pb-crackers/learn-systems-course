@@ -358,3 +358,114 @@ OpenTofu registers each module call (frontend + api both using `web-container`),
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "tfmod-q1",
+    question: "You call the same child module twice from your root main.tf, once labeled \"frontend\" and once labeled \"api\". How many total resources does tofu plan show if the child module creates 2 resources (one image and one container)?",
+    options: [
+      "2 resources, because both calls share the same child module implementation",
+      "3 resources, because OpenTofu deduplicates the shared docker_image",
+      "4 resources, because each module call creates its own set of 2 resources",
+      "1 resource, because the module block is a single declaration"
+    ],
+    correctIndex: 2,
+    explanation: "Each module call is independent. Calling a child module twice with different labels (frontend and api) runs the module's logic twice, creating a separate set of resources for each call. Two calls to a module with 2 resources each results in 4 total resources to create.",
+  },
+  {
+    id: "tfmod-q2",
+    question: "What is the difference between a root module and a child module?",
+    options: [
+      "Root modules use HCL while child modules use JSON syntax",
+      "Root modules are in the cloud registry while child modules are local",
+      "The root module is the directory where you run tofu apply and owns the terraform{} block; child modules are called via module blocks and inherit providers",
+      "Root modules can only have one resource while child modules can have many"
+    ],
+    correctIndex: 2,
+    explanation: "The root module is the working directory where you run tofu init, plan, and apply. It declares the terraform{} block with required_providers and the provider{} configuration. Child modules are referenced via module blocks and do not declare their own terraform{} or provider{} blocks — they inherit providers from their caller.",
+  },
+  {
+    id: "tfmod-q3",
+    question: "Where does the state file live when using modules?",
+    options: [
+      "In each child module directory alongside that module's resources",
+      "In the root module directory, tracking all resources from all called modules",
+      "In a separate .terraform/state/ directory created by tofu init",
+      "In each module's outputs.tf to track what was created"
+    ],
+    correctIndex: 1,
+    explanation: "State always lives in the root module. The root module's terraform.tfstate tracks every resource created by every module it calls, using the full module path as a namespace prefix (e.g., module.frontend.docker_container.container). Child modules do not have their own state files.",
+  },
+  {
+    id: "tfmod-q4",
+    question: "After running tofu apply with two module calls (frontend and api), you add a third module call for a new service. What does tofu plan show for the existing frontend and api resources?",
+    options: [
+      "All existing resources are shown as destroyed and recreated because the configuration changed",
+      "The existing resources show no changes, only the new service resources are shown as additions",
+      "OpenTofu errors because you cannot add modules after the first apply",
+      "The existing resources are marked for update to account for the new module dependency"
+    ],
+    correctIndex: 1,
+    explanation: "OpenTofu always computes the diff between the full desired state and the current state. Adding a new module call only changes what the new module declares — the existing frontend and api modules are unchanged in the HCL, so their resources show no changes in the plan. Only the new service resources appear as additions.",
+  },
+  {
+    id: "tfmod-q5",
+    question: "How do you access the container_id output from a module called \"frontend\" in the root module?",
+    options: [
+      "frontend.container_id",
+      "output.frontend.container_id",
+      "module.frontend.container_id",
+      "var.frontend.container_id"
+    ],
+    correctIndex: 2,
+    explanation: "Module outputs are accessed using the module.LABEL.output_name syntax. If you called a module with module \"frontend\" { ... } and the child module declares output \"container_id\" {}, you access it as module.frontend.container_id in the root module. This syntax also works to pass one module's output as input to another module.",
+  },
+  {
+    id: "tfmod-q6",
+    question: "A child module's resource is named docker_container.container in its main.tf. When called as module \"frontend\" from the root module, what is the full resource address in tofu state list?",
+    options: [
+      "docker_container.container",
+      "frontend.docker_container.container",
+      "module.frontend.docker_container.container",
+      "root.module.frontend.docker_container.container"
+    ],
+    correctIndex: 2,
+    explanation: "OpenTofu uses the full module path as a namespace prefix in all resource addresses. A resource named docker_container.container inside a module called as module \"frontend\" has the full address module.frontend.docker_container.container. This namespacing allows both frontend and api calls to use the same child module with the same internal resource names without state conflicts.",
+  },
+  {
+    id: "tfmod-q7",
+    question: "Which part of a child module is analogous to a function signature in programming?",
+    options: [
+      "The main.tf file, which contains the implementation logic",
+      "The outputs.tf file, which defines the return values",
+      "The variables.tf file, which defines the inputs the module accepts",
+      "The terraform{} block, which declares the module version"
+    ],
+    correctIndex: 2,
+    explanation: "The child module's variables.tf defines its interface — the inputs the caller must or can optionally provide. Variables without defaults are required. This maps directly to a function signature: callers must pass required arguments and may omit optional ones. The main.tf is the implementation and outputs.tf is the return value.",
+  },
+  {
+    id: "tfmod-q8",
+    question: "You add a version = \"5.5.2\" constraint to a registry module source. What does this pin to?",
+    options: [
+      "It allows any version 5.x.x or higher",
+      "It allows patch updates within 5.5.x but not minor version changes",
+      "It requires exactly version 5.5.2 of that module",
+      "It sets the minimum version but allows any newer version"
+    ],
+    correctIndex: 2,
+    explanation: "A bare version string like \"5.5.2\" in a module or provider version constraint pins to that exact version. No newer or older version is acceptable. To allow patch updates you would use \"~> 5.5.2\", and to allow minor updates you would use \"~> 5.5\". Exact pinning removes all version ambiguity.",
+  },
+  {
+    id: "tfmod-q9",
+    question: "Why should you start with local modules before using registry modules when learning?",
+    options: [
+      "Registry modules are incompatible with Docker providers",
+      "Local modules run faster because they do not require a network download",
+      "Local modules let you read every .tf file to understand exactly what they create, while registry modules hide the implementation",
+      "Registry modules require a paid OpenTofu account to use"
+    ],
+    correctIndex: 2,
+    explanation: "Local modules (source = \"./modules/name\") are stored in your repository and fully transparent — you can read every resource, variable, and output. Registry modules download their implementation during tofu init, making them harder to inspect and debug when learning. Understanding the internals first makes using registry modules safer and more effective.",
+  },
+]

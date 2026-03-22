@@ -271,3 +271,114 @@ OpenTofu uses the `tofu` CLI command. Terraform uses `terraform`. The syntax, fi
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "iac-q1",
+    question: "What is the core distinction between imperative and declarative infrastructure management?",
+    options: [
+      "Imperative uses files while declarative uses commands",
+      "Imperative describes the desired end state while declarative issues sequential steps",
+      "Declarative describes the desired end state and the tool computes how to get there",
+      "Declarative requires more commands than imperative to make the same change"
+    ],
+    correctIndex: 2,
+    explanation: "Declarative IaC lets you describe what you want to exist and the tool figures out how to get there. Imperative scripting requires you to write the sequence of commands yourself, which means you must track current state and handle transitions manually.",
+  },
+  {
+    id: "iac-q2",
+    question: "What happens if you run an imperative shell script a second time when the resources it creates already exist?",
+    options: [
+      "The script skips existing resources automatically and continues",
+      "The script fails with errors because the resources already exist",
+      "The script updates the existing resources to match the script",
+      "The script destroys the existing resources and re-creates them"
+    ],
+    correctIndex: 1,
+    explanation: "Imperative scripts issue commands like 'docker run' sequentially and fail with errors (such as 'container already exists') when run again on already-created resources. Scripts are not idempotent because they do not check current state before executing.",
+  },
+  {
+    id: "iac-q3",
+    question: "What does the tofu plan command do?",
+    options: [
+      "It initializes the working directory and downloads providers",
+      "It immediately creates or modifies infrastructure based on your HCL",
+      "It reads your HCL and current state, then shows a preview of changes without touching anything",
+      "It validates HCL syntax without connecting to any infrastructure"
+    ],
+    correctIndex: 2,
+    explanation: "tofu plan is a safe, read-only operation that computes the diff between your HCL desired state and the current real state, then displays exactly what will be created, modified, or destroyed. Nothing changes until you run tofu apply.",
+  },
+  {
+    id: "iac-q4",
+    question: "What is the purpose of the terraform.tfstate file?",
+    options: [
+      "It stores the HCL configuration you want to apply next",
+      "It maps each HCL resource block to a real-world infrastructure object ID",
+      "It logs every tofu plan and tofu apply command ever run",
+      "It stores provider credentials and API keys"
+    ],
+    correctIndex: 1,
+    explanation: "terraform.tfstate is OpenTofu's memory of the world. It maps every HCL resource block to the real infrastructure ID (like a Docker container ID) that was created. Without this file, OpenTofu cannot distinguish between resources it created and resources created by someone else.",
+  },
+  {
+    id: "iac-q5",
+    question: "What is infrastructure drift?",
+    options: [
+      "When OpenTofu applies changes to the wrong environment",
+      "When the state file grows too large and needs to be compacted",
+      "When real infrastructure diverges from desired state because someone changed it outside OpenTofu",
+      "When a provider version changes and makes HCL configuration incompatible"
+    ],
+    correctIndex: 2,
+    explanation: "Drift occurs when someone modifies infrastructure outside of OpenTofu (for example, manually stopping a container or changing a firewall rule in the cloud console). On every tofu plan run, OpenTofu queries the actual infrastructure and detects any difference from the state file.",
+  },
+  {
+    id: "iac-q6",
+    question: "If someone manually stops a Docker container that OpenTofu manages, what does the next tofu plan show?",
+    options: [
+      "No changes, because OpenTofu only tracks containers it created",
+      "An error message saying the state file is corrupted",
+      "A plan to add a new container alongside the stopped one",
+      "A -/+ symbol indicating the container must be destroyed and recreated"
+    ],
+    correctIndex: 3,
+    explanation: "When tofu plan refreshes infrastructure state, it detects that the container is stopped rather than running. The Docker provider models a container's running state as part of its required attributes, so OpenTofu plans a destroy-and-recreate operation shown with the -/+ symbol.",
+  },
+  {
+    id: "iac-q7",
+    question: "OpenTofu is a fork of which tool, and why was it created?",
+    options: [
+      "Ansible, because Ansible changed to a paid-only license",
+      "Pulumi, because Pulumi dropped support for HCL syntax",
+      "Terraform, because HashiCorp changed from MPL to the Business Source License",
+      "Chef, because Chef required an internet connection for all operations"
+    ],
+    correctIndex: 2,
+    explanation: "HashiCorp changed Terraform's license from the Mozilla Public License (MPL-2.0) to the Business Source License (BSL) in August 2023, which restricts commercial use. The community forked Terraform as OpenTofu under the Linux Foundation, maintaining the original MPL-2.0 license and 1:1 HCL and CLI compatibility.",
+  },
+  {
+    id: "iac-q8",
+    question: "Which CLI command name does OpenTofu use instead of terraform?",
+    options: [
+      "opentofu",
+      "tofu",
+      "ot",
+      "tf"
+    ],
+    correctIndex: 1,
+    explanation: "OpenTofu uses the tofu binary name. All commands map directly: tofu plan instead of terraform plan, tofu apply instead of terraform apply, and so on. The HCL syntax and file structure are identical between the two tools.",
+  },
+  {
+    id: "iac-q9",
+    question: "What is the correct order of the standard OpenTofu workflow?",
+    options: [
+      "tofu apply -> tofu plan -> tofu init",
+      "tofu init -> tofu apply -> tofu plan",
+      "tofu plan -> tofu init -> tofu apply",
+      "tofu init -> tofu plan -> tofu apply"
+    ],
+    correctIndex: 3,
+    explanation: "The correct order is init, then plan, then apply. tofu init must run first in any new directory to download providers. tofu plan previews changes safely. tofu apply executes the plan and updates the state file.",
+  },
+]

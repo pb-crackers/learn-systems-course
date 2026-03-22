@@ -428,3 +428,126 @@ output "container_name" {
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "hcl-q1",
+    question: "When you run tofu plan in a directory with multiple .tf files, which files does OpenTofu process?",
+    options: [
+      "Only the file named main.tf",
+      "Only main.tf and variables.tf",
+      "All .tf files in the directory, merged into a single configuration",
+      "The file specified in a required_entry block"
+    ],
+    correctIndex: 2,
+    explanation: "OpenTofu has no single entry point. It reads every .tf file in the working directory and merges them into one configuration. The split into main.tf, variables.tf, and outputs.tf is a convention for organization, not a technical requirement.",
+  },
+  {
+    id: "hcl-q2",
+    question: "What is the purpose of the terraform {} block in a configuration?",
+    options: [
+      "It declares the variables the configuration accepts",
+      "It declares which providers are required and pins their versions and sources",
+      "It configures the remote backend for state storage",
+      "It defines the output values the configuration exposes"
+    ],
+    correctIndex: 1,
+    explanation: "The terraform {} block with required_providers declares which provider plugins the configuration needs, where to download them (source), and which version to use. tofu init reads this block to download the correct provider binaries.",
+  },
+  {
+    id: "hcl-q3",
+    question: "In a resource block like resource \"docker_container\" \"web\" {}, what does \"web\" represent?",
+    options: [
+      "The Docker image name to run",
+      "The provider type that manages this resource",
+      "A local label you choose to reference this resource elsewhere in the configuration",
+      "The hostname assigned to the container"
+    ],
+    correctIndex: 2,
+    explanation: "In the block structure resource \"TYPE\" \"NAME\" {}, the NAME is a local label you choose. It has no effect on the real infrastructure name but allows you to reference the resource elsewhere using syntax like docker_container.web.id.",
+  },
+  {
+    id: "hcl-q4",
+    question: "What does docker_image.nginx.image_id mean in an HCL resource block?",
+    options: [
+      "It calls a function named docker_image with arguments nginx and image_id",
+      "It references the image_id attribute of the docker_image resource named nginx",
+      "It declares a new variable called docker_image.nginx.image_id",
+      "It specifies the Docker Hub namespace for the nginx image"
+    ],
+    correctIndex: 1,
+    explanation: "This is a resource reference using the TYPE.NAME.attribute syntax. It reads the image_id attribute from the docker_image resource labeled nginx. OpenTofu uses these references to infer dependency order and creates the image resource before the container that depends on it.",
+  },
+  {
+    id: "hcl-q5",
+    question: "How do you reference the value of an input variable named external_port in HCL?",
+    options: [
+      "external_port",
+      "${external_port}",
+      "var.external_port",
+      "input.external_port"
+    ],
+    correctIndex: 2,
+    explanation: "Variables are referenced with the var. prefix followed by the variable name. For example, var.external_port reads the value of the variable declared in a variable \"external_port\" {} block. This syntax works anywhere a value is expected in HCL.",
+  },
+  {
+    id: "hcl-q6",
+    question: "What is the highest-priority method for setting a variable value in OpenTofu?",
+    options: [
+      "The default value in the variable block",
+      "A TF_VAR_ environment variable",
+      "A terraform.tfvars file",
+      "The -var flag on the command line"
+    ],
+    correctIndex: 3,
+    explanation: "The -var flag on the command line has the highest priority and overrides all other sources. The priority order from highest to lowest is: -var flag, .tfvars file, TF_VAR_ environment variable, then the default value in the variable block.",
+  },
+  {
+    id: "hcl-q7",
+    question: "What does the validation block inside a variable declaration do?",
+    options: [
+      "It validates the HCL syntax before running tofu init",
+      "It checks the variable value before tofu apply and rejects invalid values with an error message",
+      "It validates the provider schema matches the declared resource types",
+      "It verifies the variable is not empty or null"
+    ],
+    correctIndex: 1,
+    explanation: "The validation block contains a condition expression and an error_message. OpenTofu evaluates the condition before applying any infrastructure changes and rejects the input with the specified error_message if the condition is false. This catches invalid values like a privileged port number before infrastructure is touched.",
+  },
+  {
+    id: "hcl-q8",
+    question: "What happens when you run tofu init?",
+    options: [
+      "It previews the infrastructure changes without downloading anything",
+      "It creates the terraform.tfstate file",
+      "It downloads provider binaries into a .terraform/ directory",
+      "It formats all .tf files to canonical HCL style"
+    ],
+    correctIndex: 2,
+    explanation: "tofu init reads the required_providers block and downloads the specified provider binaries into the .terraform/ directory. This must be run before tofu plan or tofu apply in any new directory. The .terraform/ directory should be added to .gitignore because it contains large, platform-specific binaries.",
+  },
+  {
+    id: "hcl-q9",
+    question: "What is the purpose of output blocks in an OpenTofu configuration?",
+    options: [
+      "They declare variables that other resources inside the same file can read",
+      "They specify which log files OpenTofu should write to during apply",
+      "They expose values from the configuration after apply, accessible via tofu output",
+      "They define the provider connection settings and credentials"
+    ],
+    correctIndex: 2,
+    explanation: "Output blocks expose values from the configuration after tofu apply completes. They are printed to the terminal and can be queried with tofu output NAME. Outputs are also essential for module composition, where a calling module reads a child module's output values.",
+  },
+  {
+    id: "hcl-q10",
+    question: "Why does the docker_container resource set keep_locally = true on the docker_image resource it depends on?",
+    options: [
+      "It prevents tofu plan from querying Docker Hub for the image digest",
+      "It caches the image in the state file for faster future applies",
+      "It tells the Docker provider not to delete the local image when tofu destroy runs",
+      "It pins the image to the locally pulled version instead of pulling a newer one"
+    ],
+    correctIndex: 2,
+    explanation: "keep_locally = true on a docker_image resource tells the Docker provider to leave the local image intact when tofu destroy removes the container. Without this, running tofu destroy would also delete the nginx image from your local Docker cache, which is typically not what you want.",
+  },
+]

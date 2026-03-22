@@ -93,3 +93,114 @@ All OpenTofu commands, HCL syntax patterns, state management concepts, and modul
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "iac-ref-q1",
+    question: "Which command must you always run first in a new OpenTofu directory before any other tofu commands?",
+    options: [
+      "tofu validate",
+      "tofu fmt",
+      "tofu init",
+      "tofu plan"
+    ],
+    correctIndex: 2,
+    explanation: "tofu init must run first in any new working directory. It downloads the provider binaries declared in required_providers into the .terraform/ directory. Without init, tofu plan and tofu apply will fail because no provider plugins are present.",
+  },
+  {
+    id: "iac-ref-q2",
+    question: "What does tofu fmt do?",
+    options: [
+      "It validates that all resource blocks reference valid provider schema types",
+      "It formats .tf files to canonical HCL style, modifying files in place",
+      "It shows a formatted summary of the planned infrastructure changes",
+      "It formats the state file into a human-readable table"
+    ],
+    correctIndex: 1,
+    explanation: "tofu fmt reads all .tf files in the current directory and rewrites them to the canonical HCL formatting style (consistent indentation, alignment, etc.). It modifies the files in place. Running tofu fmt before committing to version control ensures consistent formatting across the codebase.",
+  },
+  {
+    id: "iac-ref-q3",
+    question: "What is the difference between tofu validate and tofu plan?",
+    options: [
+      "validate checks syntax only without connecting to infrastructure; plan queries real infrastructure to compute a diff",
+      "validate connects to infrastructure while plan only checks local files",
+      "validate shows what will be destroyed; plan shows what will be created",
+      "validate runs after apply; plan runs before apply"
+    ],
+    correctIndex: 0,
+    explanation: "tofu validate checks HCL syntax and provider schema validity entirely locally — it does not connect to any infrastructure. tofu plan actually queries real infrastructure during the refresh cycle to compute the exact diff. validate is fast and safe to run offline; plan requires connectivity to your infrastructure provider.",
+  },
+  {
+    id: "iac-ref-q4",
+    question: "In the plan output symbols, what does a + symbol before a resource mean?",
+    options: [
+      "The resource will be updated in place",
+      "The resource will be created",
+      "The resource will be destroyed",
+      "The resource already exists and requires no changes"
+    ],
+    correctIndex: 1,
+    explanation: "In tofu plan output, + (green) means the resource will be created. ~ (yellow) means the resource will be updated in place. - (red) means the resource will be destroyed. -/+ means the resource will be destroyed and recreated. These symbols give you a precise audit of what will happen before you confirm.",
+  },
+  {
+    id: "iac-ref-q5",
+    question: "What does the tofu output command do?",
+    options: [
+      "It runs tofu plan and displays the output in a simplified format",
+      "It shows the contents of the terraform.tfstate file",
+      "It queries and displays the output values defined in outputs.tf after a completed apply",
+      "It lists all provider output resource types available for the current configuration"
+    ],
+    correctIndex: 2,
+    explanation: "tofu output displays the output values that were computed during the last tofu apply. You can run tofu output to see all outputs, or tofu output NAME to see a specific value. Outputs are also available via module.LABEL.output_name syntax when composing modules.",
+  },
+  {
+    id: "iac-ref-q6",
+    question: "What is the syntax for referencing an input variable named container_name in HCL?",
+    options: [
+      "input.container_name",
+      "variable.container_name",
+      "${container_name}",
+      "var.container_name"
+    ],
+    correctIndex: 3,
+    explanation: "Input variables are always referenced with the var. prefix: var.container_name. This works anywhere a value is expected in HCL. The variable must be declared with a variable \"container_name\" {} block, either in variables.tf or any other .tf file in the same directory.",
+  },
+  {
+    id: "iac-ref-q7",
+    question: "What happens if you run tofu apply without running tofu plan first?",
+    options: [
+      "OpenTofu errors and requires you to run plan first",
+      "OpenTofu internally runs plan and then applies immediately, showing the plan output before prompting for confirmation",
+      "OpenTofu applies the last plan output that was cached",
+      "OpenTofu skips the plan step and applies blindly without showing a diff"
+    ],
+    correctIndex: 1,
+    explanation: "tofu apply always performs an internal plan before applying. It shows you the planned changes and prompts 'Do you want to perform these actions?' before proceeding. Running plan separately first is still recommended because it lets you review changes before entering the apply flow, especially in CI pipelines where you can save a plan file.",
+  },
+  {
+    id: "iac-ref-q8",
+    question: "Which block type in HCL is used to declare a piece of infrastructure you want OpenTofu to manage?",
+    options: [
+      "provider",
+      "variable",
+      "resource",
+      "output"
+    ],
+    correctIndex: 2,
+    explanation: "The resource block declares a piece of managed infrastructure: resource \"TYPE\" \"NAME\" { ... }. The TYPE comes from the provider (like docker_container from the Docker provider) and the NAME is your local label. provider blocks configure provider connections, variable blocks declare inputs, and output blocks expose values.",
+  },
+  {
+    id: "iac-ref-q9",
+    question: "What is the relationship between the tofu destroy command and the state file?",
+    options: [
+      "tofu destroy deletes the state file after destroying all resources",
+      "tofu destroy reads the state file to find all managed resources, destroys them, then clears the state",
+      "tofu destroy ignores the state file and deletes all Docker containers on the system",
+      "tofu destroy backs up the state file before running and restores it after"
+    ],
+    correctIndex: 1,
+    explanation: "tofu destroy reads the state file to determine exactly which resources it is responsible for, then destroys only those resources, and updates the state file to reflect that they no longer exist. It does not destroy resources outside the state file. Always run tofu destroy after exercises to avoid leaving containers running.",
+  },
+]
