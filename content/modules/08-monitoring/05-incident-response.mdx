@@ -334,3 +334,62 @@ In the advanced capstone, you will put it all together. You will deploy a full a
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "ir-q1",
+    question: "An alert with for: 2m goes PENDING at 14:15 and the condition resolves at 14:16:45. The on-call engineer receives no page. Is this a monitoring failure?",
+    options: ["Yes — any PENDING alert that involves users should result in a page", "No — the for duration prevents notifications for transient spikes that resolve within the window; 1 minute 45 seconds is shorter than the required 2 minutes", "Yes — the PENDING state should always trigger a notification", "No — the alert was silenced by Alertmanager group_wait settings"],
+    correctIndex: 1,
+    explanation: "The for duration is intentional noise suppression. A spike that resolves in 1m45s never crosses the 2-minute threshold to become FIRING. This is working as designed. If real incidents are consistently being missed because they resolve before the for window, the correct fix is to reduce the for duration, not remove it.",
+  },
+  {
+    id: "ir-q2",
+    question: "What does Alertmanager's group_by configuration accomplish?",
+    options: ["It sorts alerts alphabetically before sending notifications", "Alerts with the same values for the specified labels are batched into a single notification, preventing hundreds of individual alert messages from a single bad deployment", "It routes different alert severities to different receivers", "It delays all notifications by the group_wait duration regardless of alert type"],
+    correctIndex: 1,
+    explanation: "group_by batches alerts sharing the same label values into a single grouped notification. Without it, a deployment causing 50 services to alert simultaneously would generate 50 individual pages. Grouping by alertname and severity produces at most one notification per alert type.",
+  },
+  {
+    id: "ir-q3",
+    question: "Your postmortem root cause reads: \"The engineer who deployed v2.3.1 did not catch the N+1 query during code review.\" A senior engineer asks you to rewrite it. What is wrong with this statement?",
+    options: ["It is too long — root cause should be a single sentence", "It assigns the cause to an individual action rather than a system failure; blameless postmortems focus on what system change would prevent recurrence, not who made a mistake", "It does not include the specific query that caused the problem", "The root cause section should only describe what failed, not who did it"],
+    correctIndex: 1,
+    explanation: "Blameless postmortems treat individual mistakes as symptoms of system failures. Given the same system and conditions, any engineer might make the same mistake. The correct framing identifies the system gap: the CI pipeline had no query-count regression test and the code review checklist did not require ORM query analysis for collection endpoints.",
+  },
+  {
+    id: "ir-q4",
+    question: "You have been debugging an incident for 35 minutes without progress. Your runbook specifies a 30-minute escalation threshold. What should you do?",
+    options: ["Continue debugging — escalating before resolution shows weakness", "Escalate immediately to the senior on-call engineer as specified in the runbook, since the time threshold exists to prevent one engineer from holding an incident alone", "Close the incident and reopen it as a new ticket with fresh context", "Wait for the repeat_interval to trigger another alert notification"],
+    correctIndex: 1,
+    explanation: "The escalation threshold in a runbook exists precisely for this situation. Holding an incident past the threshold extends the outage and exhausts the on-call engineer. Escalating is not failure — it is following the process that protects both the system and the team.",
+  },
+  {
+    id: "ir-q5",
+    question: "What is the purpose of repeat_interval in Alertmanager configuration?",
+    options: ["It defines how often Prometheus evaluates the alert expression", "It specifies how long to wait before re-sending a notification for an alert that is still FIRING, preventing silent long-running incidents", "It sets the cooldown period before the same alert can fire again", "It controls how often Alertmanager checks for new routes in its configuration"],
+    correctIndex: 1,
+    explanation: "Without repeat_interval, an alert that stays FIRING for hours after the initial notification would never generate another page. The repeat_interval (e.g., 1h) ensures the on-call engineer is reminded every hour that an active incident has not been resolved, preventing incidents from being silently forgotten.",
+  },
+  {
+    id: "ir-q6",
+    question: "A good runbook diagnosis section differs from a simple checklist in that it",
+    options: ["Lists more steps than a checklist", "Uses a decision tree structure — if check X shows Y, then root cause is Z — guiding the engineer through branching paths based on what they observe", "Includes shell commands to run automatically", "Is written by the on-call engineer during the incident rather than in advance"],
+    correctIndex: 1,
+    explanation: "A decision tree in the diagnosis section eliminates cognitive load during an incident by providing conditional paths: \"Is latency high on all routes or just one? If all routes, check saturation. If one route, check that route's specific query and dependencies.\" A flat checklist requires the engineer to evaluate all items regardless of what they find.",
+  },
+  {
+    id: "ir-q7",
+    question: "For the learning lab, Alertmanager is configured with a webhook receiver pointing to http://app:3000/alert-webhook. In production, what would you use instead?",
+    options: ["A different webhook URL on the same app container", "Notification channels like slack_configs or pagerduty_configs that route alerts to real communication and incident management platforms", "Email-only notifications to the entire engineering team", "The Prometheus UI built-in notification system"],
+    correctIndex: 1,
+    explanation: "The webhook-to-self pattern in the lab creates a visible notification path without requiring external credentials. Production configurations use slack_configs, pagerduty_configs, opsgenie_configs, or email_configs to route alerts to the actual on-call rotation and communication channels used by the engineering team.",
+  },
+  {
+    id: "ir-q8",
+    question: "What are the required four sections of a blameless postmortem?",
+    options: ["Alert rule, PromQL query, fix commit, and deployment timestamp", "Summary, timeline, root cause, and action items", "Symptoms, diagnosis, resolution, and escalation", "Incident ID, severity, duration, and assigned engineer"],
+    correctIndex: 1,
+    explanation: "A blameless postmortem contains a Summary (what failed and user impact), Timeline (chronological events from symptom to resolution), Root Cause (the system failure that allowed the incident), and Action Items (concrete, assignable tasks that prevent recurrence). The action items section is the highest-value output.",
+  },
+]

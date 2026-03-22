@@ -275,3 +275,62 @@ A dashboard with panels for all four golden signals gives you immediate insight 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "graf-q1",
+    question: "Your Grafana datasource is configured with url: http://prometheus:9090. A teammate changes it to url: http://localhost:9090 and the datasource shows an error. Why does localhost fail inside the Docker network?",
+    options: ["Prometheus requires HTTPS — localhost only works with HTTP", "Inside the Docker network, localhost refers to the Grafana container itself, not the Prometheus container — service names must be used for inter-container communication", "port 9090 is blocked by the Docker firewall", "Grafana does not support the localhost hostname"],
+    correctIndex: 1,
+    explanation: "Inside a Docker network, each container's localhost refers to itself. To reach another container, you must use the service name defined in compose.yml. Grafana reaches Prometheus via http://prometheus:9090 because Docker's internal DNS resolves the service name to the correct container IP.",
+  },
+  {
+    id: "graf-q2",
+    question: "You want a Grafana panel that shows whether the application is currently up or down as a single colored indicator. Which panel type is most appropriate?",
+    options: ["Time Series, because it shows the up metric over time", "Stat, because it displays a single current value prominently with color thresholds", "Heatmap, because up/down is a distribution", "Table, because you need to see all instances at once"],
+    correctIndex: 1,
+    explanation: "The Stat panel shows a single prominent number or status with configurable color thresholds — perfect for a binary up/down indicator. A Time Series panel shows history over time, which is useful for trending but not for an at-a-glance current status.",
+  },
+  {
+    id: "graf-q3",
+    question: "What is the purpose of datasource provisioning via YAML files versus manual Grafana UI configuration?",
+    options: ["YAML provisioning is faster to query than UI-configured datasources", "Provisioned datasources are version-controlled and auto-loaded at container startup, ensuring every developer and environment has identical configuration without manual steps", "Manual configuration persists across container restarts; YAML files do not", "YAML provisioning is required for Prometheus but optional for Loki"],
+    correctIndex: 1,
+    explanation: "Provisioned datasources are defined in YAML files mounted at /etc/grafana/provisioning/datasources/. Grafana loads them automatically on startup, making configuration reproducible and version-controlled. Manual UI configuration is stored in Grafana's internal database and disappears on a fresh container start.",
+  },
+  {
+    id: "graf-q4",
+    question: "Which panel type maps most directly to Prometheus histogram bucket data to visualize latency distribution over time?",
+    options: ["Stat", "Time Series", "Heatmap", "Gauge"],
+    correctIndex: 2,
+    explanation: "The Heatmap panel is designed to visualize distributions over time, where each cell shows the count of observations in a bucket for a given time window. Prometheus histogram bucket data (rate(http_request_duration_seconds_bucket[5m])) maps directly to this structure.",
+  },
+  {
+    id: "graf-q5",
+    question: "The four golden signals for service health are",
+    options: ["CPU usage, memory usage, disk I/O, and network throughput", "Latency, traffic, errors, and saturation", "Uptime, response size, connection count, and queue depth", "P50, P95, P99 latency, and error count"],
+    correctIndex: 1,
+    explanation: "Google SRE defines the four golden signals as latency (how long requests take), traffic (requests per second), errors (rate of failed requests), and saturation (how full the constrained resource is). These four signals together give immediate insight into whether a service is healthy.",
+  },
+  {
+    id: "graf-q6",
+    question: "Grafana's compose.yml maps container port 3000 to host port 3001 with ports: [\"3001:3000\"]. Why is this necessary?",
+    options: ["Grafana requires port 3001 for TLS termination", "The Node.js application also runs on port 3000, so Grafana is remapped to 3001 to avoid a port conflict on the host machine", "Docker does not allow two containers to share port 3000", "Port 3001 is the official Grafana port"],
+    correctIndex: 1,
+    explanation: "Container port 3000 is Grafana's internal default. The host port 3001 is chosen to avoid a conflict with the monitored Node.js app, which also uses port 3000 on the host. Inside the Docker network, Prometheus still reaches Grafana at port 3000 by service name.",
+  },
+  {
+    id: "graf-q7",
+    question: "Given that Grafana does not store metrics data, what happens to historical metric data if you delete the Grafana container?",
+    options: ["All historical metric data is permanently lost", "Historical data is unaffected because Grafana only queries Prometheus, where data is stored", "Grafana caches 24 hours of data locally before forwarding to Prometheus", "The Prometheus container is also deleted when Grafana is removed"],
+    correctIndex: 1,
+    explanation: "Grafana is a query-and-render layer — it sends PromQL queries to Prometheus and renders the responses. All data is stored in Prometheus's TSDB. Deleting and recreating the Grafana container simply means you lose dashboard configurations, not the underlying metric data.",
+  },
+  {
+    id: "graf-q8",
+    question: "You are building a dashboard panel to display CPU utilization as a percentage with color thresholds (green < 60%, yellow 60-80%, red > 80%). Which panel type is most appropriate?",
+    options: ["Time Series", "Stat", "Gauge", "Table"],
+    correctIndex: 2,
+    explanation: "The Gauge panel is designed for values with a defined min/max range and threshold-based coloring, making it ideal for utilization percentages. The radial arc fills as the value approaches the maximum, giving an intuitive visual representation of how close to saturation the resource is.",
+  },
+]

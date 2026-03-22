@@ -227,3 +227,69 @@ Metrics are the cheapest data type to collect and store — they are just number
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "obs-q1",
+    question: "Which observability pillar directly answers the question \"what happened?\"",
+    options: ["Metrics", "Logs", "Traces", "Dashboards"],
+    correctIndex: 1,
+    explanation: "Logs are timestamped text records of discrete events, so they answer what happened and in what exact detail. Metrics answer how much or how fast, and traces answer where did the time go.",
+  },
+  {
+    id: "obs-q2",
+    question: "A counter metric differs from a gauge metric in that a counter",
+    options: ["Can go up and down freely", "Only ever increases (or resets on restart)", "Tracks a distribution across buckets", "Requires histogram_quantile() to query"],
+    correctIndex: 1,
+    explanation: "A counter only ever increases and resets to zero when the process restarts, tracking cumulative totals like total requests or total errors. A gauge can go up and down and represents current state.",
+  },
+  {
+    id: "obs-q3",
+    question: "Which PromQL function is used to compute percentile latency from histogram data?",
+    options: ["rate()", "sum()", "histogram_quantile()", "increase()"],
+    correctIndex: 2,
+    explanation: "histogram_quantile() computes a percentile value from histogram bucket data. It is the canonical function for answering questions like \"what is the P95 request latency?\" from a histogram metric.",
+  },
+  {
+    id: "obs-q4",
+    question: "You have an alert that fires when P95 latency exceeds 500ms. Once the alert fires, what is your recommended FIRST debugging step?",
+    options: ["Open traces to find the slowest service", "Search log files for error messages", "Check the metrics dashboard to identify which routes are affected", "SSH into the application server and run top"],
+    correctIndex: 2,
+    explanation: "Metrics are the cheapest data type to query and are always collected, so you start there to narrow the scope. Metrics tell you which routes are affected and when the anomaly began before you spend compute on log searches or traces.",
+  },
+  {
+    id: "obs-q5",
+    question: "What does a trace span represent?",
+    options: ["A single log line from one service", "One operation in a request, such as an API call or database query", "A counter increment per HTTP request", "The total duration of all requests in a time window"],
+    correctIndex: 1,
+    explanation: "A span represents one operation within a trace, such as a database query or a cache lookup, with a start time, duration, and parent-child relationship to other spans. Multiple spans together form a complete trace of a request.",
+  },
+  {
+    id: "obs-q6",
+    question: "In the observability debugging sequence, traces are consulted LAST because",
+    options: ["They are the least accurate data type", "They require the most instrumentation overhead and are most useful only when latency is distributed across services", "They can only be viewed in Prometheus", "Traces do not capture timing information"],
+    correctIndex: 1,
+    explanation: "Traces are the most expensive to collect because they require instrumentation across every service in the call chain. They are most valuable when latency is high but no single service is obviously slow, a scenario that only becomes clear after metrics and logs have been checked first.",
+  },
+  {
+    id: "obs-q7",
+    question: "Your app has a CPU of 5% and memory usage of 200 MB — both appear normal in top. But users report slowness. Which observability gap does this illustrate?",
+    options: ["System monitoring reports incorrect kernel statistics", "System-level monitoring cannot reveal application-level problems such as slow database queries or dependency timeouts", "Metrics cannot detect latency above 100ms", "Logs are not being collected from the application"],
+    correctIndex: 1,
+    explanation: "Tools like top and vmstat monitor the machine at the kernel level: CPU cycles and memory pages. They cannot see application-level behavior like query latency, dependency timeouts, or per-route error rates. Observability extends monitoring to the application layer.",
+  },
+  {
+    id: "obs-q8",
+    question: "Structured logs differ from unstructured logs in that structured logs",
+    options: ["Are stored in a relational database instead of flat files", "Are formatted as JSON and are machine-parseable, making filtering and aggregation easier", "Are compressed before storage to reduce disk usage", "Can only be produced by application servers, not operating systems"],
+    correctIndex: 1,
+    explanation: "Structured logs are formatted as JSON (or another key-value format), making each field addressable by a log aggregation system. This allows filtering by specific fields like level or route without regex parsing of unstructured text.",
+  },
+  {
+    id: "obs-q9",
+    question: "What is the key distinction between monitoring and observability?",
+    options: ["Monitoring uses dashboards while observability uses command-line tools", "Monitoring tells you WHEN something is wrong; observability tells you WHY it is wrong", "Observability is only available on cloud platforms; monitoring works on-premises", "Monitoring requires all three pillars; observability only needs metrics"],
+    correctIndex: 1,
+    explanation: "Monitoring detects the anomaly — an alert fires when a threshold is crossed. Observability allows you to diagnose the root cause using all three pillars: metrics to find the anomaly, logs to see the specific errors, and traces to locate the bottleneck in the call chain.",
+  },
+]

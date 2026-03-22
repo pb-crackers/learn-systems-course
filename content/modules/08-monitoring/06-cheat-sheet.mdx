@@ -109,3 +109,63 @@ All monitoring concepts, PromQL patterns, Grafana configurations, and incident r
 <Callout type="tip">
 **What's Next:** Ready for the final challenge? The Advanced Capstone integrates everything you have learned across the entire course — Linux, networking, Docker, CI/CD, IaC, and monitoring — into one project with an intentional failure you must diagnose.
 </Callout>
+
+export const quiz = [
+  {
+    id: "mon-ref-q1",
+    question: "Which observability pillar should you consult FIRST when an alert fires?",
+    options: ["Logs — they contain the most detail about what happened", "Traces — they show the full request path across services", "Metrics — they are cheapest to query and quickly scope the blast radius", "Dashboards — they provide a visual overview of the whole system"],
+    correctIndex: 2,
+    explanation: "Metrics are the cheapest data type to collect and query — they are just numbers. Consulting metrics first narrows the scope (which route? which service? how long?) before incurring the cost of log searches or trace lookups. This ordering minimizes both time-to-diagnosis and infrastructure cost.",
+  },
+  {
+    id: "mon-ref-q2",
+    question: "You want to check the per-second rate of HTTP requests in the last 5 minutes. Which PromQL expression is correct?",
+    options: ["http_requests_total", "sum(http_requests_total)", "rate(http_requests_total[5m])", "increase(http_requests_total[5m]) / 300"],
+    correctIndex: 2,
+    explanation: "rate(metric[5m]) computes the per-second rate of increase averaged over a 5-minute window. It is the standard way to turn a monotonically increasing counter into a meaningful current throughput value. The raw counter just tells you the cumulative total since process start.",
+  },
+  {
+    id: "mon-ref-q3",
+    question: "In Grafana, which panel type is best for displaying whether a service is currently up or down?",
+    options: ["Time Series", "Heatmap", "Table", "Stat"],
+    correctIndex: 3,
+    explanation: "The Stat panel displays a single current value with configurable color thresholds — perfect for a binary up/down indicator where green means up == 1 and red means up == 0. Time Series would show the up/down history, which is useful but secondary to the current status.",
+  },
+  {
+    id: "mon-ref-q4",
+    question: "What is MTTD in the context of incident response?",
+    options: ["Mean Time To Deploy — average time to push a hotfix after a root cause is identified", "Mean Time To Detect — time from when a failure starts to when the first alert fires", "Mean Time To Diagnose — time from alert firing to root cause identification", "Maximum Threshold To Down — the maximum allowed downtime per month"],
+    correctIndex: 1,
+    explanation: "MTTD (Mean Time To Detect) measures the gap between when a failure starts and when an alert fires. You minimize MTTD by lowering alert thresholds and increasing scrape frequency. MTTR (Mean Time To Recover) measures from detection to resolution and is minimized by runbooks and rollback automation.",
+  },
+  {
+    id: "mon-ref-q5",
+    question: "The LogQL query {container=\"app\"} |= \"error\" does what?",
+    options: ["Selects all log streams from all containers and searches for the word error", "Selects log streams from the container labeled app, then filters to only lines containing the text error", "Counts the number of error lines in the app container over the last hour", "Deletes log lines containing error from the app container stream"],
+    correctIndex: 1,
+    explanation: "LogQL always starts with a label stream selector in {} to narrow which log data to scan, then optionally chains filter expressions. |= is the contains filter — it includes only lines with the literal text. This two-step pattern (label select then text filter) is fundamental to Loki's architecture.",
+  },
+  {
+    id: "mon-ref-q6",
+    question: "An alert is in FIRING state. What does this guarantee?",
+    options: ["Prometheus has sent the alert to Alertmanager and a notification has been routed to a receiver", "The alert expression became true in the last scrape interval", "The alert has been acknowledged by the on-call engineer", "The alert has been firing for at least 24 hours"],
+    correctIndex: 0,
+    explanation: "FIRING means the alert expression was continuously true for the full for duration. Prometheus sends the firing alert to Alertmanager, which then groups, deduplicates, and routes it to the configured receiver (Slack, PagerDuty, webhook, etc.). This is distinct from PENDING, where the condition is true but the duration has not elapsed.",
+  },
+  {
+    id: "mon-ref-q7",
+    question: "process_resident_memory_bytes is a gauge metric. How do you query its current value in PromQL?",
+    options: ["rate(process_resident_memory_bytes[5m])", "sum(process_resident_memory_bytes) by (instance)", "process_resident_memory_bytes", "histogram_quantile(0.95, process_resident_memory_bytes)"],
+    correctIndex: 2,
+    explanation: "Gauge metrics represent current state and should be read directly — the raw value is meaningful. Applying rate() to a gauge computes the rate of change in bytes per second, which is rarely useful for memory. The exception is if you specifically want to detect rapid memory growth trends.",
+  },
+  {
+    id: "mon-ref-q8",
+    question: "GF_AUTH_ANONYMOUS_ENABLED=true with GF_AUTH_ANONYMOUS_ORG_ROLE=Admin is appropriate in which environment?",
+    options: ["Production, for ease of access by the operations team", "Local development and learning labs only — this grants every visitor full administrative access without authentication", "Staging environments to test dashboard changes before production", "Any environment, as long as the Grafana instance is behind a VPN"],
+    correctIndex: 1,
+    explanation: "This configuration grants every visitor full admin access to Grafana with no login required. It is intentionally used in learning labs to eliminate authentication friction. In production, Grafana must use proper authentication: OIDC, LDAP, or built-in username/password credentials, never anonymous admin access.",
+  },
+]
+

@@ -315,3 +315,62 @@ Once running, add Loki as a data source in Grafana (Settings > Data Sources > Ad
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "logagg-q1",
+    question: "What is the fundamental architectural difference between Loki and Elasticsearch for log storage?",
+    options: ["Loki stores logs in memory; Elasticsearch uses disk", "Loki indexes only label metadata, not log content; Elasticsearch creates a full-text inverted index of every word in every log line", "Elasticsearch uses pull-based ingestion; Loki uses push-based ingestion", "Loki is designed for application logs only; Elasticsearch handles infrastructure logs"],
+    correctIndex: 1,
+    explanation: "Loki indexes only the label set attached to log streams, storing log content in compressed chunks without word-indexing it. Elasticsearch creates an inverted index mapping every word to every log line containing it. This makes Elasticsearch faster for arbitrary text search but uses roughly 10x more storage.",
+  },
+  {
+    id: "logagg-q2",
+    question: "You write the LogQL query {container=\"app\"} |= \"error\" but it returns no results. Logs exist from the app container. What is the most likely cause?",
+    options: ["LogQL does not support the |= operator for text filtering", "The actual container name does not match the label value in the selector — run docker ps to verify the container name", "Loki does not index log content so text filters always return empty", "The error text must be capitalized: |= \"Error\""],
+    correctIndex: 1,
+    explanation: "Loki queries start by selecting a log stream by its label set. If the container label value does not exactly match the actual container name as discovered by Promtail, the stream selector finds nothing and there is no data for the text filter to scan. Verify the container name with docker ps.",
+  },
+  {
+    id: "logagg-q3",
+    question: "Your services already use consistent job and namespace labels from Prometheus for metrics. A new team member proposes adding Elasticsearch for log aggregation. Given your existing label infrastructure, which system is better suited, and why?",
+    options: ["Elasticsearch, because full-text search is always preferable to label-based querying", "Loki, because its label model mirrors Prometheus labels exactly — the same labels identifying metric time-series also identify log streams, enabling natural correlation without duplicating label infrastructure", "Neither — use a separate logging database with its own schema", "Elasticsearch for production; Loki for development only"],
+    correctIndex: 1,
+    explanation: "Loki's label model was deliberately designed to be consistent with Prometheus. When you already use job and namespace labels on metrics, those same labels applied to log streams let you correlate a firing alert with its log stream directly. This label alignment is the primary architectural advantage of Loki in Prometheus-based stacks.",
+  },
+  {
+    id: "logagg-q4",
+    question: "Promtail connects to the Docker socket in its configuration. What does this enable?",
+    options: ["Promtail can restart containers when log errors are detected", "Promtail automatically discovers running containers and tails their logs, attaching the container name as a label without manual configuration for each container", "Promtail reads container resource metrics from Docker and ships them to Loki", "Promtail uses the Docker socket to push logs to Loki in binary format"],
+    correctIndex: 1,
+    explanation: "By connecting to the Docker socket via docker_sd_configs, Promtail discovers all running containers automatically and tails their stdout/stderr logs. The relabel_configs extract container metadata like the container name and attach it as a label, enabling {container=\"app\"} queries in LogQL.",
+  },
+  {
+    id: "logagg-q5",
+    question: "The centralized logging pipeline has four stages in order. Which sequence is correct?",
+    options: ["Store → Collect → Ship → Query", "Collect → Ship → Store → Query", "Ship → Collect → Query → Store", "Query → Store → Collect → Ship"],
+    correctIndex: 1,
+    explanation: "The correct pipeline sequence is Collect (log agent tails log files or Docker socket), Ship (agent sends labeled log lines to the central store), Store (central store indexes and compresses logs), Query (UI lets you search across all hosts and services). Each stage has a distinct responsibility.",
+  },
+  {
+    id: "logagg-q6",
+    question: "When would Elasticsearch be a better choice than Loki for log aggregation?",
+    options: ["When you already use Prometheus for metrics and your services have consistent labeling", "When you need full-text search across unstructured log data without knowing which service to target first, or when compliance requires long-term retention with arbitrary text search", "When resource constraints are a concern, since Elasticsearch uses less memory than Loki", "When your logs are structured JSON, since Loki cannot parse JSON"],
+    correctIndex: 1,
+    explanation: "Elasticsearch is preferable when logs are unstructured (no consistent labels to filter on) or when your query pattern requires searching across all logs simultaneously by content rather than by label first. It is also used for compliance and audit log retention scenarios requiring fast arbitrary text search over large corpora.",
+  },
+  {
+    id: "logagg-q7",
+    question: "What does the LogQL query count_over_time({container=~\"monitoring-app.*\"}[5m]) return?",
+    options: ["The total number of containers matching the selector", "The count of log lines from the matching streams in each 5-minute window", "The rate of errors per second from the app container", "The number of unique label combinations in the selected stream"],
+    correctIndex: 1,
+    explanation: "count_over_time is a LogQL metric query that returns how many log lines were produced in each [5m] window. This is useful for log volume dashboards — you can chart ingestion rate over time and spot when a service starts producing significantly more log output than usual.",
+  },
+  {
+    id: "logagg-q8",
+    question: "What does auth_enabled: false mean in the Loki server configuration?",
+    options: ["Loki will reject all unauthenticated ingestion requests", "Loki runs in single-tenant mode — no tenant ID is required in requests, appropriate for local development", "Grafana cannot query Loki without setting up OAuth", "Promtail will not be able to connect to Loki"],
+    correctIndex: 1,
+    explanation: "auth_enabled: false enables single-tenant mode, where no tenant ID header is required in requests. This is suitable for local development. In multi-tenant production deployments, auth_enabled: true requires each request to include an X-Scope-OrgID header identifying the tenant.",
+  },
+]

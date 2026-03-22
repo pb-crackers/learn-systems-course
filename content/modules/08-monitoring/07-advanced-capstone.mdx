@@ -255,3 +255,70 @@ Build a pipeline for something you care about. Provision infrastructure with cod
 understand what `tofu apply` is actually doing to your containers and networks. The tools are
 the same — the skill is in using them deliberately.
 </Callout>
+
+export const quiz = [
+  {
+    id: "advcap-q1",
+    question: "After running the capstone stack for 10 minutes, increase(nodejs_heap_used_bytes[5m]) returns a consistently positive and growing value, but process_resident_memory_bytes is flat. What does this discrepancy reveal about the nature of the problem?",
+    options: ["The application has a network bottleneck, not a memory issue", "The JavaScript heap is growing continuously (a leak) but the OS has not yet reclaimed freed pages, masking the heap growth in resident memory — the growing increase() value is the reliable signal", "Both metrics confirm there is no memory leak — flat resident memory means everything is healthy", "Prometheus is scraping the wrong instance and the metrics are from a different container"],
+    correctIndex: 1,
+    explanation: "process_resident_memory_bytes includes OS-allocated pages that the garbage collector has freed but the OS has not yet reclaimed, creating a lagging indicator. increase(nodejs_heap_used_bytes[5m]) measures the live JavaScript heap directly — consistent positive growth means live object references are accumulating and garbage collection cannot free them, the signature of a leak.",
+  },
+  {
+    id: "advcap-q2",
+    question: "You discover a module-scope array in app.js populated every second by setInterval without ever being cleared. Users see intermittent slowness every few minutes. Connect the source code to the symptom: why does the slowness appear intermittently rather than continuously?",
+    options: ["The setInterval runs on a separate thread that only occasionally blocks the main thread", "JavaScript garbage collection runs periodically, causing brief pauses (GC pressure) when the heap grows large enough to trigger a major collection cycle — these pauses manifest as latency spikes", "The container hits the CPU limit every few minutes and throttles", "Docker network congestion causes periodic delays unrelated to the application"],
+    correctIndex: 1,
+    explanation: "As the leakStore array grows, the heap accumulates more objects. Periodically the V8 garbage collector triggers a major (full) collection, which pauses JavaScript execution. These GC pause events manifest as latency spikes visible in P95 metrics. Between GC cycles, the app runs normally — explaining the intermittent pattern.",
+  },
+  {
+    id: "advcap-q3",
+    question: "Your capstone Alertmanager is configured with a webhook receiver pointing to http://app:3000/alert-webhook. up{job=\"monitored-app\"} drops to 0, the AppDown alert fires after 1 minute, but you never see a webhook log in the app container. What is the most likely explanation?",
+    options: ["Alertmanager cannot send webhooks to the same Docker network as Prometheus", "Because the app is down (up == 0), the webhook target http://app:3000/alert-webhook is also unreachable — Alertmanager cannot deliver the notification to a dead service", "Alertmanager only sends webhooks when there are multiple alerts grouped together", "The AppDown alert uses a different receiver that does not include webhook_configs"],
+    correctIndex: 1,
+    explanation: "When the app container is down, its HTTP server is also down. Alertmanager tries to POST to http://app:3000/alert-webhook but the connection is refused because the same process handling the webhook endpoint is the one that is unreachable. This is a known limitation of self-referential webhook patterns — in production, the webhook target must be an independent service.",
+  },
+  {
+    id: "advcap-q4",
+    question: "A teammate reviewing your capstone postmortem says the action item \"Fix the memory leak\" is sufficient. Why is this not a good action item, and what would make it better?",
+    options: ["The action item is too short — it needs a longer description of the technical fix", "\"Fix the memory leak\" is vague, not assignable, and does not prevent recurrence in new code — better action items would be specific technical changes like adding a heap growth alert rule and requiring load tests in CI that fail on memory growth trends", "Action items in a postmortem should only describe what happened, not future work", "The postmortem should not include action items for code that is being deprecated"],
+    correctIndex: 1,
+    explanation: "Good postmortem action items are concrete, assignable, and prevent recurrence at the system level. \"Fix the memory leak\" addresses one instance but does not prevent the same class of bug from appearing again. Better items: add increase(nodejs_heap_used_bytes[5m]) alert rule, add a CI load test with memory growth assertion, update code review checklist to flag module-scope collections modified on timers.",
+  },
+  {
+    id: "advcap-q5",
+    question: "The capstone uses OpenTofu with the kreuzwerker/docker provider. What does tofu apply actually do in this context?",
+    options: ["It compiles the Node.js application into a Docker image", "It reads the OpenTofu configuration describing Docker resources and creates or updates those containers to match the declared state, using the Docker socket API", "It pushes the Docker image to Docker Hub", "It runs docker compose up with the generated configuration"],
+    correctIndex: 1,
+    explanation: "OpenTofu (and Terraform) providers are plugins that translate HCL resource declarations into API calls. The kreuzwerker/docker provider talks to the Docker daemon via the Docker socket to create, update, or destroy containers and networks as declared in main.tf. The result is identical infrastructure to docker compose but managed through IaC state.",
+  },
+  {
+    id: "advcap-q6",
+    question: "Inside the capstone Docker Compose network called capstone, Prometheus is configured with target app:3000. A teammate changes the target to localhost:3000 and the Prometheus target shows DOWN. What is the root cause?",
+    options: ["Port 3000 is blocked inside Docker networks", "Inside the Docker network, localhost refers to the Prometheus container itself, not the app container — inter-container communication requires the Docker service name as the hostname", "Prometheus requires HTTPS targets in Docker Compose networks", "The app must be registered as a target by the app itself, not by service name"],
+    correctIndex: 1,
+    explanation: "Each container's localhost refers to its own network namespace. Prometheus using localhost:3000 as a scrape target tries to connect to port 3000 on itself, where nothing is listening. Docker provides DNS resolution by service name within a Compose network, so app:3000 correctly resolves to the app container's IP.",
+  },
+  {
+    id: "advcap-q7",
+    question: "You run verify.sh and it reports that advcap-04 failed: the heap metric is not growing. You just started the stack. What is the most likely reason and what should you do?",
+    options: ["The memory leak was accidentally fixed in a recent commit to app.js", "The stack needs time and traffic to accumulate heap growth — generate traffic with curl loops and wait several minutes before rerunning verify.sh, since increase() over 5 minutes needs at least 5 minutes of data", "Prometheus is not scraping the correct /metrics endpoint on the app container", "nodejs_heap_used_bytes is not exported by prom-client by default"],
+    correctIndex: 1,
+    explanation: "increase(nodejs_heap_used_bytes[5m]) requires at least 5 minutes of data to compute a 5-minute increase. A freshly started stack has no historical data for this window. Generate continuous traffic to keep the setInterval running, wait 5-10 minutes, then re-verify. The metric window must be fully populated for the query to return a meaningful value.",
+  },
+  {
+    id: "advcap-q8",
+    question: "The capstone architecture connects app, prometheus, grafana, and alertmanager in a single Docker Compose network. What would happen if you split prometheus and alertmanager into a separate Docker Compose project without linking the networks?",
+    options: ["No impact — Docker service names are globally resolvable across all Compose projects", "Prometheus could no longer reach the app to scrape /metrics, and Alertmanager could not receive firing alerts from Prometheus, because Docker DNS only resolves service names within the same network", "The alert rules would continue to fire but notifications would stop", "Grafana would lose its Prometheus datasource but alerts would still work"],
+    correctIndex: 1,
+    explanation: "Docker Compose creates an isolated network per project by default. Service names only resolve to container IPs within the same network. Splitting into two projects without an explicit shared network means Prometheus cannot reach app:3000 to scrape, and Prometheus cannot deliver alerts to alertmanager:9093. All cross-project communication would fail.",
+  },
+  {
+    id: "advcap-q9",
+    question: "Given that the memory leak is caused by a module-scope array accumulating objects via setInterval, identify the PromQL query that would be MOST diagnostic for detecting this specific class of problem in production.",
+    options: ["rate(http_requests_total[5m]) > 100", "increase(nodejs_heap_used_bytes[5m]) > 0 sustained over multiple 5-minute windows", "process_resident_memory_bytes > 200000000", "up{job=\"monitored-app\"} == 0"],
+    correctIndex: 1,
+    explanation: "A module-scope leak produces a monotonically growing heap that never decreases between GC cycles. increase(nodejs_heap_used_bytes[5m]) being consistently positive across multiple consecutive windows is the definitive signal — it shows the heap is growing each period rather than fluctuating around a stable baseline, which is expected healthy GC behavior.",
+  },
+]
+

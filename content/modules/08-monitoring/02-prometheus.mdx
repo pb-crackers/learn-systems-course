@@ -448,3 +448,86 @@ The `up` metric tells you Prometheus can reach the app. Your error rate metric t
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: "prom-q1",
+    question: "Prometheus uses a pull-based scrape model. What does this mean in practice?",
+    options: ["Your application pushes metrics to Prometheus on every request", "Prometheus periodically fetches the /metrics endpoint from each target", "Metrics are stored in your application and Prometheus reads the database", "Prometheus receives metrics over a message queue"],
+    correctIndex: 1,
+    explanation: "In the pull model, Prometheus sends an HTTP GET to each target's /metrics endpoint on every scrape interval (default 15s). This means if your app is down, Prometheus detects it immediately because the scrape fails — rather than waiting for the app to stop pushing.",
+  },
+  {
+    id: "prom-q2",
+    question: "Why should you always use rate() when graphing a counter metric?",
+    options: ["rate() compresses the data to save storage space", "A raw counter only ever increases, making it useless for understanding current load; rate() converts it to a per-second rate of change", "rate() is required by Prometheus syntax for all metric types", "Counters cannot be queried without rate() — the query will error"],
+    correctIndex: 1,
+    explanation: "A counter's raw value just goes up and tells you the total since process start, not current activity. rate() computes the per-second rate of increase over a time window (e.g., [5m]), giving a meaningful measure of current throughput or error frequency.",
+  },
+  {
+    id: "prom-q3",
+    question: "A histogram metric for HTTP request latency stores",
+    options: ["The single average latency value per scrape interval", "Counts of observations that fall into each pre-defined bucket, plus a sum and count", "One latency sample per request, stored as individual data points", "The minimum and maximum latency recorded since process start"],
+    correctIndex: 1,
+    explanation: "A histogram records how many observations fall into each bucket (defined by le labels), plus the total sum of all observed values and the total count. This structure allows histogram_quantile() to calculate any percentile after the fact.",
+  },
+  {
+    id: "prom-q4",
+    question: "What does the up{job=\"monitored-app\"} metric return when it equals 1?",
+    options: ["The application is processing requests without errors", "Prometheus successfully made an HTTP GET to the /metrics endpoint and received a valid response", "CPU usage is within normal bounds", "All alert rules for that job are in INACTIVE state"],
+    correctIndex: 1,
+    explanation: "up == 1 means the scrape succeeded — Prometheus reached the /metrics endpoint and got a valid response. It does NOT guarantee the application is serving user traffic correctly; other endpoints could be returning 500 errors while /metrics responds normally.",
+  },
+  {
+    id: "prom-q5",
+    question: "Which metric type should you use to track current active database connections?",
+    options: ["Counter, because connections accumulate over time", "Gauge, because active connections can increase or decrease", "Histogram, because you need a distribution of connection counts", "Summary, because you need client-side quantiles"],
+    correctIndex: 1,
+    explanation: "A gauge tracks current state and can go up or down — exactly right for active connections, which increase when connections are opened and decrease when they are closed. A counter would be wrong because it only increases.",
+  },
+  {
+    id: "prom-q6",
+    question: "In PromQL, what does the by (route) clause do in sum(rate(http_requests_total[5m])) by (route)?",
+    options: ["Filters results to only show the route label", "Preserves the route label while aggregating all other labels away", "Sorts the results by route alphabetically", "Applies the sum only to time series that have a route label"],
+    correctIndex: 1,
+    explanation: "The by (label) clause tells the sum() aggregation to group results by that label and preserve it in the output, dropping all other labels. Without it, all labels are dropped and you get a single aggregated number.",
+  },
+  {
+    id: "prom-q7",
+    question: "An alert with for: 2m is currently in PENDING state. What does PENDING mean?",
+    options: ["The alert expression is false — the condition is not met", "The alert expression is true but the 2-minute duration has not elapsed yet — no notification sent", "The alert is disabled and will not fire", "Alertmanager received the alert but has not routed it yet"],
+    correctIndex: 1,
+    explanation: "PENDING means the alert condition is currently true, but the sustained duration required by the for field has not been reached yet. This prevents noisy alerts from brief spikes. Once the condition holds for the full 2 minutes, the alert moves to FIRING.",
+  },
+  {
+    id: "prom-q8",
+    question: "What is the correct PromQL to compute P95 request latency from a histogram?",
+    options: [
+      "avg(http_request_duration_seconds_sum / http_request_duration_seconds_count)",
+      "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+      "rate(http_request_duration_seconds_bucket[5m])",
+      "topk(95, http_request_duration_seconds_bucket)"
+    ],
+    correctIndex: 1,
+    explanation: "The canonical P95 histogram pattern is histogram_quantile(0.95, sum(rate(bucket[5m])) by (le)). The le label groups the buckets so histogram_quantile can interpolate the 95th percentile. Averaging sum/count gives only the mean, hiding the tail latency.",
+  },
+  {
+    id: "prom-q9",
+    question: "Why does node-exporter NOT work on macOS?",
+    options: ["macOS uses a different Prometheus text format", "node-exporter reads Linux-specific /proc and /sys filesystems that do not exist on macOS", "Prometheus only supports scraping on Linux systems", "macOS containers cannot expose port 9090"],
+    correctIndex: 1,
+    explanation: "node-exporter collects host-level metrics by reading Linux kernel filesystems like /proc/stat and /proc/meminfo. These do not exist on macOS. For local development on macOS, cAdvisor is used instead because it collects metrics via the Docker socket API, which is cross-platform.",
+  },
+  {
+    id: "prom-q10",
+    question: "How do you reload Prometheus configuration without restarting the container?",
+    options: [
+      "docker compose restart prometheus",
+      "curl -X POST http://localhost:9090/-/reload",
+      "Send a SIGHUP signal to the Prometheus process",
+      "Delete the TSDB data directory and restart"
+    ],
+    correctIndex: 1,
+    explanation: "Sending a POST to the /-/reload endpoint triggers a live configuration reload, applying changes to prometheus.yml and alert rules without restarting or losing in-progress alert PENDING timers. This requires the --web.enable-lifecycle flag in the Prometheus start command.",
+  },
+]
