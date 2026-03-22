@@ -87,10 +87,10 @@ Plans:
   2. Quiz data flows from MDX named export through `getLessonContent` and `page.tsx` props into `LessonLayout` without any change to the MDX build pipeline
   3. `MarkCompleteButton` is absent from any lesson that has quiz data — the only way to mark those lessons complete is to pass the quiz
   4. On a single end-to-end test lesson, passing the quiz fires `markLessonComplete` and the lesson appears complete in the progress sidebar
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 14-01: TBD
+- [ ] 14-01-PLAN.md — Wire quiz into layout pipeline, gate MarkCompleteButton, add test lesson quiz data
 
 ### Phase 15: Content Authoring
 **Goal**: Every lesson in all 8 modules has a valid, high-quality quiz so the gating system is fully operational across the entire course
@@ -124,8 +124,8 @@ Plans:
 | 10. Linux Fundamentals Prototype | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
 | 12. Schema and Progress Foundation | 1/1 | Complete    | 2026-03-22 | - |
-| 13. Quiz Component Build | 1/1 | Complete   | 2026-03-22 | - |
-| 14. Layout Integration and Gating | v1.2 | 0/? | Not started | - |
+| 13. Quiz Component Build | 1/1 | Complete    | 2026-03-22 | - |
+| 14. Layout Integration and Gating | v1.2 | 0/1 | Not started | - |
 | 15. Content Authoring | v1.2 | 0/? | Not started | - |
 
 ---
