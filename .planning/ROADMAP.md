@@ -73,10 +73,10 @@ Plans:
   3. The attempt counter increments and is visible in the UI each time the learner retakes the quiz
   4. After answering all questions correctly, the user sees a pass screen and a "Continue to Next Lesson" button
   5. All state machine transitions (idle, active, passed, failed) are covered by Vitest unit tests with no failures
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 13-01: TBD
+- [ ] 13-01-PLAN.md — Quiz reducer (TDD) + component UI with integration tests
 
 ### Phase 14: Layout Integration and Gating
 **Goal**: The quiz is live in every lesson page, completion requires passing the quiz, and the manual complete button is gone for quizzed lessons
@@ -123,8 +123,8 @@ Plans:
 | 9. Component Implementation | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 10. Linux Fundamentals Prototype | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
-| 12. Schema and Progress Foundation | 1/1 | Complete   | 2026-03-22 | - |
-| 13. Quiz Component Build | v1.2 | 0/? | Not started | - |
+| 12. Schema and Progress Foundation | 1/1 | Complete    | 2026-03-22 | - |
+| 13. Quiz Component Build | v1.2 | 0/1 | Not started | - |
 | 14. Layout Integration and Gating | v1.2 | 0/? | Not started | - |
 | 15. Content Authoring | v1.2 | 0/? | Not started | - |
 
