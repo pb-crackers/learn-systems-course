@@ -1,16 +1,20 @@
 import type { LessonFrontmatter } from '@/types/content'
+import type { QuizQuestion } from '@/types/quiz'
 import { ScrollProgressBar } from './ScrollProgressBar'
 import { TableOfContents } from './TableOfContents'
 import { PrerequisiteBanner } from './PrerequisiteBanner'
 import { MarkCompleteButton } from './MarkCompleteButton'
 import { DifficultyToggle } from './DifficultyToggle'
+import { QuizSection } from './QuizSection'
 
 interface LessonLayoutProps {
   frontmatter: LessonFrontmatter
   children: React.ReactNode
+  quiz?: QuizQuestion[] | null
+  nextLessonHref?: string
 }
 
-export function LessonLayout({ frontmatter, children }: LessonLayoutProps) {
+export function LessonLayout({ frontmatter, children, quiz, nextLessonHref }: LessonLayoutProps) {
   const lessonId = `${frontmatter.moduleSlug}/${frontmatter.lessonSlug}`
 
   return (
@@ -64,8 +68,15 @@ export function LessonLayout({ frontmatter, children }: LessonLayoutProps) {
             {children}
           </div>
 
-          {/* Mark complete button at lesson bottom */}
-          <MarkCompleteButton lessonId={lessonId} />
+          {/* Quiz section (quiz-enabled lessons) or mark complete button (non-quiz lessons) */}
+          {quiz && quiz.length > 0 && (
+            <QuizSection
+              questions={quiz}
+              lessonId={lessonId}
+              nextLessonHref={nextLessonHref ?? `/modules/${frontmatter.moduleSlug}`}
+            />
+          )}
+          {!quiz && <MarkCompleteButton lessonId={lessonId} />}
         </article>
 
         {/* Sticky sidebar: ToC on desktop */}

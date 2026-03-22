@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getLessonContent } from '@/lib/mdx'
-import { getAllLessonPaths } from '@/lib/modules'
+import { getAllLessonPaths, getModuleBySlug } from '@/lib/modules'
 import { LessonLayout } from '@/components/lesson/LessonLayout'
 
 interface Props {
@@ -12,10 +12,20 @@ export default async function LessonPage({ params }: Props) {
   const lesson = await getLessonContent(moduleSlug, lessonSlug)
   if (!lesson) notFound()
 
-  const { default: MDXContent, frontmatter } = lesson
+  const { default: MDXContent, frontmatter, quiz } = lesson
+
+  const mod = getModuleBySlug(moduleSlug)
+  const lessons = mod?.lessons ?? []
+  const currentIdx = lessons.findIndex((l) => l.slug === lessonSlug)
+  const nextLesson = currentIdx >= 0 && currentIdx < lessons.length - 1
+    ? lessons[currentIdx + 1]
+    : null
+  const nextLessonHref = nextLesson
+    ? `/modules/${moduleSlug}/${nextLesson.slug}`
+    : `/modules/${moduleSlug}`
 
   return (
-    <LessonLayout frontmatter={frontmatter}>
+    <LessonLayout frontmatter={frontmatter} quiz={quiz} nextLessonHref={nextLessonHref}>
       <MDXContent />
     </LessonLayout>
   )
