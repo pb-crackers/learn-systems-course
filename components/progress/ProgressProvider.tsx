@@ -22,6 +22,8 @@ interface ProgressContextValue {
   resetProgress: () => void
   preferredMode: ExerciseMode | null
   setPreferredMode: (mode: ExerciseMode | null) => void
+  markQuizPassed: (lessonId: LessonId) => void
+  isQuizPassed: (lessonId: LessonId) => boolean
 }
 
 export const ProgressContext = createContext<ProgressContextValue | null>(null)
@@ -92,6 +94,32 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [setPreferences]
   )
 
+  const markQuizPassed = useCallback(
+    (lessonId: LessonId) => {
+      setProgress((prev) => ({
+        ...prev,
+        lessons: {
+          ...prev.lessons,
+          [lessonId]: {
+            ...prev.lessons[lessonId],
+            completed: true,
+            quizPassed: true,
+            quizPassedAt: new Date().toISOString(),
+            exercisesCompleted: prev.lessons[lessonId]?.exercisesCompleted ?? [],
+            quizAttempts: (prev.lessons[lessonId]?.quizAttempts ?? 0) + 1,
+          },
+        },
+      }))
+    },
+    [setProgress]
+  )
+
+  const isQuizPassed = useCallback(
+    (lessonId: LessonId): boolean =>
+      progress.lessons[lessonId]?.quizPassed === true,
+    [progress]
+  )
+
   return (
     <ProgressContext.Provider
       value={{
@@ -102,6 +130,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         resetProgress,
         preferredMode: preferences.preferredMode,
         setPreferredMode,
+        markQuizPassed,
+        isQuizPassed,
       }}
     >
       {children}
