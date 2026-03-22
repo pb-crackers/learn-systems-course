@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
 stopped_at: Completed 15-04-PLAN.md
-last_updated: "2026-03-22T21:26:30.089Z"
+last_updated: "2026-03-22T21:26:32.888Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0% (v1.2 milestone)
 | Phase 15-content-authoring P02 | 6min | 2 tasks | 8 files |
 | Phase 15-content-authoring P15-01 | 7min | 2 tasks | 10 files |
 | Phase 15-content-authoring P03 | 12min | 2 tasks | 9 files |
+| Phase 15-content-authoring P04 | 10 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
