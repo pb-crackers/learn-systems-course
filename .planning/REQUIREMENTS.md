@@ -19,13 +19,13 @@ Requirements for Enhanced Questions milestone. Each maps to roadmap phases.
 ### Progress Gating
 
 - [ ] **GATE-01**: Lesson is marked complete only after quiz is passed with 100% — MarkCompleteButton retired for quiz-enabled lessons
-- [ ] **GATE-02**: Existing completed lessons remain complete after v1.2 upgrade (grandfather rule)
-- [ ] **GATE-03**: Lessons without quiz data retain current completion behavior (backward compatible)
+- [x] **GATE-02**: Existing completed lessons remain complete after v1.2 upgrade (grandfather rule)
+- [x] **GATE-03**: Lessons without quiz data retain current completion behavior (backward compatible)
 
 ### Data & Schema
 
-- [ ] **DATA-01**: Quiz questions defined as typed MDX named exports with validated TypeScript schema
-- [ ] **DATA-02**: Quiz type schema locked (question text, options array, correct index, explanation) before content authoring begins
+- [x] **DATA-01**: Quiz questions defined as typed MDX named exports with validated TypeScript schema
+- [x] **DATA-02**: Quiz type schema locked (question text, options array, correct index, explanation) before content authoring begins
 - [ ] **DATA-03**: All 56 lessons have quiz data with 7-10 questions covering key concepts and commands
 
 ### Layout Integration
@@ -65,10 +65,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUIZ-05 | Phase 13 | Pending |
 | QUIZ-06 | Phase 13 | Pending |
 | GATE-01 | Phase 14 | Pending |
-| GATE-02 | Phase 12 | Pending |
-| GATE-03 | Phase 12 | Pending |
-| DATA-01 | Phase 12 | Pending |
-| DATA-02 | Phase 12 | Pending |
+| GATE-02 | Phase 12 | Complete |
+| GATE-03 | Phase 12 | Complete |
+| DATA-01 | Phase 12 | Complete |
+| DATA-02 | Phase 12 | Complete |
 | DATA-03 | Phase 15 | Pending |
 | LAYOUT-01 | Phase 14 | Pending |
 | LAYOUT-02 | Phase 14 | Pending |

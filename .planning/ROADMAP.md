@@ -41,7 +41,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 ## Phases (v1.2)
 
-- [ ] **Phase 12: Schema and Progress Foundation** - Lock quiz types, extend LessonProgress, implement grandfather rule
+- [x] **Phase 12: Schema and Progress Foundation** - Lock quiz types, extend LessonProgress, implement grandfather rule (completed 2026-03-22)
 - [ ] **Phase 13: Quiz Component Build** - Build LessonQuiz state machine and leaf components with full test coverage
 - [ ] **Phase 14: Layout Integration and Gating** - Wire quiz into LessonLayout, retire MarkCompleteButton, validate end-to-end on one lesson
 - [ ] **Phase 15: Content Authoring** - Author 7-10 quiz questions for all 56 lessons
@@ -123,7 +123,7 @@ Plans:
 | 9. Component Implementation | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 10. Linux Fundamentals Prototype | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
-| 12. Schema and Progress Foundation | v1.2 | 0/1 | Not started | - |
+| 12. Schema and Progress Foundation | 1/1 | Complete   | 2026-03-22 | - |
 | 13. Quiz Component Build | v1.2 | 0/? | Not started | - |
 | 14. Layout Integration and Gating | v1.2 | 0/? | Not started | - |
 | 15. Content Authoring | v1.2 | 0/? | Not started | - |
