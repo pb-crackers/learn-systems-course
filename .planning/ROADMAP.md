@@ -43,7 +43,7 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
 
 - [x] **Phase 12: Schema and Progress Foundation** - Lock quiz types, extend LessonProgress, implement grandfather rule (completed 2026-03-22)
 - [x] **Phase 13: Quiz Component Build** - Build LessonQuiz state machine and leaf components with full test coverage (completed 2026-03-22)
-- [ ] **Phase 14: Layout Integration and Gating** - Wire quiz into LessonLayout, retire MarkCompleteButton, validate end-to-end on one lesson
+- [x] **Phase 14: Layout Integration and Gating** - Wire quiz into LessonLayout, retire MarkCompleteButton, validate end-to-end on one lesson (completed 2026-03-22)
 - [ ] **Phase 15: Content Authoring** - Author 7-10 quiz questions for all 56 lessons
 
 ## Phase Details
@@ -125,7 +125,7 @@ Plans:
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
 | 12. Schema and Progress Foundation | 1/1 | Complete    | 2026-03-22 | - |
 | 13. Quiz Component Build | 1/1 | Complete    | 2026-03-22 | - |
-| 14. Layout Integration and Gating | v1.2 | 0/1 | Not started | - |
+| 14. Layout Integration and Gating | 1/1 | Complete   | 2026-03-22 | - |
 | 15. Content Authoring | v1.2 | 0/? | Not started | - |
 
 ---

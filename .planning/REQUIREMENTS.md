@@ -18,7 +18,7 @@ Requirements for Enhanced Questions milestone. Each maps to roadmap phases.
 
 ### Progress Gating
 
-- [ ] **GATE-01**: Lesson is marked complete only after quiz is passed with 100% — MarkCompleteButton retired for quiz-enabled lessons
+- [x] **GATE-01**: Lesson is marked complete only after quiz is passed with 100% — MarkCompleteButton retired for quiz-enabled lessons
 - [x] **GATE-02**: Existing completed lessons remain complete after v1.2 upgrade (grandfather rule)
 - [x] **GATE-03**: Lessons without quiz data retain current completion behavior (backward compatible)
 
@@ -30,8 +30,8 @@ Requirements for Enhanced Questions milestone. Each maps to roadmap phases.
 
 ### Layout Integration
 
-- [ ] **LAYOUT-01**: Quiz component rendered in LessonLayout after MDX content, consistent placement across all lessons
-- [ ] **LAYOUT-02**: Quiz data extracted from MDX named export via existing dynamic import pipeline
+- [x] **LAYOUT-01**: Quiz component rendered in LessonLayout after MDX content, consistent placement across all lessons
+- [x] **LAYOUT-02**: Quiz data extracted from MDX named export via existing dynamic import pipeline
 
 ## Future Requirements
 
@@ -64,14 +64,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QUIZ-04 | Phase 13 | Complete |
 | QUIZ-05 | Phase 13 | Complete |
 | QUIZ-06 | Phase 13 | Complete |
-| GATE-01 | Phase 14 | Pending |
+| GATE-01 | Phase 14 | Complete |
 | GATE-02 | Phase 12 | Complete |
 | GATE-03 | Phase 12 | Complete |
 | DATA-01 | Phase 12 | Complete |
 | DATA-02 | Phase 12 | Complete |
 | DATA-03 | Phase 15 | Pending |
-| LAYOUT-01 | Phase 14 | Pending |
-| LAYOUT-02 | Phase 14 | Pending |
+| LAYOUT-01 | Phase 14 | Complete |
+| LAYOUT-02 | Phase 14 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 14 total
