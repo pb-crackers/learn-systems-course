@@ -58,10 +58,10 @@ Full details: `.planning/milestones/v1.1-ROADMAP.md`
   3. `isLessonComplete` returns `true` for any lesson record with `completed: true` and no `quizPassed` field — no pre-v1.2 progress is silently reset
   4. Lessons without quiz data (`quiz === null`) retain their existing completion behavior — `MarkCompleteButton` still works for them
   5. `markQuizPassed` and `isQuizPassed` are present on `ProgressContextValue` and the TypeScript interface compiles cleanly
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 12-01: TBD
+- [ ] 12-01-PLAN.md — Create quiz types, extend progress schema, add context methods
 
 ### Phase 13: Quiz Component Build
 **Goal**: Users can interact with a fully working quiz — selecting answers, receiving feedback, retaking on failure, and seeing a pass screen — using fixture data
@@ -123,7 +123,7 @@ Plans:
 | 9. Component Implementation | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 10. Linux Fundamentals Prototype | v1.1 | 3/3 | Complete | 2026-03-20 |
 | 11. Full Content Migration | v1.1 | 7/7 | Complete | 2026-03-20 |
-| 12. Schema and Progress Foundation | v1.2 | 0/? | Not started | - |
+| 12. Schema and Progress Foundation | v1.2 | 0/1 | Not started | - |
 | 13. Quiz Component Build | v1.2 | 0/? | Not started | - |
 | 14. Layout Integration and Gating | v1.2 | 0/? | Not started | - |
 | 15. Content Authoring | v1.2 | 0/? | Not started | - |
