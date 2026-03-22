@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Enhanced Questions
 status: planning
 stopped_at: Completed 15-04-PLAN.md
-last_updated: "2026-03-22T21:26:25.637Z"
+last_updated: "2026-03-22T21:26:30.089Z"
 last_activity: 2026-03-22 — v1.2 roadmap created, phases 12-15 defined
 progress:
   total_phases: 4
@@ -101,6 +101,7 @@ Recent decisions affecting v1.2 work:
 - [Phase 15-02]: Foundation lessons (01-04, 08) use recall questions; Intermediate lessons (05-07) use application/scenario questions matching lesson difficulty tags
 - [Phase 15-content-authoring]: Foundation lessons test recall; Intermediate lessons test application — quiz difficulty tier matches lesson difficulty tier
 - [Phase 15-content-authoring]: Capstone (09) questions focus on multi-symptom root-cause diagnosis spanning preceding lessons — tests synthesis not recall
+- [Phase 15-content-authoring]: Module 04 sysadmin: Foundation lessons (01-03, 07) test recall; Intermediate lessons (04-06) test application scenarios — consistent with lesson difficulty designations
 
 ### Pending Todos
 
