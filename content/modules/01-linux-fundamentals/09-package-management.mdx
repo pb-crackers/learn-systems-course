@@ -377,6 +377,104 @@ When apt says "The following packages have unmet dependencies," it means the con
         { command: "/var/cache/apt/archives/", description: "Downloaded .deb package cache" },
         { command: "/var/lib/apt/lists/", description: "Package index files downloaded by apt-get update" }
       ]
-    }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'pkg-q1',
+    question: 'A Dockerfile has two separate RUN layers: "RUN apt-get update" and "RUN apt-get install -y curl". The build works today but fails two weeks later with "Unable to locate package curl". What is the most likely cause?',
+    options: [
+      'curl was removed from Ubuntu\'s repositories permanently',
+      'Docker cached the apt-get update layer; the install layer ran against a stale cached index that no longer matches the current repository',
+      'apt-get install requires the -y flag, which was not specified',
+      'The Ubuntu base image was updated and is incompatible with the existing RUN layers',
+    ],
+    correctIndex: 1,
+    explanation: 'Docker caches each RUN layer. Once apt-get update is cached, Docker never re-runs it in subsequent builds. Over weeks, the cached package index becomes stale while the actual repository changes. The fix is to combine them in a single RUN: "RUN apt-get update && apt-get install -y curl" so both execute together and the index is always fresh.',
+  },
+  {
+    id: 'pkg-q2',
+    question: 'What is the functional difference between dpkg and apt?',
+    options: [
+      'dpkg installs from repositories over the internet; apt installs from local .deb files only',
+      'dpkg is low-level and installs individual .deb files without resolving dependencies; apt knows about repositories and resolves dependencies automatically',
+      'dpkg is for Debian systems; apt is for Ubuntu systems specifically',
+      'dpkg installs system packages; apt installs user-space applications only',
+    ],
+    correctIndex: 1,
+    explanation: 'dpkg operates on individual .deb archive files already on disk. It installs them but cannot fetch packages from the internet and does not resolve dependencies — if a required library is missing, dpkg fails and tells you what is needed. apt is a higher-level tool that queries repositories, resolves the full dependency tree, downloads everything needed, then calls dpkg to install each package in order.',
+  },
+  {
+    id: 'pkg-q3',
+    question: 'You want to find out which package owns the file /usr/bin/curl. Which command gives you this information?',
+    options: [
+      'apt-cache search curl',
+      'apt-get show curl',
+      'dpkg -S /usr/bin/curl',
+      'dpkg -L curl',
+    ],
+    correctIndex: 2,
+    explanation: 'dpkg -S (search) takes a file path and prints the package that installed it. dpkg -L (list) does the reverse: given a package name, it lists all files that package installed. apt-cache search searches package descriptions by keyword and apt-get show is not a valid command (use apt-cache show).',
+  },
+  {
+    id: 'pkg-q4',
+    question: 'You remove the nginx package with "apt-get remove nginx" and then reinstall it. Your old configuration in /etc/nginx/ is still present. Why, and when would you use "apt-get purge" instead?',
+    options: [
+      'apt-get remove does not actually uninstall anything; only purge removes the package',
+      'apt-get remove uninstalls binaries but deliberately preserves config files in /etc/; use purge when you want a completely clean slate with no configuration artifacts',
+      'The configuration was preserved because /etc/ is a read-only filesystem',
+      'apt-get remove only works for packages in the "main" repository; use purge for all repositories',
+    ],
+    correctIndex: 1,
+    explanation: 'apt-get remove uninstalls a package\'s binaries and libraries but intentionally keeps configuration files in /etc/. This makes reinstallation pick up your previous settings automatically. apt-get purge additionally deletes all configuration files, giving you a fresh installation as if the package had never been installed. Use purge when you need to reset a misconfigured service to defaults.',
+  },
+  {
+    id: 'pkg-q5',
+    question: 'What does apt-cache search do, and when should you use it instead of apt-get install?',
+    options: [
+      'apt-cache search downloads and installs the best matching package',
+      'apt-cache search queries the local package index to find packages by name or description, without installing anything',
+      'apt-cache search checks the internet for the latest package versions',
+      'apt-cache search lists only the packages currently installed on the system',
+    ],
+    correctIndex: 1,
+    explanation: 'apt-cache search reads only from the local package index (built by apt-get update) and never makes network requests or installs anything. Use it to discover the correct package name before installing — for example, searching "json parser" might reveal several candidate packages. It is the exploration tool; apt-get install is the action tool.',
+  },
+  {
+    id: 'pkg-q6',
+    question: 'A production deployment script installs packages without version pinning. Two months later a deployment installs a different package version with a breaking API change. What command would you use to install a specific version, and where do you find the available version strings?',
+    options: [
+      'apt-get install nginx@1.18.0; use apt-cache search to list versions',
+      'apt-get install nginx=1.18.0-0ubuntu1.4; use apt-cache policy nginx to list available versions and their exact strings',
+      'apt-get install --pin nginx=1.18.0; use dpkg -l to list installed versions',
+      'dpkg -i nginx_1.18.0.deb; use apt-get versions nginx to find available versions',
+    ],
+    correctIndex: 1,
+    explanation: 'Version pinning uses the = separator: apt-get install nginx=1.18.0-0ubuntu1.4. The exact version string (including the package revision suffix) must match precisely. apt-cache policy nginx displays all available versions with their exact strings and which repository each comes from, making it the right tool to find the pinning string to use.',
+  },
+  {
+    id: 'pkg-q7',
+    question: 'The apt dependency resolver reports "The following packages have unmet dependencies" and refuses to install a package. What are the two most common causes of this error?',
+    options: [
+      'The package file is corrupted, and the disk is full',
+      'The stale local package index (fix: run apt-get update), or conflicting version requirements between two packages that cannot be satisfied simultaneously',
+      'The package requires root privileges, and the user has insufficient permissions',
+      'The package is already installed in a different version, and /etc/apt/sources.list is empty',
+    ],
+    correctIndex: 1,
+    explanation: 'The two most common causes are: (1) a stale index where the local catalog says a dependency exists but the repository has moved on — run apt-get update to refresh; (2) genuinely conflicting requirements where package A needs libssl >= 1.1.1 but package B needs libssl < 1.1.0, making no valid solution possible. The error message lists the specific missing or conflicting packages to help diagnose which case you have.',
+  },
+  {
+    id: 'pkg-q8',
+    question: 'What does "apt-get install -y --no-install-recommends nginx" do differently compared to "apt-get install -y nginx", and when is it beneficial?',
+    options: [
+      'It skips the package index check, making installation faster',
+      'It omits recommended (non-required) packages that would otherwise also be installed, reducing the total footprint',
+      'It installs nginx without any dependencies, which may break functionality',
+      'It suppresses all output so the install runs silently in the background',
+    ],
+    correctIndex: 1,
+    explanation: 'By default, apt also installs "Recommended" packages — related software that is not strictly required but commonly useful. In Docker containers or minimal servers, these recommendations often add significant size without benefit. --no-install-recommends skips them, installing only strictly declared dependencies, which can substantially reduce container image size.',
+  },
+]

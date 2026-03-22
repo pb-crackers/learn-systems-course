@@ -383,3 +383,102 @@ apt-get update && apt-get install -y nginx && systemctl start nginx
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'shell-q1',
+    question: 'You add a custom tool to /opt/tools/bin/ and want it available as a command. You add "export PATH=/opt/tools/bin:$PATH" to ~/.bashrc. After opening a new terminal via SSH, the command is still not found. What is the most likely cause?',
+    options: [
+      'The tool does not have execute permission',
+      'SSH creates a login shell which reads ~/.bash_profile, not ~/.bashrc, so the change never ran',
+      'Environment variables cannot be set in ~/.bashrc; they must go in /etc/environment',
+      'The PATH change requires a system reboot to take effect',
+    ],
+    correctIndex: 1,
+    explanation: 'SSH creates a login shell, which reads ~/.bash_profile (or ~/.profile) rather than ~/.bashrc. If ~/.bash_profile does not source ~/.bashrc, your PATH change in ~/.bashrc is never executed. The standard fix is to add "source ~/.bashrc" at the bottom of ~/.bash_profile so both login and non-login shells get the same environment.',
+  },
+  {
+    id: 'shell-q2',
+    question: 'What is the difference between a shell variable (VARNAME=value) and an environment variable (export VARNAME=value)?',
+    options: [
+      'Shell variables are faster to access; environment variables are stored on disk',
+      'Shell variables exist only in the current shell process; environment variables are inherited by all child processes via fork/exec',
+      'Shell variables can hold any type; environment variables can only hold strings',
+      'Shell variables are visible to all users; environment variables are private to the current user',
+    ],
+    correctIndex: 1,
+    explanation: 'A shell variable exists only in the current shell\'s memory and is invisible to any child process. export marks a variable to be included in the environment passed to child processes via exec(). This is why a CI/CD runner tool launched by the shell can see exported variables but not unexported ones.',
+  },
+  {
+    id: 'shell-q3',
+    question: 'Why must cd be a shell built-in command rather than an external binary?',
+    options: [
+      'cd needs root privileges that only built-in commands have',
+      'cd is too simple to justify a binary file on disk',
+      'If cd were an external binary, it would fork a child process; that child\'s directory change would not affect the parent shell',
+      'External binaries cannot read the PATH variable, so they could not find the target directory',
+    ],
+    correctIndex: 2,
+    explanation: 'Changing the working directory is a per-process operation. If cd were an external binary, bash would fork a child to run it; the child would change its own working directory and then exit. The parent shell\'s working directory would be unchanged. Because cd is a built-in, it runs inside the shell process itself and directly modifies the shell\'s own working directory state.',
+  },
+  {
+    id: 'shell-q4',
+    question: 'You run "sort file.txt > file.txt" expecting to sort the file in place. The file ends up empty. Why?',
+    options: [
+      'sort requires the -o flag to write output; without it, it discards the result',
+      'The > redirect truncates file.txt to zero bytes before sort reads a single byte',
+      'sort cannot read and write the same file simultaneously',
+      'The > operator appends to files; use >> to overwrite',
+    ],
+    correctIndex: 1,
+    explanation: 'The shell processes redirects before running the command. The > operator opens file.txt for writing and truncates it to zero bytes as part of setting up the command\'s stdout. By the time sort attempts to read the file, it is already empty. The safe pattern is to redirect to a temp file then rename: sort file.txt > file.txt.tmp && mv file.txt.tmp file.txt.',
+  },
+  {
+    id: 'shell-q5',
+    question: 'What does "2>&1" mean in the redirect "command > out.txt 2>&1"?',
+    options: [
+      'Run the command twice: once for stdout and once for stderr',
+      'Redirect stderr (fd 2) to the same destination as stdout (fd 1), so both go to out.txt',
+      'Discard both stdout and stderr by sending them to /dev/null',
+      'Redirect stdout (fd 1) to stderr (fd 2) and write both to out.txt',
+    ],
+    correctIndex: 1,
+    explanation: '"2>&1" means "connect file descriptor 2 (stderr) to wherever file descriptor 1 (stdout) currently points." Because stdout has already been redirected to out.txt, stderr also goes to out.txt. The order matters: "command 2>&1 > out.txt" would redirect stderr to the terminal (the original stdout) and only stdout to the file.',
+  },
+  {
+    id: 'shell-q6',
+    question: 'A variable FILENAME contains the string "my report.txt". You run "rm $FILENAME". What actually happens?',
+    options: [
+      'rm deletes the file named "my report.txt" as expected',
+      'rm receives two arguments "my" and "report.txt" due to word splitting on the space, and tries to delete two separate files',
+      'The shell raises a syntax error because variable values cannot contain spaces',
+      'rm ignores the variable and does nothing because it is not in quotes',
+    ],
+    correctIndex: 1,
+    explanation: 'Without quotes, the shell performs word splitting on the expanded variable value. The space in "my report.txt" causes the shell to split it into two separate words, so rm sees two arguments: "my" and "report.txt". The file "my report.txt" is not deleted. Always quote variable references: "rm \"$FILENAME\"".',
+  },
+  {
+    id: 'shell-q7',
+    question: 'In a pipeline "cmd1 | cmd2", what exit code does the shell report for the overall pipeline by default?',
+    options: [
+      'The exit code of cmd1, the first command in the pipeline',
+      'The lowest non-zero exit code from any command in the pipeline',
+      'The exit code of cmd2, the last command in the pipeline',
+      'Always 0 if either command succeeded',
+    ],
+    correctIndex: 2,
+    explanation: 'By default, a pipeline\'s exit code is the exit code of the last command. This means a failure in cmd1 is silently hidden if cmd2 succeeds. Setting "set -o pipefail" in a script changes this behavior: the pipeline exits with the first non-zero exit code from any stage, making failures visible.',
+  },
+  {
+    id: 'shell-q8',
+    question: 'You need to capture the current date in a variable to use in a filename. Which syntax correctly does this?',
+    options: [
+      'DATE="date +%Y-%m-%d"',
+      'DATE=$(date +%Y-%m-%d)',
+      'DATE=${date +%Y-%m-%d}',
+      'DATE=`"date +%Y-%m-%d"`',
+    ],
+    correctIndex: 1,
+    explanation: 'Command substitution uses $(...) to run a command and capture its stdout as a string. DATE=$(date +%Y-%m-%d) executes date +%Y-%m-%d and assigns the output (e.g., "2026-03-22") to DATE. The double-quoted assignment in option A stores the literal string "date +%Y-%m-%d" without executing it.',
+  },
+]

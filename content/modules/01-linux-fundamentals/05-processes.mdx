@@ -378,3 +378,102 @@ disown %1
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'proc-q1',
+    question: 'A shell runs the pipeline "ls | grep txt". Which sequence of operations does bash perform to execute it?',
+    options: [
+      'bash runs ls first, waits for it to finish, then runs grep on the output file',
+      'bash calls fork() twice, sets up a pipe between the children before exec(), then waits for both',
+      'bash calls exec() with ls and grep as a combined command string',
+      'bash sends ls\'s output to /tmp and grep reads from /tmp after ls completes',
+    ],
+    correctIndex: 1,
+    explanation: 'bash calls fork() twice to create two child processes. Before exec()-ing each child, bash sets up the pipe: child 1 gets the write end of the pipe as stdout, child 2 gets the read end as stdin. Then exec() replaces each child with the actual program. Both children run concurrently, with data flowing through the pipe buffer as it is produced.',
+  },
+  {
+    id: 'proc-q2',
+    question: 'A process is in state "D" (uninterruptible sleep) in ps aux. You send kill -9 to it. What happens?',
+    options: [
+      'The process terminates immediately because SIGKILL cannot be blocked',
+      'Nothing happens immediately; the process cannot be killed while in state D',
+      'The process enters state Z (zombie) and waits for its parent to call wait()',
+      'The process resumes to state R so SIGKILL can take effect',
+    ],
+    correctIndex: 1,
+    explanation: 'A process in uninterruptible sleep (state D) is inside a kernel operation, typically waiting for I/O. SIGKILL is handled by the kernel, but the process cannot be interrupted until the blocking operation completes. Many processes stuck in state D indicate a slow or failed storage device, not a signal-delivery problem.',
+  },
+  {
+    id: 'proc-q3',
+    question: 'You find a zombie process (state Z) in ps aux and try kill -9 on its PID with no effect. What must happen for the zombie entry to disappear?',
+    options: [
+      'Reboot the system; zombies only clear on restart',
+      'The parent process must call wait() to collect the exit status, or the parent must die so PID 1 can reap it',
+      'Send SIGCHLD directly to the zombie process to trigger self-reaping',
+      'Run kill -CONT on the zombie to resume it so it can exit cleanly',
+    ],
+    correctIndex: 1,
+    explanation: 'A zombie has already exited — there is nothing running to kill. Its process table entry persists only because the parent has not yet called wait() to collect the exit status. The zombie disappears when the parent calls wait(), or when the parent is killed and PID 1 (systemd) adopts and reaps the orphaned zombie.',
+  },
+  {
+    id: 'proc-q4',
+    question: 'Why is SIGTERM preferred over SIGKILL as the first signal when stopping a production process?',
+    options: [
+      'SIGKILL requires root privileges; SIGTERM does not',
+      'SIGTERM is faster because it does not require a context switch',
+      'SIGTERM gives the process a chance to flush buffers, close connections, and clean up; SIGKILL provides no cleanup opportunity and can leave data corrupted',
+      'SIGKILL only works on single-threaded processes; SIGTERM works on all process types',
+    ],
+    correctIndex: 2,
+    explanation: 'When SIGKILL is delivered, the kernel terminates the process unconditionally with no opportunity for cleanup. This means write buffers may not be flushed, database connections may be left open with uncommitted transactions, lock files may not be removed, and dependent services may not be notified. SIGTERM can be caught by the process, allowing it to shut down gracefully.',
+  },
+  {
+    id: 'proc-q5',
+    question: 'What does kill -0 PID do, and when is it more reliable than ps aux | grep name?',
+    options: [
+      'kill -0 sends a reset signal that clears any pending signals; ps aux is always more accurate',
+      'kill -0 terminates the process at priority 0 (idle); grep catches this in ps output faster',
+      'kill -0 sends a null signal that tests if the process exists without affecting it; grep can match the grep process itself or different processes with the same name',
+      'kill -0 reloads the process configuration; ps aux only shows the process name, not its state',
+    ],
+    correctIndex: 2,
+    explanation: 'Signal 0 is a "null signal" that the kernel uses only to check process existence and permission without delivering any actual signal. It returns exit code 0 if the process exists and you can signal it, 1 otherwise. Using ps | grep is unreliable because grep itself appears in the process list and multiple processes may share a name.',
+  },
+  {
+    id: 'proc-q6',
+    question: 'A process\'s /proc/[pid]/status shows State: T. What does this mean, and which signal would resume it?',
+    options: [
+      'The process has terminated and is waiting for the parent; send SIGCHLD to the parent',
+      'The process is stopped (paused execution); send SIGCONT to resume it',
+      'The process is sleeping waiting for I/O; it will resume automatically when the I/O completes',
+      'The process has timed out and cannot be resumed; only SIGKILL will remove it',
+    ],
+    correctIndex: 1,
+    explanation: 'State T means the process has been stopped — its execution is paused, typically by SIGSTOP or SIGTSTP (Ctrl+Z). The process exists in memory but the kernel will not schedule it. Sending SIGCONT resumes execution from where it paused, transitioning the process back to state S (sleeping) or R (running).',
+  },
+  {
+    id: 'proc-q7',
+    question: 'What is the load average, and what does a load average equal to the number of CPU cores indicate?',
+    options: [
+      'Load average is total CPU time used; equal to core count means the CPU is idle',
+      'Load average is the average number of processes in the run queue; equal to core count means 100% CPU utilization with no excess demand',
+      'Load average is the percentage of memory in use; equal to core count means memory is nearly full',
+      'Load average is the number of sleeping processes; equal to core count means all cores are blocked on I/O',
+    ],
+    correctIndex: 1,
+    explanation: 'Load average represents the average number of processes either running or waiting to run over the last 1, 5, and 15 minutes. When load average equals the CPU core count, every core is fully occupied with exactly as much work as it can handle. Load average above the core count means demand exceeds capacity and processes are queuing for CPU time.',
+  },
+  {
+    id: 'proc-q8',
+    question: 'You want to run a long process that survives when you close the terminal. Which command accomplishes this and why does it work?',
+    options: [
+      'sleep 9999 & — the ampersand prevents the process from receiving any signals',
+      'nohup ./script.sh & — nohup makes the process immune to SIGHUP which is sent when the terminal closes',
+      'fg ./script.sh — bringing the process to foreground disconnects it from the terminal',
+      'nice ./script.sh & — nice lowers the priority so the process survives shell exit',
+    ],
+    correctIndex: 1,
+    explanation: 'When a terminal session closes, the shell sends SIGHUP to all processes in its session. By default, processes terminate on SIGHUP. nohup makes the process ignore SIGHUP, so it continues running after the terminal closes. The & runs it in the background so the shell does not wait for it, and together they allow the process to outlive the session.',
+  },
+]

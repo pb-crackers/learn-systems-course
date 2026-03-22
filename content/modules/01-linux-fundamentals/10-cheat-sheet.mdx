@@ -168,3 +168,102 @@ This is your quick reference for all Linux commands and concepts covered in this
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'linux-ref-q1',
+    question: 'Which command shows total RAM, used RAM, and available RAM in human-readable units (KB, MB, GB)?',
+    options: [
+      'lscpu',
+      'lsblk',
+      'df -h',
+      'free -h',
+    ],
+    correctIndex: 3,
+    explanation: 'free -h displays memory statistics — total, used, free, shared, buff/cache, and available — in human-readable units. lscpu shows CPU architecture information, lsblk shows block device (disk) layout, and df -h shows filesystem disk space usage rather than RAM.',
+  },
+  {
+    id: 'linux-ref-q2',
+    question: 'Which command shows all block devices (disks and partitions) as a tree, including their mount points?',
+    options: [
+      'df -h',
+      'lsblk',
+      'findmnt',
+      'stat /dev',
+    ],
+    correctIndex: 1,
+    explanation: 'lsblk lists block devices in a tree format showing each disk and its partitions, along with size, type, and mount point. df -h shows filesystem usage statistics for mounted filesystems. findmnt shows the mount hierarchy but focuses on where filesystems are attached, not disk topology.',
+  },
+  {
+    id: 'linux-ref-q3',
+    question: 'Which command traces all system calls made by a command and summarizes them by count?',
+    options: [
+      'strace cmd',
+      'strace -c cmd',
+      'dmesg | tail',
+      'uname -a',
+    ],
+    correctIndex: 1,
+    explanation: 'strace -c counts all unique syscalls made by the command and prints a summary table showing the number of calls, total time, and per-call average for each syscall. Plain strace (without -c) prints every individual call in real time, which is useful for tracing but not for getting a summary.',
+  },
+  {
+    id: 'linux-ref-q4',
+    question: 'Which command shows inode usage for all mounted filesystems, useful for diagnosing "no space left on device" errors when disk space appears available?',
+    options: [
+      'df -h',
+      'du -sh',
+      'df -i',
+      'lsblk',
+    ],
+    correctIndex: 2,
+    explanation: 'df -i shows inode usage (IUsed, IFree, IUse%) rather than byte usage. A filesystem can exhaust all inodes before running out of byte space, especially when millions of small files are created. df -h shows byte usage only, du -sh shows directory size, and lsblk shows disk topology.',
+  },
+  {
+    id: 'linux-ref-q5',
+    question: 'You need to set a file\'s permissions to owner read/write only (no group or other access). Which chmod command achieves this?',
+    options: [
+      'chmod 755 file',
+      'chmod 644 file',
+      'chmod 600 file',
+      'chmod 777 file',
+    ],
+    correctIndex: 2,
+    explanation: 'chmod 600 sets permissions to rw------- (6=rw- for owner, 0=--- for group, 0=--- for other). This is the recommended permission for sensitive files like SSH private keys and credential files. 644 allows group and other to read, 755 allows everyone to read and execute, and 777 gives everyone full access.',
+  },
+  {
+    id: 'linux-ref-q6',
+    question: 'You want to send a graceful termination request to PID 1234 and, if it is still alive after 5 seconds, force-kill it. Which sequence of commands implements this?',
+    options: [
+      'kill -9 1234 && sleep 5 && kill 1234',
+      'kill 1234; sleep 5; kill -0 1234 && kill -9 1234',
+      'pkill 1234 && kill -STOP 1234',
+      'kill -CONT 1234; sleep 5; kill -9 1234',
+    ],
+    correctIndex: 1,
+    explanation: '"kill 1234" sends SIGTERM (signal 15) as a polite termination request. After waiting 5 seconds, "kill -0 1234" checks if the process still exists without sending a real signal (exit 0 = alive, exit 1 = dead). If alive, "kill -9 1234" sends SIGKILL. The semicolons let the sequence run regardless of intermediate exit codes.',
+  },
+  {
+    id: 'linux-ref-q7',
+    question: 'Which command appends output to a file (without overwriting existing content) and which command overwrites the file?',
+    options: [
+      '>> overwrites; > appends',
+      '> overwrites; >> appends',
+      'Both > and >> overwrite; use tee -a to append',
+      '> writes to a new file only; >> writes to existing files only',
+    ],
+    correctIndex: 1,
+    explanation: '> (single arrow) opens the file for writing and truncates it to zero bytes before writing — any existing content is destroyed. >> (double arrow) opens the file in append mode, adding new content after the existing content without erasing it. This distinction is critical when managing log files or accumulating output across multiple command runs.',
+  },
+  {
+    id: 'linux-ref-q8',
+    question: 'Which combination of apt commands correctly installs a package in a Dockerfile while avoiding stale cache issues and keeping the image size minimal?',
+    options: [
+      'RUN apt-get install -y nginx',
+      'RUN apt-get update\nRUN apt-get install -y nginx',
+      'RUN apt-get update && apt-get install -y --no-install-recommends nginx',
+      'RUN dpkg -i nginx.deb',
+    ],
+    correctIndex: 2,
+    explanation: 'Combining update and install in a single RUN instruction prevents Docker from caching a stale index. --no-install-recommends skips non-essential recommended packages, keeping the image smaller. Running apt-get update in a separate RUN layer allows Docker to cache it indefinitely, eventually causing "package not found" failures as the index ages.',
+  },
+]

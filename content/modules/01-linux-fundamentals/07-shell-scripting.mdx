@@ -539,3 +539,102 @@ set +x
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'script-q1',
+    question: 'A script has NAME = "alice" on the first line after the shebang. What does bash actually do with this line?',
+    options: [
+      'It assigns the string "alice" to the variable NAME',
+      'It treats NAME as a command and tries to run it with arguments = and "alice"',
+      'It raises a syntax error and refuses to run the rest of the script',
+      'It creates an environment variable named NAME with the value alice',
+    ],
+    correctIndex: 1,
+    explanation: 'In bash, variable assignment requires no spaces around the equals sign. "NAME = alice" is interpreted as running a command named NAME with arguments = and alice, which fails with "command not found". This is one of the most common bash scripting errors. Correct syntax is NAME="alice" with no spaces.',
+  },
+  {
+    id: 'script-q2',
+    question: 'A script runs without set -u and contains: "rm -rf $BACKUP_DIR/*" where BACKUP_DIR was never assigned. What happens?',
+    options: [
+      'bash exits with "unbound variable" error before executing rm',
+      'rm receives "rm -rf /*" because $BACKUP_DIR expands to empty string, potentially deleting system files',
+      'The glob /* does not match anything so rm deletes nothing',
+      'bash substitutes $BACKUP_DIR with its default value of /tmp',
+    ],
+    correctIndex: 1,
+    explanation: 'Without set -u, an unset variable expands to an empty string silently. $BACKUP_DIR becomes "" so the command becomes "rm -rf /*" — recursively delete everything from root. With "set -u", bash immediately exits with "BACKUP_DIR: unbound variable" before rm ever runs, preventing the catastrophic deletion.',
+  },
+  {
+    id: 'script-q3',
+    question: 'A script uses "set -e" and runs: "grep pattern file.txt" which exits with code 1 when no match is found. The script exits immediately. How do you run grep in a set -e script without aborting when no match is found?',
+    options: [
+      'Wrap it in if: "if grep pattern file.txt; then echo found; fi"',
+      'Use single brackets instead of double brackets for the grep call',
+      'Add "|| true" after the grep: "grep pattern file.txt || true"',
+      'Both A and C are valid approaches',
+    ],
+    correctIndex: 3,
+    explanation: 'set -e exits on any non-zero exit code. Two patterns prevent this: using the command in an if condition (bash does not trigger set -e on the condition command), or appending "|| true" which makes the overall expression exit 0 regardless of grep\'s result. Both approaches intentionally handle the non-zero exit and prevent set -e from aborting the script.',
+  },
+  {
+    id: 'script-q4',
+    question: 'A function needs to return the string "192.168.1.5" to the calling code. Which approach works correctly in bash?',
+    options: [
+      'Use "return 192.168.1.5" at the end of the function',
+      'Print the string with echo inside the function and capture it with command substitution: IP=$(get_ip)',
+      'Store the result in a global variable and read it after the function call',
+      'Use "exit 0" with the IP as a parameter: exit "192.168.1.5"',
+    ],
+    correctIndex: 1,
+    explanation: 'bash functions can only return integer exit codes (0-255) via return. To pass back a string, the function prints it to stdout (with echo), and the caller captures it using command substitution: RESULT=$(function_name). Option C works but is considered poor practice because it creates global state. Return can only carry success/failure, not string data.',
+  },
+  {
+    id: 'script-q5',
+    question: 'Why is "trap cleanup EXIT" more reliable than placing cleanup code at the bottom of a script?',
+    options: [
+      'trap runs the cleanup code in a separate process so it does not affect the script\'s exit code',
+      'Code at the bottom only runs if execution reaches that line; set -e can exit mid-script before it, while trap EXIT runs on any exit',
+      'trap can access variables that are out of scope for bottom-of-script code',
+      'trap cleanup EXIT is required by bash strict mode and is simply more correct syntax',
+    ],
+    correctIndex: 1,
+    explanation: 'With set -e active, any failing command causes immediate script exit, bypassing any code below it. Code placed at the bottom of a script only executes if no failure triggered set -e. trap EXIT registers a handler that fires whenever the script exits — whether due to normal completion, set -e catching a failure, or an explicit exit call — guaranteeing cleanup always runs.',
+  },
+  {
+    id: 'script-q6',
+    question: 'A script needs to iterate over all .log files in /var/log/, but some filenames contain spaces. Which loop construct handles this safely?',
+    options: [
+      'for file in $(ls /var/log/*.log); do ...',
+      'for file in /var/log/*.log; do ...',
+      'ls /var/log/*.log | while read file; do ...',
+      'find /var/log -name "*.log" | xargs -I {} bash -c "process {}"',
+    ],
+    correctIndex: 1,
+    explanation: 'The glob "for file in /var/log/*.log" is the safe pattern: bash expands the glob to a list of filenames and assigns each as a separate word to $file, correctly handling spaces. The "for file in $(ls ...)" approach performs command substitution and word splitting, which breaks filenames containing spaces into separate iterations.',
+  },
+  {
+    id: 'script-q7',
+    question: 'Which test operator checks if a string variable is empty (zero length)?',
+    options: [
+      '[ $VAR = "" ]',
+      '[ -z "$VAR" ]',
+      '[ -f "$VAR" ]',
+      '[ $VAR -eq 0 ]',
+    ],
+    correctIndex: 1,
+    explanation: '"-z string" returns true if the string has zero length. It is the idiomatic bash test for an empty string. "-f" tests if a file exists and is a regular file. "-eq 0" performs numeric comparison. The pattern "[ $VAR = "" ]" without quoting is unreliable because if $VAR is unset, the bracket expression breaks.',
+  },
+  {
+    id: 'script-q8',
+    question: 'You have a script that accepts two arguments. What does "$@" expand to when you use it in a function call?',
+    options: [
+      'The number of arguments passed to the script',
+      'The name of the script itself',
+      'All arguments as a single space-separated string',
+      'All arguments as separate, individually quoted words preserving spaces within each argument',
+    ],
+    correctIndex: 3,
+    explanation: '"$@" expands each argument as a separate, individually double-quoted word. This preserves spaces within arguments. For example, if arg1 is "hello world", "$@" passes it as one argument with the space intact. In contrast, $@ without quotes or "$*" would combine arguments or break on spaces, which breaks forwarding arguments with embedded spaces.',
+  },
+]

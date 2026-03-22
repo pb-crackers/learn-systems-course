@@ -326,3 +326,102 @@ The `/proc` filesystem is a **virtual filesystem** — it has no data on disk. T
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'os-q1',
+    question: 'What is the primary responsibility of the Linux kernel?',
+    options: [
+      'Running user applications such as the shell and web browser',
+      'Managing hardware, processes, memory, and providing a uniform interface to devices',
+      'Storing configuration files and user data on disk',
+      'Translating source code into executable machine instructions',
+    ],
+    correctIndex: 1,
+    explanation: 'The kernel is the core of the OS that handles hardware abstraction, process scheduling, memory management, and filesystem access. It runs for the entire lifetime of the system and acts as the intermediary between user programs and the underlying hardware.',
+  },
+  {
+    id: 'os-q2',
+    question: 'A program running in Ring 3 (user space) tries to directly access a hardware I/O port. What happens?',
+    options: [
+      'The operation succeeds because the kernel grants all programs hardware access',
+      'The CPU raises a hardware exception, preventing the access',
+      'The program is paused and rescheduled to a higher priority ring',
+      'The access is silently ignored and the program continues',
+    ],
+    correctIndex: 1,
+    explanation: 'The CPU hardware enforces privilege rings. Ring 3 (user space) code cannot execute privileged instructions or access hardware directly. Attempting to do so triggers a CPU exception, which the kernel catches and typically converts into a SIGSEGV or termination of the offending process.',
+  },
+  {
+    id: 'os-q3',
+    question: 'What is a system call, and why must user-space programs use it to perform I/O?',
+    options: [
+      'A function inside the user program that reads directly from the hardware bus',
+      'A request made to the kernel to perform a privileged operation on behalf of the user process',
+      'A special file in /proc that logs all program activity',
+      'A timer interrupt that allows the kernel to preempt running processes',
+    ],
+    correctIndex: 1,
+    explanation: 'User-space code runs in Ring 3 and cannot access hardware directly. A system call is the controlled mechanism for crossing the ring boundary: the program places arguments in registers, executes the syscall instruction, the CPU switches to Ring 0 (kernel space), the kernel performs the operation, and control returns to Ring 3 with the result.',
+  },
+  {
+    id: 'os-q4',
+    question: 'What is the correct sequence of steps when a user-space program makes a system call on x86-64 Linux?',
+    options: [
+      'Program calls libc, CPU stays in Ring 3, kernel writes result to /proc',
+      'Program calls libc, libc executes the syscall instruction, CPU switches to Ring 0, kernel handles request, CPU returns to Ring 3',
+      'Program writes to /dev/null, the kernel reads the request, kernel executes the operation',
+      'Program forks a child process, child enters kernel space, parent waits for the result',
+    ],
+    correctIndex: 1,
+    explanation: 'User code calls a C library function (e.g., fopen), libc places the syscall number and arguments in registers and executes the syscall instruction, the CPU transitions from Ring 3 to Ring 0, the kernel performs the operation, then the CPU returns to Ring 3 with the result in a register.',
+  },
+  {
+    id: 'os-q5',
+    question: 'Which process always has PID 1 on a modern Linux system, and what are two responsibilities that make it special?',
+    options: [
+      'The shell (bash); it resolves PATH and manages terminal I/O',
+      'The kernel itself; it schedules processes and manages memory',
+      'systemd (or the init process); it cannot be killed and is responsible for reaping zombie processes',
+      'sshd; it handles login sessions and spawns user processes',
+    ],
+    correctIndex: 2,
+    explanation: 'PID 1 is systemd on modern Linux. It is the first user-space process started by the kernel and cannot be killed with SIGKILL. It adopts orphaned processes, reaps zombies by calling wait(), and is responsible for starting all other services during the boot sequence.',
+  },
+  {
+    id: 'os-q6',
+    question: 'What does the /proc filesystem contain, and where does its data come from?',
+    options: [
+      'Configuration files written by the system administrator; stored on the root filesystem',
+      'Kernel-generated virtual files exposing live system state; no data exists on disk',
+      'Log files written by running processes; stored in RAM and flushed to disk every minute',
+      'Binary executables for system administration; installed by the package manager',
+    ],
+    correctIndex: 1,
+    explanation: '/proc is a virtual filesystem that the kernel generates entirely in memory. When you read a file like /proc/loadavg or /proc/1/status, the kernel constructs the content on the fly from internal data structures. No data is stored on disk.',
+  },
+  {
+    id: 'os-q7',
+    question: 'Why does the lesson warn against using strace on a production process?',
+    options: [
+      'strace can modify system call arguments and corrupt the process state',
+      'strace works by attaching via ptrace, causing a context switch on every syscall which can slow the process by 10-100x',
+      'strace requires root privileges which could accidentally terminate the monitored process',
+      'strace rewrites the process\'s file descriptors, disrupting open network connections',
+    ],
+    correctIndex: 1,
+    explanation: 'strace intercepts system calls using the ptrace() mechanism, which causes a context switch to the tracer (strace) on every single syscall. This overhead can slow a process by 10-100x, making it potentially dangerous to attach to a production service that is handling live traffic.',
+  },
+  {
+    id: 'os-q8',
+    question: 'A container\'s PID 1 is a bare shell script. When Docker sends SIGTERM to stop the container, it waits 30 seconds and then sends SIGKILL. What is happening and how would you fix it?',
+    options: [
+      'The shell script has a bug that causes an infinite loop; fix the loop logic',
+      'PID 1 does not receive SIGTERM by default without an explicit handler; use tini or exec the app as PID 1',
+      'Docker always waits exactly 30 seconds regardless of signal handling',
+      'The container is out of memory; increase the memory limit',
+    ],
+    correctIndex: 1,
+    explanation: 'PID 1 has special signal handling behavior in Linux: it does not receive SIGTERM unless it explicitly registers a handler for it. A bare shell script typically does not handle SIGTERM, so Docker waits its full stop timeout before sending SIGKILL. The fix is to use a proper init (docker run --init or tini) as PID 1, or to end the entrypoint script with exec myapp so the application itself becomes PID 1 and handles signals directly.',
+  },
+]

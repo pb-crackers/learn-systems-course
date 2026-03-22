@@ -412,3 +412,114 @@ The VFS defines interfaces (as C function pointers: `inode_operations`, `file_op
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'fs-q1',
+    question: 'Where do all files on a Linux system originate from, regardless of the physical device they are stored on?',
+    options: [
+      'Each device has its own root, such as C:\\ for disk 1 and D:\\ for disk 2',
+      'They all live under /, the single root of one unified directory tree',
+      'They live under /home for user files and /sys for system files',
+      'Each user has a separate root under /home/username/',
+    ],
+    correctIndex: 1,
+    explanation: 'Unlike Windows where each drive has its own tree, Linux uses a single unified directory tree rooted at /. External drives, network filesystems, and virtual filesystems are all attached somewhere under /, making location transparent to applications.',
+  },
+  {
+    id: 'fs-q2',
+    question: 'Which directory in the Filesystem Hierarchy Standard contains system-wide configuration files that administrators can edit as plain text?',
+    options: [
+      '/bin',
+      '/var',
+      '/etc',
+      '/usr/lib',
+    ],
+    correctIndex: 2,
+    explanation: '/etc stores system-wide configuration files in text format. Examples include /etc/passwd (user accounts), /etc/fstab (mount table), and application config files. Administrators edit these directly to configure the system, unlike binary data directories.',
+  },
+  {
+    id: 'fs-q3',
+    question: 'What information does an inode store, and what does it NOT store?',
+    options: [
+      'Inode stores the filename and file contents; it does not store permissions',
+      'Inode stores file type, permissions, owner, timestamps, and data block pointers; it does not store the filename',
+      'Inode stores only the filename and inode number; all other metadata is in the directory entry',
+      'Inode stores the filename and permissions; it does not store timestamps',
+    ],
+    correctIndex: 1,
+    explanation: 'An inode stores file metadata: type, permissions, owner UID/GID, size, timestamps, link count, and pointers to data blocks. It does NOT store the filename. Filenames are stored in directory entries (dentries), which map a name to an inode number. This separation is what makes hard links possible.',
+  },
+  {
+    id: 'fs-q4',
+    question: 'You create a hard link to a file with ln original.txt hardlink.txt. What happens to the data when you delete original.txt with rm?',
+    options: [
+      'The data is immediately deleted because the original file is gone',
+      'The data is preserved; hardlink.txt still works because it points to the same inode, and data is only freed when the link count reaches zero',
+      'The data is moved to hardlink.txt and original.txt becomes an empty file',
+      'Both files are deleted because they share the same inode',
+    ],
+    correctIndex: 1,
+    explanation: 'rm only removes a directory entry and decrements the inode\'s link count. The data blocks are only freed when the link count reaches zero. Since hardlink.txt is another directory entry pointing to the same inode, the link count drops from 2 to 1, and the data remains fully accessible through hardlink.txt.',
+  },
+  {
+    id: 'fs-q5',
+    question: 'What is the key mechanical difference between a hard link and a symbolic link?',
+    options: [
+      'Hard links point to file contents; symbolic links point to the inode',
+      'Hard links are directory entries pointing to the same inode as the original; symbolic links are separate files storing a path string',
+      'Hard links can cross filesystems; symbolic links cannot',
+      'Hard links store permissions; symbolic links do not have their own permissions',
+    ],
+    correctIndex: 1,
+    explanation: 'A hard link is just another directory entry (name-to-inode mapping) for the same inode — both names reference the exact same file metadata and data. A symbolic link is a special file type with its own inode that stores a path string; when accessed, the kernel follows that path to find the target.',
+  },
+  {
+    id: 'fs-q6',
+    question: 'A filesystem shows 40% disk space used in df -h, but a process reports "No space left on device" when creating a new file. What is the most likely cause?',
+    options: [
+      'The filesystem is mounted read-only',
+      'The /tmp directory is full and new files cannot be created there',
+      'The filesystem has run out of inodes even though byte space remains',
+      'The process does not have write permission on the directory',
+    ],
+    correctIndex: 2,
+    explanation: 'A filesystem has a fixed number of inodes allocated at format time. Creating millions of small files (logs, node_modules, package caches) can exhaust all inodes before exhausting byte space. The error "No space left on device" appears in both cases. Check inode usage with df -i to distinguish inode exhaustion from disk-full conditions.',
+  },
+  {
+    id: 'fs-q7',
+    question: 'What does the VFS (Virtual Filesystem Switch) allow the kernel to do?',
+    options: [
+      'Compress files automatically before storing them on disk',
+      'Present a uniform open/read/write interface to applications regardless of the underlying filesystem type',
+      'Mount multiple disks as a single logical volume for redundancy',
+      'Encrypt all data written to the filesystem transparently',
+    ],
+    correctIndex: 1,
+    explanation: 'The VFS is a kernel abstraction layer that defines a common interface (inode_operations, file_operations) that every filesystem driver implements. This means a program calling open() works identically whether the file is on ext4, NFS, btrfs, or the virtual procfs — the VFS dispatches to the correct driver transparently.',
+  },
+  {
+    id: 'fs-q8',
+    question: 'In the ls -la output, which character in the first position of the permission string indicates a symbolic link?',
+    options: [
+      '-',
+      'd',
+      'l',
+      's',
+    ],
+    correctIndex: 2,
+    explanation: 'The first character of the permission string indicates the file type. l indicates a symbolic link (shown as name -> target in ls output). - indicates a regular file, d a directory, b a block device, c a character device, p a named pipe, and s a socket.',
+  },
+  {
+    id: 'fs-q9',
+    question: 'What is a mount point, and what happens to the original contents of a directory used as a mount point while a filesystem is mounted there?',
+    options: [
+      'A mount point is a configuration file that lists available filesystems; the directory contents remain visible',
+      'A mount point is a directory where a filesystem is attached to the tree; the directory\'s original contents are hidden while the filesystem is mounted',
+      'A mount point is a symbolic link to the device file; the directory keeps its contents plus the new filesystem\'s files',
+      'A mount point is a special inode type that merges two directories together',
+    ],
+    correctIndex: 1,
+    explanation: 'Mounting attaches a filesystem at a directory (the mount point). While mounted, the directory shows the contents of the mounted filesystem, not its own original contents. The original contents are not deleted but are inaccessible until the filesystem is unmounted. This is why /proc shows kernel virtual files, not any files that might have been placed in the /proc directory itself.',
+  },
+]

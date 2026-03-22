@@ -450,3 +450,102 @@ The umask is set per-process and inherited by child processes. It is configured 
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'perm-q1',
+    question: 'How does the Linux kernel identify the user running a process when checking file permissions?',
+    options: [
+      'By the username string stored in the process environment',
+      'By the numeric UID (User ID) assigned to the process',
+      'By reading /etc/passwd at the time of each file access',
+      'By the session name assigned at login',
+    ],
+    correctIndex: 1,
+    explanation: 'The kernel uses numeric UIDs and GIDs, never usernames, for permission checks. When you log in as alice, the kernel sets your process UID to her numeric ID (e.g., 1001). The username is only a human-readable label; the kernel compares numbers exclusively. This is why /etc/passwd maps names to UIDs.',
+  },
+  {
+    id: 'perm-q2',
+    question: 'A file has permissions -rwxr-xr--. Which set of permissions applies to a user who is neither the file owner nor in the file\'s group?',
+    options: [
+      'rwx (read, write, execute)',
+      'r-x (read, execute)',
+      'r-- (read only)',
+      '--- (no access)',
+    ],
+    correctIndex: 2,
+    explanation: 'The permission string is split into three groups of three bits: owner (rwx), group (r-x), and other (r--). A user who does not match the owner UID and is not in the group falls into the "other" category, which has only read permission in this example.',
+  },
+  {
+    id: 'perm-q3',
+    question: 'What does execute permission (x) mean on a directory, as opposed to on a regular file?',
+    options: [
+      'On a directory, x means you can run the directory as a script; on a file, x means you can list its contents',
+      'On a directory, x means you can cd into it and access files by name; on a file, x means you can run it as a program',
+      'On a directory, x means you can delete files inside it; on a file, x means you can modify it',
+      'x has the same meaning on directories and files: it allows execution of the contents',
+    ],
+    correctIndex: 1,
+    explanation: 'Execute permission has different meanings depending on the object type. On a file, x allows running it as a program. On a directory, x is required to traverse it — without it, you cannot cd into the directory or access any file inside by name, even if you know the exact path.',
+  },
+  {
+    id: 'perm-q4',
+    question: 'What does the numeric permission 644 mean in terms of read, write, and execute bits?',
+    options: [
+      'Owner: rwx, Group: r--, Other: r--',
+      'Owner: rw-, Group: r--, Other: r--',
+      'Owner: rw-, Group: rw-, Other: r--',
+      'Owner: rwx, Group: r-x, Other: r--',
+    ],
+    correctIndex: 1,
+    explanation: 'Each digit is the sum of r=4, w=2, x=1. 6 = 4+2 = rw-, 4 = 4+0 = r--, so 644 = owner(rw-) group(r--) other(r--). This is the typical permission for a configuration file: the owner can read and write, everyone else can only read.',
+  },
+  {
+    id: 'perm-q5',
+    question: 'A web application needs to read a config file that is owned by root with permissions 600. The app runs as www-data. What is the minimum change needed to allow the application to read the config without making it world-readable?',
+    options: [
+      'Change permissions to 644 so everyone can read it',
+      'Change permissions to 777 to give all users full access',
+      'Change the file owner to www-data (chown www-data config), or change the group to www-data and set permissions to 640',
+      'Move the config file to /tmp where all users have read access',
+    ],
+    correctIndex: 2,
+    explanation: 'Permission 600 gives access only to the file owner. Since the kernel checks owner first, www-data gets denied. The two correct minimal approaches are: change ownership to www-data so it matches as owner (chown www-data config), or set the group to www-data and use 640 (chown :www-data config && chmod 640 config) so the group gets read access without exposing it to others.',
+  },
+  {
+    id: 'perm-q6',
+    question: 'What does the setuid (SUID) bit do when set on an executable, and what is the canonical example on Linux?',
+    options: [
+      'SUID makes the file executable by all users regardless of the x bit',
+      'SUID makes the executable run with the owner\'s UID instead of the caller\'s UID; the canonical example is /usr/bin/passwd',
+      'SUID prevents the file from being deleted by anyone other than the owner',
+      'SUID causes new files created in the directory to inherit the directory\'s group',
+    ],
+    correctIndex: 1,
+    explanation: 'When an executable with SUID is run, the kernel sets the effective UID of the process to the file\'s owner UID rather than the caller\'s UID. /usr/bin/passwd is the classic example: it must write to /etc/shadow (owned by root, mode 640), so it runs with root\'s UID even when called by a normal user. This is shown as "s" in the owner execute position.',
+  },
+  {
+    id: 'perm-q7',
+    question: 'What does the sticky bit (1000) do when set on a directory, and which well-known system directory always has it?',
+    options: [
+      'Prevents the directory from being deleted by anyone except root; /root always has it',
+      'Makes files inside the directory executable by all users; /usr/bin always has it',
+      'Allows only the file owner (or root) to delete or rename files inside; /tmp always has it',
+      'Makes all files in the directory inherit the directory\'s permissions; /etc always has it',
+    ],
+    correctIndex: 2,
+    explanation: 'The sticky bit on a directory restricts deletion and renaming: only the file\'s owner or root can remove or rename files inside, even if other users have write permission on the directory. /tmp is world-writable so anyone can create files there, but the sticky bit prevents users from deleting each other\'s temporary files.',
+  },
+  {
+    id: 'perm-q8',
+    question: 'A new file is created in a shell where umask is set to 022. What permissions will the file have?',
+    options: [
+      '777 (rwxrwxrwx)',
+      '644 (rw-r--r--)',
+      '755 (rwxr-xr-x)',
+      '600 (rw-------)',
+    ],
+    correctIndex: 1,
+    explanation: 'The default for new files is 0666 (rw-rw-rw-). The umask bits are subtracted: 0666 & ~022 = 0644. So group and other lose their write bits, giving rw-r--r-- (644). This is the standard default that prevents group and other from writing to new files while keeping them readable.',
+  },
+]

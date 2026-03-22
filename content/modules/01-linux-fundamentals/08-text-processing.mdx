@@ -449,3 +449,102 @@ Reading this pipeline stage by stage is a key skill. Each `|` is a hand-off: "ta
     }
   ]}
 />
+
+export const quiz = [
+  {
+    id: 'text-q1',
+    question: 'You want to find all lines in app.log that do NOT contain the word "ERROR". Which grep command achieves this?',
+    options: [
+      'grep "ERROR" app.log',
+      'grep -c "ERROR" app.log',
+      'grep -v "ERROR" app.log',
+      'grep -n "ERROR" app.log',
+    ],
+    correctIndex: 2,
+    explanation: 'The -v flag inverts the match, passing through lines that do not match the pattern and discarding lines that do. grep -c counts matching lines (returns a number), -n shows line numbers alongside matching lines, and the plain form shows only lines that match.',
+  },
+  {
+    id: 'text-q2',
+    question: 'A colleague ran "uniq -c error_codes.txt" and got incorrect counts — some codes showed count 1 even though they appeared hundreds of times. What did they forget?',
+    options: [
+      'They forgot to use the -d flag to show duplicates',
+      'They forgot to run sort before uniq; uniq only collapses adjacent duplicate lines',
+      'They forgot the -i flag for case-insensitive matching',
+      'They used uniq instead of awk, which is required for accurate counting',
+    ],
+    correctIndex: 1,
+    explanation: 'uniq operates on adjacent lines only: it compares each line to the one immediately before it. If identical error codes appear non-consecutively throughout the file (as in a real log), uniq counts each non-adjacent occurrence separately. Sorting first brings all identical lines together so uniq -c can correctly count each group.',
+  },
+  {
+    id: 'text-q3',
+    question: 'You need to extract only the HTTP status codes from a web server access log where the status code is the 9th space-separated field. Which awk command correctly extracts it?',
+    options: [
+      'awk "{print $9}" access.log',
+      'awk \'{print $9}\' access.log',
+      'cut -d" " -f9 access.log',
+      'Both B and C are correct approaches',
+    ],
+    correctIndex: 3,
+    explanation: 'awk \'{print $9}\' uses single quotes to prevent the shell from interpreting $9 as a shell variable, correctly passing it to awk which uses it as "9th field". cut -d" " -f9 uses a space delimiter and extracts field 9. Both produce the same result for simple space-separated data. The double-quoted version in option A would be interpreted by the shell before awk sees it.',
+  },
+  {
+    id: 'text-q4',
+    question: 'You run "sed -i \'s/old/new/g\' config.conf" and realize your pattern was wrong — the substitution corrupted the file. The original content is gone. How could this have been prevented?',
+    options: [
+      'Use sed -n to preview changes before applying them with -i',
+      'Test the substitution without -i first, or create a backup: cp config.conf config.conf.bak before running sed -i',
+      'Use sed --dry-run to preview changes before writing',
+      'Run sed in a subshell to prevent the -i flag from having effect',
+    ],
+    correctIndex: 1,
+    explanation: 'sed -i rewrites the file in place with no backup by default. The safe workflow is to first test your expression without -i (sed \'s/old/new/g\' config.conf | head) to verify the output, then either create a manual backup (cp config.conf config.conf.bak) before applying -i, or use sed -i.bak which creates a backup with the .bak extension automatically.',
+  },
+  {
+    id: 'text-q5',
+    question: 'What is the purpose of the BEGIN and END blocks in an awk program?',
+    options: [
+      'BEGIN matches the first line of the file; END matches the last line',
+      'BEGIN runs before any lines are processed (initialization); END runs after all lines are processed (summaries)',
+      'BEGIN and END define the start and end of a pattern range to filter lines',
+      'BEGIN sets the field separator; END prints the final output',
+    ],
+    correctIndex: 1,
+    explanation: 'BEGIN{} executes once before awk processes any input lines — useful for initializing variables or printing headers. END{} executes once after all lines have been processed — perfect for printing accumulated sums, counts, or summaries. Regular pattern-action blocks (without BEGIN/END) run for each matching input line.',
+  },
+  {
+    id: 'text-q6',
+    question: 'You need to build a pipeline that finds the top 5 most frequent URLs in an access log where the URL is the 7th field and you want only HTTP 500 responses (9th field). Which pipeline achieves this?',
+    options: [
+      'awk \'{print $7}\' access.log | grep " 500 " | sort | uniq -c | sort -rn | head -5',
+      'grep " 500 " access.log | awk \'{print $7}\' | sort | uniq -c | sort -rn | head -5',
+      'sort access.log | grep " 500 " | awk \'{print $7}\' | uniq -c | sort -rn | head -5',
+      'cut -f7 access.log | grep " 500 " | sort | uniq -c | head -5',
+    ],
+    correctIndex: 1,
+    explanation: 'Filter first with grep to reduce the data volume, then extract the URL field with awk, then sort to bring duplicates together, then count with uniq -c, then sort numerically in reverse to put the highest counts first, then show the top 5 with head. Option A applies grep to already-extracted URLs which no longer contain the status code, so the filter would fail.',
+  },
+  {
+    id: 'text-q7',
+    question: 'The command "sort -n" is used for numeric sorting. Why is this flag necessary for numbers, and what does alphabetical sort produce without it?',
+    options: [
+      '-n is required because sort cannot read numeric characters without it; without -n, sort produces random order',
+      'Without -n, sort compares digit by digit as characters, so "10" sorts before "9" because "1" < "9"',
+      '-n changes the sort to be case-insensitive; without it, uppercase numbers sort separately',
+      'Without -n, sort includes decimal points and negative signs literally, sorting all negatives after positives',
+    ],
+    correctIndex: 1,
+    explanation: 'Alphabetical (lexicographic) comparison compares character by character from left to right. "10" starts with "1" and "9" starts with "9"; since "1" < "9" in ASCII, "10" sorts before "9" alphabetically. This produces wrong results for any numeric analysis. The -n flag tells sort to interpret each line as a number and compare values numerically.',
+  },
+  {
+    id: 'text-q8',
+    question: 'You have a list of server hostnames on stdin and want to run "uptime" on each one via SSH. Which xargs invocation correctly passes each hostname to the SSH command?',
+    options: [
+      'cat hosts.txt | xargs ssh uptime',
+      'cat hosts.txt | xargs -I {} ssh {} uptime',
+      'cat hosts.txt | xargs -P 1 ssh uptime {}',
+      'cat hosts.txt | xargs ssh -c uptime',
+    ],
+    correctIndex: 1,
+    explanation: 'xargs -I {} defines {} as a placeholder that is substituted for each input line. This lets you place the argument (the hostname) in the middle of the command — between ssh and uptime — which is required because ssh expects the hostname before the command. Without -I {}, xargs appends each hostname at the end of the command, resulting in "ssh uptime hostname" which is syntactically incorrect.',
+  },
+]
