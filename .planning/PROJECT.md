@@ -34,20 +34,14 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 - ✓ Challenge-mode capstone exercises with reference sheets — v1.1
 - ✓ Global difficulty preference toggle with localStorage persistence — v1.1
 - ✓ Consistent command pedagogy across all 8 modules (56 lessons) — v1.1
+- ✓ Multiple-choice knowledge quizzes (7-10 questions per lesson) with retrieval practice — v1.2
+- ✓ Quiz-gated progression: 100% score required to unlock next lesson — v1.2
+- ✓ Wrong answers show "Incorrect" with full retake, correct answers show mechanism explanations — v1.2
+- ✓ Attempt counter, pass screen with "Continue to Next Lesson" navigation — v1.2
+- ✓ Quiz type system with compile-time tuple enforcement and grandfather rule for existing progress — v1.2
+- ✓ ~500 quiz questions across all 57 lessons with difficulty-tiered content — v1.2
 
 ### Active
-
-## Current Milestone: v1.2 Enhanced Questions
-
-**Goal:** Add multiple-choice knowledge quizzes to every lesson that gate progression and reinforce learning through retrieval practice.
-
-**Target features:**
-- 7-10 multiple choice questions per lesson covering key concepts and commands
-- Wrong answers show no correct answer — learner retakes entire quiz
-- Correct answers show explanations reinforcing reasoning
-- 100% score required to unlock next lesson
-- Quiz embedded at bottom of lesson page after hands-on exercise
-- Progress gating: lesson complete only when exercise done AND quiz passed
 
 ### Future
 
@@ -67,12 +61,12 @@ Every lesson must be hands-on and interactive — the learner practices real ski
 
 ## Context
 
-Shipped v1.1 with 22,192 LOC across TypeScript, React, MDX, and CSS.
+Shipped v1.2 with TypeScript, React, MDX, and CSS.
 Tech stack: Next.js 16.2 (App Router), React 19, Tailwind v4, shadcn/ui, MDX with rehype-pretty-code + remark-frontmatter.
-8 curriculum modules with 56 lessons, Docker-based labs, and 2 capstone projects.
+8 curriculum modules with 57 lessons, Docker-based labs, and 2 capstone projects.
 All exercises have verification scripts with PASS/FAIL feedback.
-v1.1 added 5 new components (AnnotatedCommand, ScenarioQuestion, ChallengeReferenceSheet, DifficultyToggle, mode-aware ExerciseCard).
-160+ command annotations across 22 Foundation lessons, 80+ ScenarioQuestions across all modules, 2 Challenge-mode capstones.
+v1.2 added quiz infrastructure: QuizQuestion type system, 5-phase state machine Quiz component, RSC-safe QuizSection wrapper, and ~500 quiz questions across all lessons.
+Quiz gating: lessons with quiz data require 100% pass to mark complete; lessons without quiz retain MarkCompleteButton. Grandfather rule preserves pre-v1.2 progress.
 
 - Learner knows programming fundamentals but wants to understand how machines work at a deeper level
 - Course runs locally as a Next.js web app on localhost
@@ -106,6 +100,10 @@ v1.1 added 5 new components (AnnotatedCommand, ScenarioQuestion, ChallengeRefere
 | Design lock before implementation | All type contracts, schemas, content policies locked in Phase 8 before code | ✓ Good — zero redesign needed in Phases 9-11 |
 | Prototype before bulk migration | Linux Fundamentals migrated first in Phase 10, validated pattern before 7-module Phase 11 | ✓ Good — caught annotation schema issues early |
 | Separate localStorage keys for preferences | Preferences survive progress reset, separate concern from completion tracking | ✓ Good — clean separation, compound hydration guard |
+| Quiz as MDX named export | Quiz data lives alongside lesson content, extracted via existing dynamic import | ✓ Good — no build pipeline changes, clean data flow |
+| useReducer state machine for quiz | 5-phase discriminated union (idle/active/answering/failed/passed), pure reducer testable without DOM | ✓ Good — 16 tests, clear state transitions |
+| QuizSection RSC wrapper | Bridges Server Component → Client Component boundary for router.push navigation | ✓ Good — LessonLayout stays Server Component |
+| One plan per module for content authoring | 8 parallel plans, each authors all lessons in one module independently | ✓ Good — maximum parallelization, 8 agents completed simultaneously |
 
 ---
-*Last updated: 2026-03-20 after v1.2 milestone started*
+*Last updated: 2026-03-23 after v1.2 milestone complete*

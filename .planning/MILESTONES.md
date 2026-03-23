@@ -1,5 +1,14 @@
 # Milestones
 
+## v1.2 Enhanced Questions (Shipped: 2026-03-23)
+
+**Phases completed:** 4 phases, 11 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.1 Command Pedagogy (Shipped: 2026-03-20)
 
 **Phases completed:** 4 phases, 15 plans, 0 tasks
