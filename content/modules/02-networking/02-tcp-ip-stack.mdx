@@ -129,9 +129,12 @@ Is 192.168.1.100/24 on the same subnet as 10.0.0.1/24?
 ```
 
 **Private address ranges** (RFC 1918 — not routable on the public internet):
-- `10.0.0.0/8` — largest block, used in data centers and cloud VPCs
-- `172.16.0.0/12` — Docker's default bridge network uses `172.17.0.0/16` from this range
-- `192.168.0.0/16` — typical home router subnet
+
+| Range | Size | Typical Use |
+|-------|------|-------------|
+| `10.0.0.0/8` | Largest block | Data centers and cloud VPCs |
+| `172.16.0.0/12` | Medium block | Docker default bridge (`172.17.0.0/16`) |
+| `192.168.0.0/16` | Smallest block | Home router subnets |
 
 ### TCP: The Reliable Protocol
 
@@ -184,18 +187,15 @@ Beyond flow control (receiver-side), TCP implements **congestion control** to av
 
 **UDP (User Datagram Protocol)** is the opposite of TCP: no handshake, no acknowledgments, no ordering, no retransmission. The sender fires off datagrams and doesn't track whether they arrived.
 
-```
-UDP vs TCP comparison:
-
-TCP:                          UDP:
-  3-way handshake               No setup
-  Acknowledgments               No confirmation
-  Retransmission on loss        No retry
-  Ordered delivery              No ordering
-  Flow control                  No throttling
-  ~20 byte header               8 byte header
-  Connection state in kernel    Stateless
-```
+| Feature | TCP | UDP |
+|---------|-----|-----|
+| Connection setup | 3-way handshake | No setup |
+| Acknowledgments | Yes | No confirmation |
+| Lost data | Retransmission | No retry |
+| Delivery order | Ordered | No ordering |
+| Flow control | Yes | No throttling |
+| Header size | ~20 bytes | 8 bytes |
+| State | Connection state in kernel | Stateless |
 
 **When UDP is the right choice:**
 - **DNS queries:** Small request/response. If the query is lost, just retry. TCP overhead would double the latency.

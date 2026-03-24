@@ -202,12 +202,23 @@ Never run `tcpdump` without a filter on a busy network interface. On a productio
 10:00:01.124012 IP client.52341 > webserver.80: Flags [.], ack 98766
 ```
 
-- **Timestamp**: When the packet was captured
-- **IP src > dst**: Source and destination addresses with port after the dot
-- **Flags**: TCP flags — `[S]` = SYN (connection attempt), `[S.]` = SYN-ACK (server accepting), `[.]` = ACK (acknowledgment), `[P.]` = PSH+ACK (data push), `[F.]` = FIN (connection close), `[R]` = RST (connection reset/refused)
-- **A three-way handshake** looks like: `[S]` → `[S.]` → `[.]` (healthy connection)
-- **Connection refused** looks like: `[S]` → `[R]` (RST immediately — port not listening)
-- **Firewall DROP** looks like: `[S]` repeated with no response (SYN timeout)
+| Field | Description |
+|-------|-------------|
+| **Timestamp** | When the packet was captured |
+| **IP src > dst** | Source and destination addresses with port after the dot |
+| **Flags** | TCP flags (see table below) |
+
+| Pattern | Meaning |
+|---------|---------|
+| `[S]` | SYN — connection attempt |
+| `[S.]` | SYN-ACK — server accepting |
+| `[.]` | ACK — acknowledgment |
+| `[P.]` | PSH+ACK — data push |
+| `[F.]` | FIN — connection close |
+| `[R]` | RST — connection reset/refused |
+| `[S]` then `[S.]` then `[.]` | Healthy three-way handshake |
+| `[S]` then `[R]` | Connection refused — port not listening |
+| `[S]` repeated, no response | Firewall DROP — SYN timeout |
 
 ### curl for Application Debugging
 

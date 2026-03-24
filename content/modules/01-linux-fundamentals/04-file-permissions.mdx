@@ -58,14 +58,20 @@ Fields: groupname:password:GID:member-list
 ### The Permission Model
 
 Every file and directory in Linux has three permission sets:
-- **Owner** (u): the user who owns the file
-- **Group** (g): the group that owns the file
-- **Other** (o): everyone else
+
+| Code | Scope | Description |
+|------|-------|-------------|
+| **u** | Owner | The user who owns the file |
+| **g** | Group | The group that owns the file |
+| **o** | Other | Everyone else |
 
 Each permission set has three bits:
-- **Read (r = 4)**: Can read the file's contents
-- **Write (w = 2)**: Can modify the file's contents
-- **Execute (x = 1)**: Can run the file as a program
+
+| Permission | Bit Value | Effect |
+|------------|-----------|--------|
+| **Read (r)** | 4 | Can read the file's contents |
+| **Write (w)** | 2 | Can modify the file's contents |
+| **Execute (x)** | 1 | Can run the file as a program |
 
 The kernel evaluates permissions in order: owner first, then group, then other. If the process's UID matches the file's owner UID, the owner permissions apply — group and other are ignored, even if they would grant more access.
 

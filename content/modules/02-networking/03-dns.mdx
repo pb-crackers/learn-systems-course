@@ -115,8 +115,11 @@ DNS Caching Layers
 ```
 
 **TTL strategy:**
-- **Low TTL (60-300s):** Use before migrations — lets you change the record and have clients pick up the new IP quickly. Downside: more DNS queries, more load on authoritative servers.
-- **High TTL (3600-86400s):** Use for stable records — reduces DNS query volume and improves response time for end users (more cache hits). Downside: changes take hours to propagate.
+
+| TTL Range | When to Use | Tradeoff |
+|-----------|-------------|----------|
+| **Low (60-300s)** | Before migrations — clients pick up new IP quickly | More DNS queries, more load on authoritative servers |
+| **High (3600-86400s)** | Stable records — reduces query volume, improves response time | Changes take hours to propagate |
 
 **DNS propagation** is not instant because each resolver caches based on the old TTL. When you change a DNS record, resolvers that already have the old record cached won't re-query until that cache expires. A record with TTL=86400 can take up to 24 hours to "propagate" everywhere. This is why you lower the TTL *before* a migration, not during.
 
