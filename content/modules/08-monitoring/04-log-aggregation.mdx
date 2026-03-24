@@ -30,18 +30,23 @@ Collect → Ship → Store → Query
 ```
 
 Each stage has distinct responsibilities:
-- **Collect**: A log agent runs on each host, tails log files or reads from the Docker socket
-- **Ship**: The agent sends log lines (with labels/tags) to a central store via HTTP or a binary protocol
-- **Store**: The central store indexes and compresses logs for fast retrieval
-- **Query**: A query UI lets you search, filter, and visualize logs across all hosts and services
+
+| Stage | Description |
+|-------|-------------|
+| **Collect** | A log agent runs on each host, tails log files or reads from the Docker socket |
+| **Ship** | The agent sends log lines (with labels/tags) to a central store via HTTP or a binary protocol |
+| **Store** | The central store indexes and compresses logs for fast retrieval |
+| **Query** | A query UI lets you search, filter, and visualize logs across all hosts and services |
 
 ### The ELK Stack
 
 **ELK** stands for Elasticsearch, Logstash, and Kibana — the most established centralized logging stack.
 
-- **Elasticsearch**: Stores and indexes logs. Every word in every log line is indexed for full-text search. This makes queries like "find all logs containing the string 'NullPointerException'" extremely fast.
-- **Logstash**: Ingests, transforms, and routes logs. A pipeline with input (read from file, TCP, HTTP), filter (parse, transform, enrich), and output (send to Elasticsearch) stages.
-- **Kibana**: Visualizes logs stored in Elasticsearch. Provides a search UI, dashboards, and the KQL query language.
+| Component | Role |
+|-----------|------|
+| **Elasticsearch** | Stores and indexes logs. Every word in every log line is indexed for full-text search. Makes queries like "find all logs containing 'NullPointerException'" extremely fast. |
+| **Logstash** | Ingests, transforms, and routes logs. A pipeline with input (read from file, TCP, HTTP), filter (parse, transform, enrich), and output (send to Elasticsearch) stages. |
+| **Kibana** | Visualizes logs stored in Elasticsearch. Provides a search UI, dashboards, and the KQL query language. |
 
 **ELK strengths:** Powerful full-text search, mature ecosystem with 10+ years of production use, extensive plugin ecosystem for parsing structured and unstructured logs.
 
