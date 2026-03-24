@@ -120,9 +120,10 @@ None yet.
 | 260320-9il | Fix lesson page readability: improve header/metadata area and heading styles | 2026-03-20 | c726a5b | [260320-9il](./quick/260320-9il-fix-lesson-page-readability-improve-head/) |
 | 260320-9oq | Fix build error (Callout type="info") and visible frontmatter (remark-frontmatter) | 2026-03-20 | da73b54 | [260320-9oq](./quick/260320-9oq-fix-build-error-and-visible-frontmatter-/) |
 | 260320-k09 | Fix MDX escaped double quotes in 19 files | 2026-03-20 | fc86a7e | [260320-k09](./quick/260320-k09-fix-mdx-escaped-double-quotes-in-19-file/) |
+| 260324-b5p | Convert inline text breakdowns to MDX tables in 6 lesson files | 2026-03-24 | d5a4892 | [260324-b5p](./quick/260324-b5p-convert-inline-text-breakdowns-to-mdx-ta/) |
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:26:25.635Z
-Stopped at: Completed 15-04-PLAN.md
+Last session: 2026-03-24T00:00:00.000Z
+Stopped at: Completed quick-260324-b5p
 Resume file: None
